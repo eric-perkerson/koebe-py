@@ -1,0 +1,11 @@
+=======================================
+ACUTE SOFTWARE VERSION 1.0 README FILE
+=======================================
+THIS ARCHIVE CONTAINS FOLLOWING FILES:
+(1) acute.c
+(2) newSPLocation.h
+(3) instructions
+(4) makefile
+(5) readme
+
+PLEASE READ THE "instructions" FILE FOR INFORMATION ON COMPILING AND RUNNING THE PROGRAM.

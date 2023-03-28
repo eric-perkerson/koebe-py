@@ -1,0 +1,147 @@
+=======================================
+ACUTE SOFTWARE VERSION 1.0 INSTRUCTIONS
+=======================================
+DATE: 06/15/2009
+GENERATES PREMIUM QUALITY TRIANGULATIONS; LARGE MINIMUM ANGLE VALUE OR LARGE MINIMUM ANGLE VALUE WHILE HAVING SMALL MAXIMUM ANGLE VALUE.
+
+HOW TO COMPILE:
+===============
+(1) DOWNLOAD ACUTE SOFTWARE PACKAGE acuteSoftware.tar.gz FROM http://www.cise.ufl.edu/...
+(INCLUDES FILES: EMPTY "acute.c", "newSPLocation.h", "readme", "instructions" AND "makefile")
+(2) DOWNLOAD TRIANGLE SOFTWARE FROM http://www.cs.cmu.edu/~quake/triangle.html
+(3) COPY AND PASTE "triangle.c" file to "acute.c"
+(4) DO THE FOLLOWING MODIFICATIONS/ADDITIONS ON "acute.c"
+(6) make
+
+REQUIRED ADDITIONS ON acute.c FILE
+=====================================
+PLEASE DO THE FOLLOWING MODIFICATIONS IN THE ORIGINAL TRIANGLE MAIN FILE WHICH IS NOW RENAMED AS "acute.c".
+LINE NUMBERS ARE GIVEN BASED ON THE ORIGINAL FILE "triangle.c" WITHOUT CONSIDERING THE ADDITIONS.
+PLEASE COPY AND PASTE THE GIVEN PIECE OF CODE TO "acute.c", WHERE THE EXACT LOCATION IS GIVEN BY THE LINE NUMBER IN "triangle.c".
+
+(1) FOR HANDLING THE ADDITIONAL THE MAXIMUM ANGLE CONSTRAINT
+>> "triangle.c" LINE 797
+// ADD MAX ANGLE CONSTRAINT
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/// #1 ///
+REAL maxangle, maxgoodangle;
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+(2) NEW ROUTINES ARE INCLUDED IN THE ADDITIONAL FILE
+>> "triangle.c" LINE 1325
+// ADD NEW HEADER FILE
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/// #2 ///
+#include "newSPLocation.h"
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+(3) FOR HANDLING THE ADDITIONAL THE MAXIMUM ANGLE CONSTRAINT
+>> "triangle.c" LINE 3354
+// ADD FOR MAX ANGLE CONSTRAINT
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/// #3 ///
+	if (argv[i][j] == 'U') {
+		b->quality = 1;
+		if (((argv[i][j + 1] >= '0') && (argv[i][j + 1] <= '9')) ||
+			(argv[i][j + 1] == '.')) {
+			k = 0;
+			while (((argv[i][j + 1] >= '0') && (argv[i][j + 1] <= '9')) ||
+				(argv[i][j + 1] == '.')) {
+				j++;
+				workstring[k] = argv[i][j];
+				k++;
+			}
+			workstring[k] = '\0';
+			b->maxangle = (REAL) strtod(workstring, (char **) NULL);
+		} else {
+			b->maxangle = 140.0;
+		}
+	}
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+(4) FOR HANDLING THE ADDITIONAL THE MAXIMUM ANGLE CONSTRAINT
+>> "triangle.c" LINE 3523
+// ADD MAX ANGLE CONSTRAINT
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/// #4 ///
+b->maxgoodangle = cos(b->maxangle * PI / 180.0);
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+(5) FOR HANDLING THE ADDITIONAL THE MAXIMUM ANGLE CONSTRAINT
+>> "triangle.c" LINE 7310
+// ADD THE MAX ANGLE CONSTRAINT
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/// #5 ///
+	REAL maxedge, maxangle;
+	// find the maximum edge and accordingly the pqr orientation
+	if ((apexlen > orglen) && (apexlen > destlen)) {
+		/* The edge opposite the apex is longest. */
+		maxedge = apexlen;
+		/* Find the cosine of the angle at the apex. */
+		maxangle = (orglen + destlen - apexlen)/ (2*sqrt(orglen)*sqrt(destlen));	
+	} else if (orglen > destlen) {
+		/* The edge opposite the origin is longest. */
+		maxedge = orglen;
+		/* Find the cosine of the angle at the origin. */
+		maxangle = (apexlen + destlen - orglen)/(2*sqrt(apexlen)*sqrt(destlen));
+	} else {
+		/* The edge opposite the destination is longest. */
+		maxedge = destlen;
+		/* Find the cosine of the angle at the destination. */
+		maxangle = (apexlen + orglen -destlen)/(2*sqrt(apexlen)*sqrt(orglen));
+	}
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+ALSO REPLACE THE NEXT CONDITIONAL WITH THE FOLLOWING
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/* Check whether the angle is smaller than permitted. */
+if ((angle > b->goodangle)  ||  (maxangle < b->maxgoodangle && b->maxangle != 0.0)) {
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+(6) INSTEAD OF CALLING findcircumcenter() ROUTINE, CALL THE NEW ROUTINE IN splittriangle() function
+>> "triangle.c" LINE 13520
+//findcircumcenter(m, b, borg, bdest, bapex, newvertex, &xi, &eta, 1);
+// CALL THE NEW FUNCTION
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/// #6 ///
+findNewSPLocation(m, b, borg, bdest, bapex, newvertex, &xi, &eta, 1, badotri);
+/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+HOW TO RUN:
+===========
+(i) FOR QUALITY TRIANGULATIONS WITH A GIVEN MINIMUM ANGLE CONSTRAINT
+./acute -q[MinConstraintAngle] inputfile
+FOR EXAMPLE:
+./acute -q35 superior.poly
+
+*** NOTE THAT, FILE FORMATS ARE THE SAME AS TRIANGLE SOFTWARE (.node, .poly files).
+ALSO, IF NO ANGLE IS SPECIFIED NEXT TO -q SWICTH, THE DEFAULT VALUE IS 20 DEGREES.
+
+FOR ADDITIONAL STATISTICS DO NOT FORGET TO USE -V SWITCH!
+./acute -q35 -V superior.poly
+
+(ii) FOR QUALITY TRIANGULATIONS WITH GIVEN MINIMUM AND MAXIMUM ANGLE CONSTRAINTS
+./acute -q[MinConstraintAngle] -U[MaxConstraintAngle] inputfile
+FOR EXAMPLE:
+./acute -q35 -U90 superior.poly
+
+*** NOTE THAT, FILE FORMATS ARE THE SAME AS TRIANGLE SOFTWARE (.node, .poly files).
+ALSO, IF NO ANGLE IS SPECIFIED NEXT TO -q SWICTH, THE DEFAULT VALUE IS 20 DEGREES and 
+IF NO ANGLE IS SPECIFIED NEXT TO -U SWICTH, THE DEFAULT VALUE IS 140 DEGREES. 
+
+FOR ADDITIONAL STATISTICS DO NOT FORGET TO USE -V SWITCH!
+./acute -q35 -U90 -V superior.poly
+
+*** ALSO NOTE THAT, WHEN -U SWITCH IS USED, -q SWICTH IS REQUIRED. 
+
+AS IN TRIANGLE, -S SWITCH ALLOWS YOU TO SPECIFY NUMBER OF STEINER POINTS TO BE INSERTED. 
+
+./acute -q35 -S100 superior.poly
+
+THIS WILL OUTPUT THE TRIANGLULATION WITH 100 STEINER POINTS WHICH IS NOT NECESSARILY THE END RESULT. THAT IS, IT MIGHT STILL CONTAIN BAD TRIANGLES.
+
+PLEASE CONTACT ...[AT]..., IF YOU HAVE ANY COMMENTS OR QUESTIONS. 
+PLEASE NOTIFY US ABOUT BUGS OR MODIFICATIONS YOU HAVE MADE. 
+IT IS LIKELY TO HAVE SEGMENTATION FAULTS FOR LARGE MINIMUM AND SMALL MAXIMUM ANGLE CONSTRAINTS. 
+tHE PROGRAM IS UNDER REVISIONS FOR MORE ROBUST CALCULATIONS, THAT IS PRECISION ERRORS MIGHT BE FACED.
+THANK YOU.

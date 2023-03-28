@@ -1,0 +1,13 @@
+name: ct
+dependencies:
+  - python=3.9.*
+  - numba
+  - numpy
+  - matplotlib
+  - pathlib
+  - pylint
+  - scipy
+  - pytest
+  # - fenics-dolfin
+  # - pip:
+  #   - fenics-ffc
