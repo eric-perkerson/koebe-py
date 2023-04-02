@@ -7,7 +7,7 @@ from matplotlib import collections as mc
 # from matplotlib.collections import PolyCollection
 from pathlib import Path
 
-from region import read_node, read_ele, Region2
+from region import read_node, read_ele, Region
 
 COLOR_PARAMETER = 250
 
@@ -261,7 +261,7 @@ class Triangulation(object):
     @staticmethod
     def read(path):
         """Read a triangulation object from files with the given path"""
-        region = Region2.read_poly(path.with_suffix('.poly'))
+        region = Region.read_poly(path.with_suffix('.poly'))
         vertices, boundary_markers = read_node(path.with_suffix('.node'))
         triangles = read_ele(path.with_suffix('.ele'))
         try:

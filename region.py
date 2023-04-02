@@ -25,13 +25,18 @@ class Region:
         vertex_boundary_markers,
         edges,
         edge_boundary_markers,
-        points_in_holes
+        points_in_holes,
+        components=None
     ):
         self.coordinates = coordinates
         self.vertex_boundary_markers = vertex_boundary_markers
         self.edges = edges
         self.edge_boundary_markers = edge_boundary_markers
         self.points_in_holes = points_in_holes
+        if components is None:
+            self.components = self.build_components()
+        else:
+            self.components = components
 
     @staticmethod
     def region_from_components(components, points_in_holes=None):
@@ -47,15 +52,14 @@ class Region:
         if points_in_holes is None:
             all_means = [list(np.mean(np.array(component), axis=0)) for component in components]
             points_in_holes = all_means[1:]
-        return Region(coordinates, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes)
+        return Region(coordinates, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes, components)
 
     def write(self, stream):
-        """Write the region object to a .poly file"""
         component_lengths = list(map(len, self.components))
         num_vert = sum(component_lengths)
         num_edge = num_vert
         num_holes = len(self.points_in_holes)
-        edges_by_components = self.edges_by_component()
+        edges_by_components = edges_by_component(self.components)
 
         dimension = 2
         num_attributes = 0
@@ -63,49 +67,30 @@ class Region:
 
         counter = 0  # Counts vertices first
         stream.write(
-            (str(num_vert) + ' '
-             + str(dimension) + ' '
-             + str(num_attributes) + ' '
-             + str(num_bdry_markers) + '\n'
-            )
-        )
-        for i, component in enumerate(self.components):
-            # Boundary marker 1 for exterior boundary, 2, 3, etc. for interior boundary components
-            bdry_marker = i + 1
-            for vertex in range(component_lengths[i]):
-                counter = counter + 1
-                stream.write(
-                    str(counter) + ' '
-                    + str(float(component[vertex][0])) + ' '
-                    + str(float(component[vertex][1])) + ' '
-                    + str(bdry_marker) + '\n'
-                )
-        counter = 0  # Counts edges now
-        stream.write(
-            str(num_edge) + ' '
-            + str(num_bdry_markers) + '\n'
+            str(num_vert) + ' ' + str(dimension) + ' ' + str(num_attributes) + ' ' + str(num_bdry_markers) + '\n'
         )
         for i in range(len(self.components)):
-            bdry_marker = i + 1
-            for edge in edges_by_components[i]:
+            bdry_marker = i + 1  # Boundary marker 1 for exterior boundary, 2, 3, etc. for interior boundary components
+            for v in range(component_lengths[i]):
                 counter = counter + 1
                 stream.write(
-                    str(counter) + ' '
-                    + str(edge[0]) + ' '
-                    + str(edge[1]) + ' '
-                    + str(bdry_marker) + '\n'
+                    str(counter) + ' ' + str(float(self.components[i][v][0])) + ' '
+                    + str(float(self.components[i][v][1])) + ' ' + str(bdry_marker) + '\n'
                 )
+        counter = 0  # Counts edges now
+        stream.write(str(num_edge) + ' ' + str(num_bdry_markers) + '\n')
+        for i in range(len(self.components)):
+            bdry_marker = i + 1
+            for e in edges_by_components[i]:
+                counter = counter + 1
+                stream.write(str(counter) + ' ' + str(e[0]) + ' ' + str(e[1]) + ' ' + str(bdry_marker) + '\n')
             counter = counter + 1
         stream.write(str(num_holes) + '\n')
         for i in range(num_holes):
-            stream.write(
-                str(i) + ' '
-                + str(self.points_in_holes[i][0]) + ' '
-                + str(self.points_in_holes[i][1]) + '\n'
-            )
+            stream.write(str(i) + ' ' + str(self.points_in_holes[i][0]) + ' ' + str(self.points_in_holes[i][1]) + '\n')
 
-    def get_components(self):
-            """Get the boundary components of each boundary of the region"""
+    def build_components(self):
+            """Build the boundary components of the region"""
             components_raw = [[]]
             current_component = 0
             for edge in self.edges:

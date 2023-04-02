@@ -30,7 +30,7 @@ def test_chain_edges():
 def main(full_file_stem):
     """Main method"""
     region_path = Path(full_file_stem)
-    region = reg.Region2.read_poly(region_path.with_suffix('.poly'))
+    region = reg.Region.read_poly(region_path.with_suffix('.poly'))
 
     components = region.get_components()
 
