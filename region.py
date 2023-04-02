@@ -1,31 +1,53 @@
-"""Define the region object, which contains information about the boundary components and holes.
-This object corresponds to the information in a .poly file."""
+"""Defines the region object, which contains information about the boundary components and holes.
+This object corresponds to a planar straight line graph (PSLG), which is represented in a .poly
+file."""
 import numpy as np
 
 
-class Region:
-    """Defines a region object which contains the information about the boundary components and one
-    point in each hole."""
-    def __init__(self, components, points_in_holes=None):
-        self.components = components
-        self.points_in_holes = None
-        if not points_in_holes:
-            all_means = [list(np.mean(np.array(component), axis=0)) for component in components]
-            self.points_in_holes = all_means[1:]
-        else:
-            self.points_in_holes = points_in_holes
-
-    def edges_by_component(self):
+def edges_by_component(components):
         """Get the edges by component"""
-        edges = [[] for _ in range(len(self.components))]
+        edges = [[] for _ in range(len(components))]
         counter = 1
-        for i, component in enumerate(self.components):
+        for i, component in enumerate(components):
             for _ in range(len(component) - 1):
                 edges[i].append([counter, counter + 1])
                 counter += 1
             edges[i].append([counter, edges[i][0][0]])
             counter += 1
         return edges
+
+class Region:
+    """Defines a region object which contains the information about the boundary components and one
+    point in each hole."""
+    def __init__(
+        self,
+        coordinates,
+        vertex_boundary_markers,
+        edges,
+        edge_boundary_markers,
+        points_in_holes
+    ):
+        self.coordinates = coordinates
+        self.vertex_boundary_markers = vertex_boundary_markers
+        self.edges = edges
+        self.edge_boundary_markers = edge_boundary_markers
+        self.points_in_holes = points_in_holes
+
+    @staticmethod
+    def region_from_components(components, points_in_holes=None):
+        coordinates = np.concatenate(
+            [np.array(item).reshape((1, -1)) for sublist in components for item in sublist],
+            axis=0
+        )
+        vertex_boundary_markers = np.concatenate(
+            [np.full(len(component), i) for i, component in enumerate(components)]
+        )
+        edges = [item for sublist in edges_by_component(components) for item in sublist]
+        edge_boundary_markers = vertex_boundary_markers.copy()
+        if points_in_holes is None:
+            all_means = [list(np.mean(np.array(component), axis=0)) for component in components]
+            points_in_holes = all_means[1:]
+        return Region(coordinates, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes)
 
     def write(self, stream):
         """Write the region object to a .poly file"""
@@ -82,29 +104,60 @@ class Region:
                 + str(self.points_in_holes[i][1]) + '\n'
             )
 
+    def get_components(self):
+            """Get the boundary components of each boundary of the region"""
+            components_raw = [[]]
+            current_component = 0
+            for edge in self.edges:
+                components_raw[current_component].append(edge[0])
+                if edge[0] > edge[1]:
+                    components_raw.append([])
+                    current_component += 1
+            components = components_raw[:-1]
+
+            coordinate_components = []
+            for i, component in enumerate(components):
+                coordinate_components.append([])
+                coordinate_components[i] = np.vstack(
+                    list(map(lambda x: self.coordinates[x][np.newaxis, :], component))
+                )
+
+            return coordinate_components
+
     @staticmethod
-    def read(file_name):
-        """Read a .poly file"""
-        x_list = []
-        y_list = []
-        bdry_marker_list = []
-        with open(file_name, 'r', encoding='utf-8') as file:
-            counter = 0
-            for line in file:
-                if counter == 0:
-                    _, dimension, _, num_bdry_markers = line.split()
-                    if dimension != 2:
-                        raise ValueError('Dimension must be 2')
-                    if num_bdry_markers not in [0, 1]:
-                        raise ValueError('The number of boundary markers must be either 0 or 1')
-                else:
-                    index, x_coordinate, y_coordinate, bdry_marker = line.split()
-                    x_list.append(x_coordinate)
-                    y_list.append(y_coordinate)
-                    bdry_marker_list.append(bdry_marker)
-                    if index != counter:
-                        raise Exception('Index must equal counter. Check enumeration in .poly file.')
-                counter += 1
+    def read_poly(file_name):
+        """Reads a poly file
+
+        Parameters
+        ----------
+        file_name : str
+            The poly file name to read
+
+        Returns
+        -------
+        tuple
+            vertices, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes
+
+        Raises
+        ------
+        ValueError
+            If the poly file does not have the expected parameters
+        """
+        (
+            vertices,
+            vertex_boundary_markers,
+            edges_zero_indexed,
+            edge_boundary_markers,
+            points_in_holes
+        ) = read_poly(file_name)
+        region = Region(
+            vertices,
+            vertex_boundary_markers,
+            edges_zero_indexed,
+            edge_boundary_markers,
+            points_in_holes
+        )
+        return region
 
 
 def read_node(file_name):
@@ -172,7 +225,7 @@ def read_ele(file_name):
         for line_index, line in enumerate(file):
             if line.strip()[0] == '#':  # Skip comment lines
                 continue
-            if line_index == 0:  # First real line in file contains header information
+            if line_index == 0:  # First non-comment line in file contains header information
                 num_triangles, _, num_attributes = list(map(int, line.split()))
                 triangles = np.zeros((num_triangles, 3), dtype=int)
                 if num_attributes != 0:
@@ -202,10 +255,10 @@ def read_poly(file_name):
             num_attributes,
             num_vertex_boundary_markers
         ) = list(map(int, file.readline().split()))
-        if num_vertex_boundary_markers != 1:
-            raise Warning('Number of vertex boundary markers should be 1')
         if dimension != 2:
             raise Exception('Dimension must be 2')
+        if num_vertex_boundary_markers != 1:
+            raise Warning('Number of vertex boundary markers should be 1')
         if num_attributes != 0:
             raise Exception('Number of attributes must be 0')
         vertices = np.zeros((num_vertices, 2), dtype=float)
@@ -213,10 +266,15 @@ def read_poly(file_name):
 
         for _ in range(num_vertices):
             line = file.readline()
-            one_based_index_str, v_1_str, v_2_str, boundary_marker_str = line.split()
+            (
+                one_based_index_str,
+                coordinate_1_str,
+                coordinate_2_str,
+                boundary_marker_str
+            ) = line.split()
             zero_based_index = int(one_based_index_str) - 1
-            vertices[zero_based_index, 0] = v_1_str
-            vertices[zero_based_index, 1] = v_2_str
+            vertices[zero_based_index, 0] = float(coordinate_1_str)
+            vertices[zero_based_index, 1] = float(coordinate_2_str)
             vertex_boundary_markers[zero_based_index] = int(boundary_marker_str)
 
         # Read edge header line
@@ -249,114 +307,18 @@ def read_poly(file_name):
         return vertices, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes
 
 
-class Region2:
-    """Defines a region object which contains the information about the boundary components and one
-    point in each hole."""
-    def __init__(
-            self,
-            coordinates,
-            vertex_boundary_markers,
-            edges,
-            edge_boundary_markers,
-            points_in_holes
-        ):
-        self.coordinates = coordinates
-        self.vertex_boundary_markers = vertex_boundary_markers
-        self.edges = edges
-        self.edge_boundary_markers = edge_boundary_markers
-        self.points_in_holes = points_in_holes
 
-    def get_components(self):
-        """Get the boundary components of each boundary of the region"""
-        components_raw = [[]]
-        current_component = 0
-        for edge in self.edges:
-            components_raw[current_component].append(edge[0])
-            if edge[0] > edge[1]:
-                components_raw.append([])
-                current_component += 1
-        components = components_raw[:-1]
-
-        coordinate_components = []
-        for i, component in enumerate(components):
-            coordinate_components.append([])
-            coordinate_components[i] = np.vstack(
-                list(map(lambda x: self.coordinates[x][np.newaxis, :], component))
-            )
-
-        return coordinate_components
-
-    @staticmethod
-    def read_poly(file_name):
-        """Reads a poly file
-
-        Parameters
-        ----------
-        file_name : str
-            The poly file name to read
-
-        Returns
-        -------
-        tuple
-            vertices, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes
-
-        Raises
-        ------
-        ValueError
-            If the poly file does not have the expected parameters
-        """
-        with open(file_name, 'r', encoding='utf-8') as file:
-            lines = file.readlines()
-
-        # Read the vertex header line
-        num_vertices, dimension, num_attributes, num_bdry_markers = list(map(int, lines[0].split()))
-        vertices = np.zeros((num_vertices, 2))
-        vertex_boundary_markers = np.zeros(num_vertices, dtype=int)
-        if dimension != 2:
-            raise ValueError
-        if num_attributes != 0:
-            raise ValueError
-        if num_bdry_markers != 0 and num_bdry_markers != 1:
-            raise ValueError
-
-        for line_index, line in enumerate(lines[1:num_vertices + 1]):
-            split_line = line.split()
-            # vertex_index = int(split_line[0])
-            # print(vertex_index)
-            vertices[line_index, 0] = float(split_line[1])
-            vertices[line_index, 1] = float(split_line[2])
-            vertex_boundary_markers[line_index] = int(split_line[3])
-
-        # Read the segment/edge header line
-        num_edges, _ = list(map(int, lines[num_vertices + 1].split()))
-        edges = np.zeros((num_edges, 2), dtype=int)
-        edge_boundary_markers = np.zeros(num_edges, dtype=int)
-        for line_index, line in enumerate(lines[num_vertices + 2:num_vertices + num_edges + 2]):
-            split_line = line.split()
-            # edge_index = int(split_line[0])
-            # print(edge_index)
-            edges[line_index, 0] = int(split_line[1])
-            edges[line_index, 1] = int(split_line[2])
-            edge_boundary_markers[line_index] = int(split_line[3])
-
-        # Read the hole header line
-        num_holes = int(lines[num_vertices + num_edges + 2].split()[0])
-        points_in_holes = np.zeros((num_holes, 2))
-        for line_index, line in enumerate(
-            lines[num_vertices + num_edges + 3:num_vertices + num_edges + num_holes + 3]
-            ):
-            split_line = line.split()
-            # hole_index = int(split_line[0])
-            # print(hole_index)
-            points_in_holes[line_index, 0] = float(split_line[1])
-            points_in_holes[line_index, 1] = float(split_line[2])
-
-        edges_zero_indexed = edges - 1
-        region = Region2(
-            vertices,
-            vertex_boundary_markers,
-            edges_zero_indexed,
-            edge_boundary_markers,
-            points_in_holes
-        )
-        return region
+# components = [
+#     [
+#         [0.0, 0.0],
+#         [1.0, 0.0],
+#         [1.0, 1.0],
+#         [0.0, 1.0],
+#     ],
+#     [
+#         [0.25, 0.25],
+#         [0.75, 0.25],
+#         [0.75, 0.75],
+#         [0.25, 0.75],
+#     ]
+# ]

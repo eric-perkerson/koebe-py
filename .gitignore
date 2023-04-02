@@ -130,3 +130,9 @@ dmypy.json
 
 # DS Store
 .DS_Store
+
+# VSCode
+.vscode/
+
+# Regions directory
+regions/
