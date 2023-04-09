@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import messagebox
 from pathlib import Path
 import warnings
+import unicodedata
 
 from region import Region
 
@@ -37,9 +38,30 @@ RAND_15 = '#54179f'
 
 
 FG_COLOR = WHITE
-BDRY_COLORS = [MAGENTA, BLUE, GREEN, ORANGE, PURPLE, PINK, YELLOW, GREY, RAND_1, RAND_4, RAND_5, RAND_6,
-    RAND_7, RAND_8, RAND_9, RAND_10, RAND_11, RAND_12, RAND_13, RAND_14, RAND_1]
-FILL_COLORS = [WHITE] + (len(BDRY_COLORS) - 1)*[BG_COLOR]
+BDRY_COLORS = [
+    MAGENTA,
+    BLUE,
+    GREEN,
+    ORANGE,
+    PURPLE,
+    PINK,
+    YELLOW,
+    GREY,
+    RAND_1,
+    RAND_4,
+    RAND_5,
+    RAND_6,
+    RAND_7,
+    RAND_8,
+    RAND_9,
+    RAND_10,
+    RAND_11,
+    RAND_12,
+    RAND_13,
+    RAND_14,
+    RAND_15
+]
+FILL_COLORS = [WHITE] + (len(BDRY_COLORS) - 1) * [BG_COLOR]
 
 
 def is_number(string):
@@ -53,7 +75,7 @@ def is_number(string):
     Returns
     -------
     result : bool
-        True is `s` represents a number
+        True if `s` represents a number
     """
     try:
         float(string)
@@ -62,7 +84,6 @@ def is_number(string):
         pass
 
     try:
-        import unicodedata
         unicodedata.numeric(string)
         return True
     except (TypeError, ValueError):
@@ -126,46 +147,66 @@ def draw_region(poly_file='test'):
     canvas_width = gui.winfo_screenwidth()
     canvas_height = gui.winfo_screenheight()
 
-    w = tk.Canvas(gui, width=canvas_width, height=canvas_height, bg=BG_COLOR)
-    w.pack(expand = tk.YES, fill = tk.BOTH)
+    canvas = tk.Canvas(gui, width=canvas_width, height=canvas_height, bg=BG_COLOR)
+    canvas.pack(expand=tk.YES, fill=tk.BOTH)
 
     def flatten_list(list_of_lists):
         return [item for sublist in list_of_lists for item in sublist]
 
-    def paint(event):
-        e = 5
-        x_1, y_1 = (event.x - e), (event.y - e)
-        x_2, y_2 = (event.x + e), (event.y + e)
+    def paint(event, epsilon=5):
+        epsilon = 5
+        x_1, y_1 = (event.x - epsilon), (event.y - epsilon)
+        x_2, y_2 = (event.x + epsilon), (event.y + epsilon)
         components[len(components) - 1].append([event.x, event.y])
-        oval = w.create_oval(x_1, y_1, x_2, y_2, fill=BDRY_COLORS[len(components) - 1], outline='')
-        w.tag_raise(oval)
+        oval = canvas.create_oval(
+            x_1,
+            y_1,
+            x_2,
+            y_2,
+            fill=BDRY_COLORS[len(components) - 1],
+            outline=''
+        )
+        canvas.tag_raise(oval)
         if len(components[len(components) - 1]) >= 3:
             tag = "Poly" + str(len(components) - 1)
-            w.delete(tag)
-            w.create_polygon(flatten_list(components[len(components) - 1]), fill=FILL_COLORS[len(components) - 1], tag=tag)
+            canvas.delete(tag)
+            canvas.create_polygon(
+                flatten_list(components[len(components) - 1]),
+                fill=FILL_COLORS[len(components) - 1],
+                tag=tag
+            )
 
     def new_component(event):
         components.append([])
         paint(event)
 
     def on_closing():
-        response = messagebox.askyesnocancel("Save Before Quitting", "Do you want to save before quitting?")
+        response = messagebox.askyesnocancel(
+            "Save Before Quitting", "Do you want to save before quitting?"
+        )
         if response is None:
             pass
         elif response:
             print('Saving as ' + str(poly_path))
-            region = Region(components)
-            with open(poly_path, 'w') as file:
+            region = Region.region_from_components(components)
+            with open(poly_path, 'w', encoding='utf-8') as file:
                 region.write(file)
             gui.destroy()
         else:
             gui.destroy()
 
-    w.bind("<ButtonRelease 1>", paint)
-    w.bind("<ButtonRelease 2>", new_component)
+    canvas.bind("<ButtonRelease 1>", paint)
+    canvas.bind("<ButtonRelease 2>", new_component)
 
-    message = tk.Label(gui, bg=BG_COLOR, fg=FG_COLOR,
-        text="Click for a new vertex of current boundary component. Right click to start a new component.")
+    message = tk.Label(
+        gui,
+        bg=BG_COLOR,
+        fg=FG_COLOR,
+        text=(
+            "Click for a new vertex of current boundary component. "
+            + "Right click to start a new component."
+        )
+    )
     message.pack(side=tk.BOTTOM)
 
     gui.protocol("WM_DELETE_WINDOW", on_closing)
@@ -173,6 +214,7 @@ def draw_region(poly_file='test'):
     tk.mainloop()
 
     return poly_file
+
 
 if __name__ == "__main__":
     if len(argv) > 1:

@@ -7,7 +7,7 @@ from matplotlib import collections as mc
 # from matplotlib.collections import PolyCollection
 from pathlib import Path
 
-from region import read_node, read_ele, Region2
+from region import read_node, read_ele, Region
 
 COLOR_PARAMETER = 250
 
@@ -88,7 +88,7 @@ class Triangulation(object):
         self.vertex_topology = self.build_vertex_topology()
 
         self.vertex_index_to_triangle = self.make_vertex_index_to_triangle()
-        if topology:
+        if topology is not None:
             self.voronoi_tesselation = self.make_voronoi_tesselation()
             self.contained_polygons = self.make_contained_polygons()
             self.voronoi_edges = self.make_voronoi_edges()
@@ -259,18 +259,19 @@ class Triangulation(object):
         return voronoi_edges
 
     @staticmethod
-    def read(path):
+    def read(file_name):
         """Read a triangulation object from files with the given path"""
-        region = Region2.read_poly(path.with_suffix('.poly'))
+        path = Path(file_name)
+        region = Region.read_poly(path.with_suffix('.poly'))
         vertices, boundary_markers = read_node(path.with_suffix('.node'))
         triangles = read_ele(path.with_suffix('.ele'))
-        try:
+        if path.with_suffix('.topo.ele').is_file():
             topology = read_ele(path.with_suffix('.topo.ele'))
-        except Exception:
+        else:
             topology = None
         return Triangulation(region, vertices, boundary_markers, triangles, topology)
 
-    def show_triangulation(self, show_vertex_indices=False, show_triangle_indices=False):
+    def show(self, file_name, show_vertex_indices=False, show_triangle_indices=False):
         """Show an image of the triangulation"""
         fig, axes = plt.subplots()
         axes.scatter(self.vertices[:, 0], self.vertices[:, 1])
@@ -300,7 +301,7 @@ class Triangulation(object):
                 plt.text(self.vertices[i, 0], self.vertices[i, 1], str(i))
         axes.autoscale()
         axes.margins(0.1)
-        fig.show()
+        fig.savefig(file_name)
 
     def show_voronoi_tesselation(self, show_vertex_indices=False, show_polygon_indices=False):
         """Show the voronoi tesselation"""
