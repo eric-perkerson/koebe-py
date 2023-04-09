@@ -6,16 +6,16 @@ const REGION_DIR = "regions"
 
 if length(ARGS) < 1
     print("Input file name: ", "\n")
-    input_file_name_or_stem = readline()
+    input_file_stem = readline()
 else
-    input_file_name_or_stem = ARGS[1]
+    input_file_stem = ARGS[1]
 end
 
 if length(ARGS) < 2
     print("Output file name: ", "\n")
-    output_file_name = readline()
+    output_file_stem = readline()
 else
-    output_file_name = ARGS[2]
+    output_file_stem = ARGS[2]
 end
 
 if length(ARGS) < 3
@@ -25,21 +25,12 @@ else
     min_num_tri = parse(Int, ARGS[3])
 end
 
-# file_stem = split(input_file_name_or_stem, ".")[1]
-file_stem = join(split(input_file_name_or_stem, ".")[1:end-1], ".")
-file_path = joinpath(REGION_DIR, file_stem)
-if file_path[end-4:end] == ".poly"
-    file_stem = file_path[1:end-5]
-else
-    file_stem = file_path
-end
-file_name = file_stem * ".poly"
-
+file_name = input_file_stem * ".poly"
+relative_input_file_path = joinpath(REGION_DIR, input_file_stem, file_name)
 # coordinates, vertex_bdry_markers, edges, edge_bdry_markers = TriVor.read_poly_file(file)
-coordinates, triangles, boundary_markers = acute_triangulate(file_name)
+coordinates, triangles, boundary_markers = acute_triangulate(relative_input_file_path)
 T = TriVor.Triangulation(coordinates, triangles, boundary_markers)
 num_triangles = size(T.triangles, 2)
-
 
 function calculate_d(num_triangles::Int)
     d = 1
@@ -54,7 +45,9 @@ end
 d = calculate_d(num_triangles)
 
 T_new = refine_triangulation(T, d)
-print("output_file_name = $output_file_name", "\n")
-write_triangulation(joinpath(REGION_DIR, output_file_name), T_new)
-print("Writing triangulation to $output_file_name", "\n")
-print("Number of triangles: $num_triangles", "\n")
+num_triangles_new = size(T_new.triangles, 2)
+
+relative_output_file_path = joinpath(output_file_stem, output_file_stem)
+write_triangulation(joinpath(REGION_DIR, relative_output_file_path), T_new)
+print("Writing triangulation to $relative_output_file_path", "\n")
+print("Number of triangles: $num_triangles_new", "\n")
