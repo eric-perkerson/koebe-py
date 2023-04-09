@@ -270,7 +270,7 @@ class Triangulation(object):
             topology = None
         return Triangulation(region, vertices, boundary_markers, triangles, topology)
 
-    def show_triangulation(self, show_vertex_indices=False, show_triangle_indices=False):
+    def show_triangulation(self, file_name, show_vertex_indices=False, show_triangle_indices=False):
         """Show an image of the triangulation"""
         fig, axes = plt.subplots()
         axes.scatter(self.vertices[:, 0], self.vertices[:, 1])
@@ -300,7 +300,7 @@ class Triangulation(object):
                 plt.text(self.vertices[i, 0], self.vertices[i, 1], str(i))
         axes.autoscale()
         axes.margins(0.1)
-        fig.show()
+        fig.savefig(file_name)
 
     def show_voronoi_tesselation(self, show_vertex_indices=False, show_polygon_indices=False):
         """Show the voronoi tesselation"""
