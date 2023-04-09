@@ -259,14 +259,15 @@ class Triangulation(object):
         return voronoi_edges
 
     @staticmethod
-    def read(path):
+    def read(file_name):
         """Read a triangulation object from files with the given path"""
+        path = Path(file_name)
         region = Region.read_poly(path.with_suffix('.poly'))
         vertices, boundary_markers = read_node(path.with_suffix('.node'))
         triangles = read_ele(path.with_suffix('.ele'))
-        try:
+        if path.with_suffix('.topo.ele').is_file():
             topology = read_ele(path.with_suffix('.topo.ele'))
-        except Exception:
+        else:
             topology = None
         return Triangulation(region, vertices, boundary_markers, triangles, topology)
 
