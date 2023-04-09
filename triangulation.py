@@ -271,7 +271,7 @@ class Triangulation(object):
             topology = None
         return Triangulation(region, vertices, boundary_markers, triangles, topology)
 
-    def show_triangulation(self, file_name, show_vertex_indices=False, show_triangle_indices=False):
+    def show(self, file_name, show_vertex_indices=False, show_triangle_indices=False):
         """Show an image of the triangulation"""
         fig, axes = plt.subplots()
         axes.scatter(self.vertices[:, 0], self.vertices[:, 1])
