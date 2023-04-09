@@ -88,7 +88,7 @@ class Triangulation(object):
         self.vertex_topology = self.build_vertex_topology()
 
         self.vertex_index_to_triangle = self.make_vertex_index_to_triangle()
-        if topology:
+        if topology is not None:
             self.voronoi_tesselation = self.make_voronoi_tesselation()
             self.contained_polygons = self.make_contained_polygons()
             self.voronoi_edges = self.make_voronoi_edges()

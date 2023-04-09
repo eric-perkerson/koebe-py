@@ -136,3 +136,6 @@ dmypy.json
 
 # Regions directory
 regions/
+
+# The acute executable
+acute
