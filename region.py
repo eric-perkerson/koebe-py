@@ -5,16 +5,17 @@ import numpy as np
 
 
 def edges_by_component(components):
-        """Get the edges by component"""
-        edges = [[] for _ in range(len(components))]
-        counter = 1
-        for i, component in enumerate(components):
-            for _ in range(len(component) - 1):
-                edges[i].append([counter, counter + 1])
-                counter += 1
-            edges[i].append([counter, edges[i][0][0]])
+    """Get the edges by component"""
+    edges = [[] for _ in range(len(components))]
+    counter = 1
+    for i, component in enumerate(components):
+        for _ in range(len(component) - 1):
+            edges[i].append([counter, counter + 1])
             counter += 1
-        return edges
+        edges[i].append([counter, edges[i][0][0]])
+        counter += 1
+    return edges
+
 
 class Region:
     """Defines a region object which contains the information about the boundary components and one
@@ -84,30 +85,29 @@ class Region:
             for e in edges_by_components[i]:
                 counter = counter + 1
                 stream.write(str(counter) + ' ' + str(e[0]) + ' ' + str(e[1]) + ' ' + str(bdry_marker) + '\n')
-            counter = counter + 1
         stream.write(str(num_holes) + '\n')
         for i in range(num_holes):
             stream.write(str(i) + ' ' + str(self.points_in_holes[i][0]) + ' ' + str(self.points_in_holes[i][1]) + '\n')
 
     def build_components(self):
-            """Build the boundary components of the region"""
-            components_raw = [[]]
-            current_component = 0
-            for edge in self.edges:
-                components_raw[current_component].append(edge[0])
-                if edge[0] > edge[1]:
-                    components_raw.append([])
-                    current_component += 1
-            components = components_raw[:-1]
+        """Build the boundary components of the region"""
+        components_raw = [[]]
+        current_component = 0
+        for edge in self.edges:
+            components_raw[current_component].append(edge[0])
+            if edge[0] > edge[1]:
+                components_raw.append([])
+                current_component += 1
+        components = components_raw[:-1]
 
-            coordinate_components = []
-            for i, component in enumerate(components):
-                coordinate_components.append([])
-                coordinate_components[i] = np.vstack(
-                    list(map(lambda x: self.coordinates[x][np.newaxis, :], component))
-                )
+        coordinate_components = []
+        for i, component in enumerate(components):
+            coordinate_components.append([])
+            coordinate_components[i] = np.vstack(
+                list(map(lambda x: self.coordinates[x][np.newaxis, :], component))
+            )
 
-            return coordinate_components
+        return coordinate_components
 
     @staticmethod
     def read_poly(file_name):
@@ -290,20 +290,3 @@ def read_poly(file_name):
         vertices = vertices - 1  # Correct for 1-based indexing
         edges = vertices - 1  # Correct for 1-based indexing
         return vertices, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes
-
-
-
-# components = [
-#     [
-#         [0.0, 0.0],
-#         [1.0, 0.0],
-#         [1.0, 1.0],
-#         [0.0, 1.0],
-#     ],
-#     [
-#         [0.25, 0.25],
-#         [0.75, 0.25],
-#         [0.75, 0.75],
-#         [0.25, 0.75],
-#     ]
-# ]

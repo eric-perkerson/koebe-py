@@ -148,7 +148,7 @@ def draw_region(poly_file='test'):
     canvas_height = gui.winfo_screenheight()
 
     canvas = tk.Canvas(gui, width=canvas_width, height=canvas_height, bg=BG_COLOR)
-    canvas.pack(expand = tk.YES, fill = tk.BOTH)
+    canvas.pack(expand=tk.YES, fill=tk.BOTH)
 
     def flatten_list(list_of_lists):
         return [item for sublist in list_of_lists for item in sublist]
@@ -198,7 +198,10 @@ def draw_region(poly_file='test'):
     canvas.bind("<ButtonRelease 1>", paint)
     canvas.bind("<ButtonRelease 2>", new_component)
 
-    message = tk.Label(gui, bg=BG_COLOR, fg=FG_COLOR,
+    message = tk.Label(
+        gui,
+        bg=BG_COLOR,
+        fg=FG_COLOR,
         text=(
             "Click for a new vertex of current boundary component. "
             + "Right click to start a new component."
@@ -211,6 +214,7 @@ def draw_region(poly_file='test'):
     tk.mainloop()
 
     return poly_file
+
 
 if __name__ == "__main__":
     if len(argv) > 1:

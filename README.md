@@ -17,5 +17,5 @@ Build a harmonic conjugate for the solution to the PDE on each annular component
 
 # How to Triangulate Example
 python draw_region.py  # Will generate a .poly file for the drawn region
-julia triangulate_via_julia.jl relative_file_path_in_regions MINIMUM_NUMBER_OF_TRIANGLES
+julia triangulate_via_julia.jl input_file_stem output_file_stem MINIMUM_NUMBER_OF_TRIANGLES
 python chain.py # Will run the chain program
