@@ -276,7 +276,7 @@ def read_poly(file_name):
             edge_boundary_markers[zero_based_index] = boundary_marker
 
         # Read hole header line
-        num_holes = int(file.readline().split())
+        num_holes = list(map(int, file.readline().split()))[0]
         points_in_holes = np.zeros((num_holes, 2), dtype=float)
         for _ in range(num_holes):
             one_based_index_str, x_coordinate_str, y_coordinate_str = file.readline().split()
@@ -287,6 +287,5 @@ def read_poly(file_name):
             points_in_holes[zero_based_index, 0] = x_coordinate
             points_in_holes[zero_based_index, 1] = y_coordinate
 
-        vertices = vertices - 1  # Correct for 1-based indexing
-        edges = vertices - 1  # Correct for 1-based indexing
+        edges = edges - 1  # Correct for 1-based indexing
         return vertices, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes
