@@ -4,6 +4,7 @@ import numba
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
+import networkx as nx
 # from matplotlib.collections import PolyCollection
 from pathlib import Path
 
@@ -66,6 +67,171 @@ def triangle_area(triangle_coordinates):
         * (semi_perimeter - length_3)
     )
 
+def pad_polygons_to_matrix(polygons):
+    """Pad a list of polygons with zeros to make a matrix of the same size
+
+    Parameters
+    ----------
+    polygons : list of lists
+
+    Returns
+    -------
+    padded_polygons : np.array of shape (n_polygons, max_polygon_length)
+    """
+
+    max_polygon_length = max([len(polygon) for polygon in polygons])
+    n_polygons = len(polygons)
+    padded_polygons = np.zeros((n_polygons, max_polygon_length), dtype=np.int32)
+
+    for i, polygon in enumerate(polygons):
+        padded_polygons[i, :len(polygon)] = polygon
+    
+    return padded_polygons
+
+@numba.jit
+def find_point_in_polygon_compiled(x, y, padded_polygonization, verticies):
+    """Finds the index of the face in the given polygonization that contains the given point
+
+    Parameters
+    ----------
+    x : float, the x-coordinate of the point
+    y : float, the y-coordinate of the point
+    padded_polygonization : np.array of shape (n_polygons, max_polygon_length)
+    verticies : np.array of shape (n_verticies, 2)
+
+    Returns
+    -------
+    index : int, the index of the face that contains the point
+    """
+    n_polygons = len(padded_polygonization)
+
+    for i in range(n_polygons):
+        if point_inside_convex_padded_polygon_compiled(x, y, padded_polygonization[i], verticies):
+            return i
+    
+    return -1
+
+@numba.jit
+def point_inside_convex_padded_polygon_compiled(x, y, padded_polygon, coordinates):
+    """Check if a point lies inside a convex polygon using NumPy and Numba.
+    The polygon must be ordered in a counterclockwise direction.
+    
+    Args:
+    - point: A tuple (pointX, pointY) representing the coordinates of the point
+    - polygon: A 1D NumPy array containing the indices of the vertices of the polygon
+    - coordinates: A 2D NumPy array containing the coordinates of the vertices of the polygon
+    
+    Returns:
+    - A boolean indicating whether the point lies inside the polygon
+    """
+    true_polygon_length = np.sum(padded_polygon != 0)
+
+    polygon_wrap_padded = np.insert(padded_polygon, 0, padded_polygon[true_polygon_length], axis=0)
+    for i in range(true_polygon_length):
+        if point_to_right_of_line_compiled(
+            coordinates[polygon_wrap_padded[i], 0],
+            coordinates[polygon_wrap_padded[i], 1],
+            coordinates[polygon_wrap_padded[i + 1], 0],
+            coordinates[polygon_wrap_padded[i + 1], 1],
+            x,
+            y,
+        ):
+            return False
+    return True
+
+@numba.jit
+def point_to_right_of_line_compiled(tail_x, tail_y, head_x, head_y, point_x, point_y):
+    """Check if a point lies to the right of a line oriented from tail to head using."""
+    # compute the cross product of the vectors (tail -> head) and (tail -> point)
+    return (head_y - tail_y) * (point_x - tail_x) - (head_x - tail_x) * (point_y - tail_y) > 0
+
+@numba.jit
+def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
+    """returns a polgonization topology giving adjacent polygons across each edge of the given padded polygonization
+    
+    0 means that edge is a boundary edge
+    -1 means that edge does not exist
+    """
+    n_polygons = len(padded_polygonization)
+    max_polygon_length = len(padded_polygonization[0])
+    edges_wrapped_ordered = np.zeros((n_polygons, max_polygon_length, 2), dtype=np.int64) # (0, 0) for non-existent edges
+    polygonization_topology = np.full((n_polygons, max_polygon_length), -1, dtype=np.int64) # -1 for non-existent edges
+    boundary_edges = np.zeros((max_polygon_length * n_polygons, max_polygon_length), dtype=np.int64) 
+    internal_edges = np.zeros((max_polygon_length * n_polygons, max_polygon_length), dtype=np.int64)
+    n_boundary_edges = 0
+    n_internal_edges = 0
+    found_flag = False
+
+    # build edges_wrapped_ordered
+    for i in range(n_polygons):
+        for j in range(max_polygon_length):
+            if j == max_polygon_length - 1:
+                # j has reached end of polygon
+                if padded_polygonization[i, j] != 0:
+                    # CASE : edge wraps back to beginning of polygon
+                    edges_wrapped_ordered[i, j, 0] = padded_polygonization[i, j]
+                    edges_wrapped_ordered[i, j, 1] = padded_polygonization[i, 0]
+                else:
+                    # CASE : no more edges that exist
+                    break
+            else:
+                # j has not reached end of polygon
+                if padded_polygonization[i, j + 1] == 0:
+                    if padded_polygonization[i, j] != 0:
+                        # CASE : edge wraps back to first vertex of polygon
+                        edges_wrapped_ordered[i, j, 0] = padded_polygonization[i, j]
+                        edges_wrapped_ordered[i, j, 1] = padded_polygonization[i, 0]
+                    else:
+                        # CASE : no more edges that exist
+                        break
+                else:
+                    # CASE : edge exists
+                    edges_wrapped_ordered[i, j, 0] = padded_polygonization[i, j]
+                    edges_wrapped_ordered[i, j, 1] = padded_polygonization[i, j + 1]
+    
+    # build polygonization_topology
+    for i in range(n_polygons):
+        for k in range(max_polygon_length):
+            if polygonization_topology[i, k] != -1:
+                # Continue if adjacent poly already computed
+                continue
+            if edges_wrapped_ordered[i, k, 0] == 0:
+                # bread if end of polygon reached
+                break
+
+            found_flag = False
+            current_edge = edges_wrapped_ordered[i, k, ::-1] # reverse edge direction
+            for j in range(n_polygons):
+                if found_flag:
+                    break
+                for m in range(max_polygon_length):
+                    if found_flag:
+                        break
+                    if current_edge[0] == edges_wrapped_ordered[j, m, 0] and current_edge[1] == edges_wrapped_ordered[j, m, 1]:
+                        # CASE : edge found
+                        polygonization_topology[i, k] = j
+                        polygonization_topology[j, m] = i
+                        n_internal_edges += 1
+
+                        if i <= j:
+                            internal_edges[n_internal_edges - 1, 0] = i
+                            internal_edges[n_internal_edges - 1, 1] = j
+                        else:
+                            internal_edges[n_internal_edges - 1, 0] = j
+                            internal_edges[n_internal_edges - 1, 1] = i
+                        
+                        found_flag = True
+
+            if not found_flag:
+                polygonization_topology[i, k] = 0
+                n_boundary_edges += 1
+                boundary_edges[n_boundary_edges - 1, 0] = current_edge[1] # rememer edge was reversed 
+                boundary_edges[n_boundary_edges - 1, 1] = current_edge[0] # rememer edge was reversed
+    
+    return n_boundary_edges, n_internal_edges, polygonization_topology, boundary_edges, internal_edges
+                
+
+
 
 class Triangulation(object):
     """Triangulation/Voronoi dual object"""
@@ -92,6 +258,71 @@ class Triangulation(object):
             self.voronoi_tesselation = self.make_voronoi_tesselation()
             self.contained_polygons = self.make_contained_polygons()
             self.voronoi_edges = self.make_voronoi_edges()
+
+    def build_slitted_weighted_voronoi_graph(
+            self, 
+            lambda_, # lambda[0] = verticies of nodes, lambda[1] = list of edges, lambda[2] = list of polygons
+            contained_verticies, # all verticies with no boundary marker? create method to find this?
+            contained_faces, # contained polygons? single indexes or list of them?
+            omega0, # point we are trying to find shortest path from
+            point_in_hole, #
+            to_right_of_edge_poly_map # optional in mathematica code. 
+            ):
+        """Build the slitted weighted voronoi graph"""
+        proxy_infinity = float('inf')
+
+        # find which face contains omega0
+        padded_polygonization_all = pad_polygons_to_matrix(np.array(lambda_[2]))
+        omega0_face = find_point_in_polygon_compiled(omega0[0], omega0[1], padded_polygonization_all, lambda_[0])
+        if omega0_face not in contained_faces:
+            raise ValueError('omega0 not in contained_faces')
+
+        # keep only the polygons that are contained in the region
+        padded_polygonization = pad_polygons_to_matrix(np.take(lambda_[2], contained_faces, axis=0))
+        n_polygons = len(padded_polygonization)
+        max_polygon_length = len(padded_polygonization[0]) # all polygons have the same length
+
+        # construct and parse polygonizationTopology
+        n_boundary_edges, n_internal_edges, polygonization_topology, boundary_edges, internal_edges = \
+            build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization)
+
+        # construct connected components from boundary edges
+        classes = boundary_connected_classes_unseeded_compiled[boundary_edges]
+        class_1 = classes[0, 1 : classes[0, 0] + 1]
+        class_2 = classes[1, 1 : classes[1, 0] + 1]
+
+        # find winding number of point in hole (indicies in the given list of coordinates)
+        winding_1 = winding_number_compiled(point_in_hole[0], point_in_hole[1], class_1, lambda_[0])
+        outer_ring_vertices, inner_ring_vertices = class_1, class_2
+        if winding_1 <= 0:
+            outer_ring_vertices = class_2
+            inner_ring_vertices = class_1
+
+        # create inner and outer ring faces
+        inner_ring_faces = None
+        outer_ring_faces = None
+
+        # create contained faces graph (networkx) and shortest path function
+        contained_faces_graph = nx.Graph()
+        shortest_paths = nx.single_source_shortest_path(contained_faces_graph, omega0_face) # TODO: check if this is correct
+        paths_to_inner_ring = []
+        paths_to_outer_ring = []
+        for face in contained_faces_graph:
+            if face in inner_ring_faces:
+                paths_to_inner_ring.append(shortest_paths[face])
+            elif face in outer_ring_faces:
+                paths_to_outer_ring.append(shortest_paths[face])
+
+        # construct the slit
+
+
+        # omega0n candidates
+
+        # add weights to edges (makeing sure to use inf for edges of slit)
+
+        # construct the final graph
+
+        
 
     def make_barycenters(self):
         """Build the array of barycenters from a triangulation"""
