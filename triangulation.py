@@ -424,10 +424,38 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
 
         return vertex_path
 
+
+@numba.jit
+def to_right_of_edge_lookup_polygons_compiled(padded_polygonization):
+    """
+    Creates a lookup table for which polygons are to the right of a given edge
+
+    Contains rows with the following information:
+    [edge[0], edge[1], polygon_index]
     
+    """
+    n_polygons = len(padded_polygonization)
+    max_polygon_length = len(padded_polygonization[0])
+    table = np.zeros((max_polygon_length * n_polygons + 1, 3), dtype=np.int64)
+    counter = 0
+    actual_polygon_length = 0
+    for i in range(n_polygons):
+        for j in range(max_polygon_length - 1, -1, -1):
+            if padded_polygonization[i][j] != 0:
+                actual_polygon_length = j + 1 # +1 because j is zero indexed
+                break
+        for j in range(actual_polygon_length):
+            counter += 1
+            table[counter][0] = padded_polygonization[i][0]
+            table[counter][1] = padded_polygonization[i][j]
+            table[counter][2] = i
+        counter += 1
+        table[counter][0] = padded_polygonization[i][0]
+        table[counter][1] = padded_polygonization[i][actual_polygon_length - 1]
+        table[counter][3] = i
 
-
-
+    table[0][0] = counter - 1
+    return table[1:]
 
 class Triangulation(object):
     """Triangulation/Voronoi dual object"""
@@ -454,18 +482,17 @@ class Triangulation(object):
             self.voronoi_tesselation = self.make_voronoi_tesselation() # lambda[2]
             self.contained_polygons = self.make_contained_polygons() # lambda[2]
             self.voronoi_edges = self.make_voronoi_edges() # lambda[1]
+            self.to_right_of_edge_poly_dict = self.make_to_right_of_edge_poly_dict()
 
     def build_slitted_weighted_voronoi_graph(
             self, 
-            lambda_, # lambda[0] = verticies of v which is the triangles of the triangulization (x,y) needs to be comp, lambda[1] = list of polygon edges (not important), lambda[2] = list of polygons
+            # lambda[0] = verticies of v which is the triangles of the triangulization (x,y) needs to be comp, lambda[1] = list of polygon edges (not important), lambda[2] = list of polygons
+            voronoi_verticies, # lambda[0] (circumcenters)
             contained_verticies, # indecies of the contained verticies. (flattened list of contained_polygons)
             contained_faces, # indecies of the contained polygons.  
             omega0, # point we are trying to find shortest path from
             point_in_hole,  
             to_right_of_edge_poly_dict # dictionary. we have v cells, can take point and manuver around it. for each of those edges, if we 
-            # move around clockwise, add head to tail of edges and the index of polygon
-            # see mathematica code
-            # IN code verticies are oriented counter clockwise
             ):
         # TODO: add more detailed documenation, replace lambda_ with appropriate names
         """Build the slitted weighted voronoi graph"""
@@ -473,13 +500,13 @@ class Triangulation(object):
         proxy_infinity = float('inf')
 
         # find which face contains omega0
-        padded_polygonization_all = pad_polygons_to_matrix(np.array(lambda_[2]))
-        omega0_face = find_point_in_polygon_compiled(omega0[0], omega0[1], padded_polygonization_all, lambda_[0])
+        padded_polygonization_all = pad_polygons_to_matrix(np.array(self.voronoi_tesselation))
+        omega0_face = find_point_in_polygon_compiled(omega0[0], omega0[1], padded_polygonization_all, voronoi_verticies)
         if omega0_face not in contained_faces:
             raise ValueError('omega0 not in contained_faces')
 
         # keep only the polygons that are contained in the region
-        padded_polygonization = pad_polygons_to_matrix(np.take(lambda_[2], contained_faces, axis=0))
+        padded_polygonization = pad_polygons_to_matrix(np.take(self.voronoi_tesselation, contained_faces, axis=0))
         n_polygons = len(padded_polygonization)
         max_polygon_length = len(padded_polygonization[0]) # all polygons have the same length
 
@@ -494,7 +521,7 @@ class Triangulation(object):
 
         # find winding number of point in hole (indicies in the given list of coordinates)
         # makes use of the counter clockwise nature of verticies
-        winding_1 = winding_number_compiled(point_in_hole[0], point_in_hole[1], boundary_comp_1, lambda_[0])
+        winding_1 = winding_number_compiled(point_in_hole[0], point_in_hole[1], boundary_comp_1, voronoi_verticies)
         outer_ring_vertices, inner_ring_vertices = boundary_comp_1, boundary_comp_2
         if winding_1 <= 0:
             outer_ring_vertices = boundary_comp_2
@@ -524,35 +551,45 @@ class Triangulation(object):
         slit_vertices = polygon_path_to_vertex_path_compiled(slit_face_path, padded_polygonization, inner_ring_faces, outer_ring_faces)
 
         # omega0n candidates (the verticies that are not part of the slit)
-        omega0_candidates = np.setdiff1d(lambda_[3][omega0_face], slit_vertices) # TODO: check if this is correct
+        omega0_candidates = np.setdiff1d(self.voronoi_tesselation[omega0_face], slit_vertices) # TODO: check if this is correct
         omega0n = omega0_candidates[0]
 
         # add weights to edges (makeing sure to use inf for edges of slit)
         # TODO: make sure that indexing of edges and graph are correct
         edges_with_weight_with_inf = []
-        for i in range(len(lambda_[1])):
+        for i in range(len(self.voronoi_edges)):
             # only append edges that should have weight of inf
-            if (lambda_[1][i][0] not in contained_verticies or
-                lambda_[1][i][1] not in contained_verticies or
-                lambda_[1][i][0] in slit_vertices or
-                lambda_[1][i][1] in slit_vertices or
-                (to_right_of_edge_poly_dict[lambda_[1][i]] not in contained_faces and
-                 to_right_of_edge_poly_dict[lambda_[1][i][::-1]] not in contained_faces)):
+            if (self.voronoi_edges[i][0] not in contained_verticies or
+                self.voronoi_edges[i][1] not in contained_verticies or
+                self.voronoi_edges[i][0] in slit_vertices or
+                self.voronoi_edges[i][1] in slit_vertices or
+                (to_right_of_edge_poly_dict[self.voronoi_edges[i]] not in contained_faces and
+                 to_right_of_edge_poly_dict[self.voronoi_edges[i][::-1]] not in contained_faces)):
                 
                 edges_with_weight_with_inf.append(i + 1) # add 1 to account for 1 indexing
 
-        edge_weights = [proxy_infinity if i in edges_with_weight_with_inf else 1 for i in range(len(lambda_[1]))]
+        edge_weights = [proxy_infinity if i in edges_with_weight_with_inf else 1 for i in range(len(self.voronoi_edges))]
 
         # construct the final graph
         Lambda_Graph = nx.Graph()
-        Lambda_Graph.add_nodes_from(range(1, len(lambda_[0]) + 1))
-        Lambda_Graph.add_weighted_edges_from(lambda_[1], weight=edge_weights)
-        nx.set_node_attributes(Lambda_Graph, {i: str(i) for i in range(1, len(lambda_[0]) + 1)}, 'name')
-        nx.set_edge_attributes(Lambda_Graph, {i: edge_weights[i - 1] for i in range(1, len(lambda_[1]) + 1)}, 'weight')
+        Lambda_Graph.add_nodes_from(range(1, len(voronoi_verticies) + 1))
+        Lambda_Graph.add_weighted_edges_from(self.voronoi_edges, weight=edge_weights)
+        nx.set_node_attributes(Lambda_Graph, {i: str(i) for i in range(1, len(voronoi_verticies) + 1)}, 'name')
+        nx.set_edge_attributes(Lambda_Graph, {i: edge_weights[i - 1] for i in range(1, len(self.voronoi_edges) + 1)}, 'weight')
 
         return Lambda_Graph, omega0n, slit_vertices
+    
+    def build_edge_to_right_polygons_dict(self):
+        """Build a dictionary of the polygons to the right of each edge"""
+        padded_polygonization = pad_polygons_to_matrix(np.array(self.voronoi_tesselation))
+        to_right_of_edge_lookup = to_right_of_edge_lookup_polygons_compiled(padded_polygonization)
 
+        to_right_of_edge_poly_dict = {}
+        for i in range(len(self.voronoi_edges)):
+            to_right_of_edge_poly_dict[self.voronoi_edges[i]] = to_right_of_edge_lookup[i][2]
         
+        return to_right_of_edge_poly_dict
+
 
     def make_barycenters(self):
         """Build the array of barycenters from a triangulation"""
