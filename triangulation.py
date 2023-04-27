@@ -225,11 +225,207 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
             if not found_flag:
                 polygonization_topology[i, k] = 0
                 n_boundary_edges += 1
-                boundary_edges[n_boundary_edges - 1, 0] = current_edge[1] # rememer edge was reversed 
-                boundary_edges[n_boundary_edges - 1, 1] = current_edge[0] # rememer edge was reversed
+                boundary_edges[n_boundary_edges - 1, 0] = current_edge[1] # remember edge was reversed 
+                boundary_edges[n_boundary_edges - 1, 1] = current_edge[0] # remember edge was reversed
     
     return n_boundary_edges, n_internal_edges, polygonization_topology, boundary_edges, internal_edges
-                
+
+@numba.jit
+def boundary_connected_classes_unseeded_compiled(boundary_edges):
+    """
+    Returns a list of boundary connected classes of boundary edges
+    """
+    n_boundary_edges = len(boundary_edges)
+    class_list = np.zeros((1000, n_boundary_edges), dtype=np.int64)
+    edges_used = np.zeros(n_boundary_edges, dtype=np.int64)
+
+    edges_used[0] = 1
+    start = boundary_edges[0, 0]
+    current_vertex = boundary_edges[0, 1]
+
+    class_list[0, 0] = start
+    class_list[0, 1] = current_vertex
+
+    n_classes = 1
+    position = 2 # this is the position of the next vertex to be added to the class
+
+    # compute class 1
+    found_flag = False
+    all_found_flag = False
+    while not found_flag:
+        for i in range(n_boundary_edges):
+            if edges_used[i] == 1:
+                continue
+            if boundary_edges[i, 0] == current_vertex:
+                if boundary_edges[i, 1] == start:
+                    found_flag = True
+                class_list[0, position] = boundary_edges[i, 1]
+                current_vertex = boundary_edges[i, 1]
+                edges_used[i] = 1
+                position += 1
+    class_list[0, 0] = position - 1 # store length of class
+
+    # determine if all edges have been found
+    while not all_found_flag:
+        all_found_flag = True
+        for i in range(n_boundary_edges):
+            if edges_used[i] == 0:
+                # CASE : edge has not been used, so start class 2 with it
+                all_found_flag = False
+                n_classes += 1
+                start = boundary_edges[i, 0]
+                current_vertex = boundary_edges[i, 1]
+                class_list[n_classes - 1, 0] = start
+                class_list[n_classes - 1, 1] = current_vertex
+                position = 2
+                edges_used[i] = 1
+                break
+        if all_found_flag:
+            break
+        # compute class 2
+        found_flag = False
+        while not found_flag:
+            for i in range(n_boundary_edges):
+                if edges_used[i] == 1:
+                    continue
+                if boundary_edges[i, 0] == current_vertex:
+                    if boundary_edges[i, 1] == start:
+                        found_flag = True
+                    class_list[n_classes - 1, position] = boundary_edges[i, 1]
+                    current_vertex = boundary_edges[i, 1]
+                    edges_used[i] = 1
+                    position += 1
+        class_list[n_classes - 1, 0] = position - 1 # store length of class
+    
+    # unpack class_list and remove 0s using length of class
+    class_list = class_list[:n_classes, :]
+    for i in range(n_classes):
+        class_list[i, :] = class_list[i, :class_list[i, 0] + 1]
+
+    return class_list
+
+@numba.jit
+def winding_number_compiled(x, y, path, coordinates):
+    """Find the winding number of the path (indices in the given list of coordinates) with respect to the point (x, y)"""
+    n_vertices = len(path)
+    winding_number = 0
+    angle = 0
+    sign = 0
+
+    for i in range(n_vertices):
+        head_1 = coordinates[path[i]]
+        head_2 = coordinates[path[(i + 1) % n_vertices]]  #TODO: check if this is correct
+        vector_1 = head_1 - np.array([x, y])
+        vector_2 = head_2 - np.array([x, y])
+        angle = angle_compiled(vector_1, vector_2)
+
+        if point_to_right_of_line_compiled(x, y, head_1[0], head_1[1], head_2[0], head_2[1]):
+            sign = -1
+        else:
+            sign = 1
+        
+        winding_number += sign * angle
+    
+    return winding_number / (2 * np.pi)
+
+@numba.jit
+def angle_compiled(vector_1, vector_2):
+    """Find the angle between two vectors"""
+    dot = np.dot(vector_1, vector_2)
+    norm1 = np.linalg.norm(vector_1)
+    norm2 = np.linalg.norm(vector_2)
+    hold = dot / (norm1 * norm2)
+    if hold >= 1:
+        hold = 1
+    elif hold <= -1:
+        hold = -1
+    angle = np.arccos(hold)
+    return angle
+
+@numba.jit
+def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inner_ring_verticies, outer_ring_verticies):
+    """Given a path of faces, converts them to a list of verticies from the outer to inner ring"""
+    n_path_polygons = len(faces_path)
+    n_polygons = len(padded_polygonization)
+    max_polygon_length = len(padded_polygonization[0])
+
+    current_polygon = np.zeros(max_polygon_length, dtype=np.int64)
+    next_polygon = np.zeros(max_polygon_length, dtype=np.int64)
+    current_vertex = 0
+    next_vertex = 1
+    n_vertex_path = 2
+    vertex_path = np.zeros(max_polygon_length * n_path_polygons, dtype=np.int64)
+
+    # find the first polygon in the path
+    current_polygon_index = 0
+    current_polygon = padded_polygonization[faces_path[current_polygon_index]]
+    # while the current vertex is not in the inner ring or the next vertex is on the inner ring
+    # i.e. find the edge where the vertex changes from the outer to inner ring
+    while (inner_ring_verticies.count(current_polygon[current_vertex]) == 0) or (inner_ring_verticies.count(current_polygon[next_vertex]) > 0): # WHAT IF: both are on the inner / outer ring?
+        current_vertex = next_vertex
+
+        if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+            next_vertex = 0
+        else:
+            next_vertex = current_vertex + 1
+    
+    # add the first vertex to the path
+    vertex_path[0] = current_polygon[current_vertex]
+    vertex_path[1] = current_polygon[next_vertex]
+    current_vertex = next_vertex
+
+    # for intermediate polygons in the path
+    for current_polygon_index in range(n_path_polygons):
+        current_polygon = padded_polygonization[faces_path[current_polygon_index]]
+        next_polygon = padded_polygonization[faces_path[current_polygon_index + 1]]
+
+        # traverse new polygon until the position lines up with the vertex path
+        while current_polygon[current_vertex] != vertex_path[n_vertex_path - 1]:
+            current_vertex = next_vertex
+            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+                next_vertex = 0
+            else:
+                next_vertex = current_vertex + 1
+        
+        # Now that alignment is done, traverse polygon while adding verticies to vertexPath until nextPolygon is reached
+        while next_polygon.count(current_polygon[next_vertex]) == 0:
+            current_vertex = next_vertex
+            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+                next_vertex = 0
+            else:
+                next_vertex = current_vertex + 1
+            n_vertex_path += 1
+            vertex_path[n_vertex_path - 1] = current_polygon[current_vertex]
+
+        # for the last polygon in the path
+        current_polygon_index = n_path_polygons - 1
+        current_polygon = padded_polygonization[faces_path[current_polygon_index]]
+
+        # traverse new polygon until the position lines up with the vertex path
+        while current_polygon[current_vertex] != vertex_path[n_vertex_path - 1]:
+            current_vertex = next_vertex
+            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+                next_vertex = 0
+            else:
+                next_vertex = current_vertex + 1
+        
+        # Now that alignment is done, traverse polygon while adding verticies to vertexPath until outerRingverticies is reached
+        while outer_ring_verticies.count(current_polygon[current_vertex]) == 0:
+            current_vertex = next_vertex
+            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+                next_vertex = 0
+            else:
+                next_vertex = current_vertex + 1
+            n_vertex_path += 1
+            vertex_path[n_vertex_path - 1] = current_polygon[current_vertex]
+        
+        # remove trailing zeros
+        vertex_path = vertex_path[:n_vertex_path]
+
+        return vertex_path
+
+    
+
 
 
 
@@ -249,26 +445,31 @@ class Triangulation(object):
 
         self.triangle_coordinates = self.make_triangle_coordinates()
         self.barycenters = self.make_barycenters()
-        self.circumcenters = self.make_circumcenters()
+        self.circumcenters = self.make_circumcenters() # coordinates of voin diagram. lambda[0]
 
         self.vertex_topology = self.build_vertex_topology()
 
         self.vertex_index_to_triangle = self.make_vertex_index_to_triangle()
         if topology is not None:
-            self.voronoi_tesselation = self.make_voronoi_tesselation()
-            self.contained_polygons = self.make_contained_polygons()
-            self.voronoi_edges = self.make_voronoi_edges()
+            self.voronoi_tesselation = self.make_voronoi_tesselation() # lambda[2]
+            self.contained_polygons = self.make_contained_polygons() # lambda[2]
+            self.voronoi_edges = self.make_voronoi_edges() # lambda[1]
 
     def build_slitted_weighted_voronoi_graph(
             self, 
-            lambda_, # lambda[0] = verticies of nodes, lambda[1] = list of edges, lambda[2] = list of polygons
-            contained_verticies, # all verticies with no boundary marker? create method to find this?
-            contained_faces, # contained polygons? single indexes or list of them?
+            lambda_, # lambda[0] = verticies of v which is the triangles of the triangulization (x,y) needs to be comp, lambda[1] = list of polygon edges (not important), lambda[2] = list of polygons
+            contained_verticies, # indecies of the contained verticies. (flattened list of contained_polygons)
+            contained_faces, # indecies of the contained polygons.  
             omega0, # point we are trying to find shortest path from
-            point_in_hole, #
-            to_right_of_edge_poly_map # optional in mathematica code. 
+            point_in_hole,  
+            to_right_of_edge_poly_dict # dictionary. we have v cells, can take point and manuver around it. for each of those edges, if we 
+            # move around clockwise, add head to tail of edges and the index of polygon
+            # see mathematica code
+            # IN code verticies are oriented counter clockwise
             ):
+        # TODO: add more detailed documenation, replace lambda_ with appropriate names
         """Build the slitted weighted voronoi graph"""
+
         proxy_infinity = float('inf')
 
         # find which face contains omega0
@@ -288,39 +489,68 @@ class Triangulation(object):
 
         # construct connected components from boundary edges
         classes = boundary_connected_classes_unseeded_compiled[boundary_edges]
-        class_1 = classes[0, 1 : classes[0, 0] + 1]
-        class_2 = classes[1, 1 : classes[1, 0] + 1]
+        boundary_comp_1 = classes[0]
+        boundary_comp_2 = classes[1]
 
         # find winding number of point in hole (indicies in the given list of coordinates)
-        winding_1 = winding_number_compiled(point_in_hole[0], point_in_hole[1], class_1, lambda_[0])
-        outer_ring_vertices, inner_ring_vertices = class_1, class_2
+        # makes use of the counter clockwise nature of verticies
+        winding_1 = winding_number_compiled(point_in_hole[0], point_in_hole[1], boundary_comp_1, lambda_[0])
+        outer_ring_vertices, inner_ring_vertices = boundary_comp_1, boundary_comp_2
         if winding_1 <= 0:
-            outer_ring_vertices = class_2
-            inner_ring_vertices = class_1
+            outer_ring_vertices = boundary_comp_2
+            inner_ring_vertices = boundary_comp_1
 
         # create inner and outer ring faces
-        inner_ring_faces = None
-        outer_ring_faces = None
+        # finding all faces that contain the inner and outer ring verticies
+        inner_ring_faces = [i for i in range(len(padded_polygonization)) if any(np.intersect1d(inner_ring_vertices, padded_polygonization[i]))]
+        outer_ring_faces = [i for i in range(len(padded_polygonization)) if any(np.intersect1d(outer_ring_vertices, padded_polygonization[i]))]
 
         # create contained faces graph (networkx) and shortest path function
         contained_faces_graph = nx.Graph()
-        shortest_paths = nx.single_source_shortest_path(contained_faces_graph, omega0_face) # TODO: check if this is correct
-        paths_to_inner_ring = []
-        paths_to_outer_ring = []
-        for face in contained_faces_graph:
-            if face in inner_ring_faces:
-                paths_to_inner_ring.append(shortest_paths[face])
-            elif face in outer_ring_faces:
-                paths_to_outer_ring.append(shortest_paths[face])
+        contained_faces_graph.add_nodes_from(range(len(contained_faces)))
+        for edge in internal_edges:
+            contained_faces_graph.add_edge(*edge)
+
+        shortest_paths = dict(nx.shortest_path(contained_faces_graph, source=omega0_face))
+        paths_to_inner_ring_faces = [shortest_paths[face] for face in inner_ring_faces]
+        paths_to_outer_ring_faces = [shortest_paths[face] for face in outer_ring_faces]
 
         # construct the slit
+        # TODO: can we assume that they will have a shared face?
+        slit_face_start = np.argmin([len(path) for path in paths_to_inner_ring_faces])
+        slit_face_end = np.argmin([len(path) for path in paths_to_outer_ring_faces])
+        slit_face_path = paths_to_inner_ring_faces[slit_face_start][::-1] + paths_to_outer_ring_faces[1:slit_face_end]
 
+        slit_vertices = polygon_path_to_vertex_path_compiled(slit_face_path, padded_polygonization, inner_ring_faces, outer_ring_faces)
 
-        # omega0n candidates
+        # omega0n candidates (the verticies that are not part of the slit)
+        omega0_candidates = np.setdiff1d(lambda_[3][omega0_face], slit_vertices) # TODO: check if this is correct
+        omega0n = omega0_candidates[0]
 
         # add weights to edges (makeing sure to use inf for edges of slit)
+        # TODO: make sure that indexing of edges and graph are correct
+        edges_with_weight_with_inf = []
+        for i in range(len(lambda_[1])):
+            # only append edges that should have weight of inf
+            if (lambda_[1][i][0] not in contained_verticies or
+                lambda_[1][i][1] not in contained_verticies or
+                lambda_[1][i][0] in slit_vertices or
+                lambda_[1][i][1] in slit_vertices or
+                (to_right_of_edge_poly_dict[lambda_[1][i]] not in contained_faces and
+                 to_right_of_edge_poly_dict[lambda_[1][i][::-1]] not in contained_faces)):
+                
+                edges_with_weight_with_inf.append(i + 1) # add 1 to account for 1 indexing
+
+        edge_weights = [proxy_infinity if i in edges_with_weight_with_inf else 1 for i in range(len(lambda_[1]))]
 
         # construct the final graph
+        Lambda_Graph = nx.Graph()
+        Lambda_Graph.add_nodes_from(range(1, len(lambda_[0]) + 1))
+        Lambda_Graph.add_weighted_edges_from(lambda_[1], weight=edge_weights)
+        nx.set_node_attributes(Lambda_Graph, {i: str(i) for i in range(1, len(lambda_[0]) + 1)}, 'name')
+        nx.set_edge_attributes(Lambda_Graph, {i: edge_weights[i - 1] for i in range(1, len(lambda_[1]) + 1)}, 'weight')
+
+        return Lambda_Graph, omega0n, slit_vertices
 
         
 
