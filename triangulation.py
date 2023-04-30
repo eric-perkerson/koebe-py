@@ -83,7 +83,7 @@ def pad_polygons_to_matrix(polygons):
 
     max_polygon_length = max([len(polygon) for polygon in polygons])
     n_polygons = len(polygons)
-    padded_polygons = np.zeros((n_polygons, max_polygon_length), dtype=np.int32)
+    padded_polygons = np.full((n_polygons, max_polygon_length), fill_value=-1, dtype=np.int32)
 
     for i, polygon in enumerate(polygons):
         padded_polygons[i, :len(polygon)] = polygon
@@ -129,7 +129,7 @@ def point_inside_convex_padded_polygon_compiled(x, y, padded_polygon, coordinate
     """
     true_polygon_length = 0
     for i in range(len(padded_polygon) - 1, -1, -1):
-        if padded_polygon[i] != 0:
+        if padded_polygon[i] != -1:
             true_polygon_length = i + 1
             break
 
@@ -179,7 +179,7 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
         for j in range(max_polygon_length):
             if j == max_polygon_length - 1:
                 # j has reached end of polygon
-                if padded_polygonization[i, j] != 0:
+                if padded_polygonization[i, j] != -1:
                     # CASE : edge wraps back to beginning of polygon
                     edges_wrapped_ordered[i, j, 0] = padded_polygonization[i, j]
                     edges_wrapped_ordered[i, j, 1] = padded_polygonization[i, 0]
@@ -187,8 +187,8 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
                     # CASE : no more edges that exist
                     break
             else:
-                # j has not reached end of polygon (make sure we are not looking at vertex 0)
-                if padded_polygonization[i, j + 1] == 0 and (j != 0 and i != 0):
+                # j has not reached end of polygon
+                if padded_polygonization[i, j + 1] == -1:
                     if padded_polygonization[i, j] != 0:
                         # CASE : edge wraps back to first vertex of polygon
                         edges_wrapped_ordered[i, j, 0] = padded_polygonization[i, j]
@@ -207,8 +207,8 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
             if polygonization_topology[i, k] != -1:
                 # Continue if adjacent poly already computed
                 continue
-            if edges_wrapped_ordered[i, k, 0] == 0 and (k != 0 and i != 0):
-                # bread if end of polygon reached (make sure we are not looking at vertex 0)
+            if edges_wrapped_ordered[i, k, 0] == -1:
+                # bread if end of polygon reached
                 break
 
             found_flag = False
@@ -464,7 +464,7 @@ def to_right_of_edge_lookup_polygons_compiled(padded_polygonization):
     actual_polygon_length = 0
     for i in range(n_polygons):
         for j in range(max_polygon_length - 1, -1, -1):
-            if padded_polygonization[i][j] != 0:
+            if padded_polygonization[i][j] != -1:
                 actual_polygon_length = j + 1 # +1 because j is zero indexed
                 break
         for j in range(actual_polygon_length - 1):
@@ -582,8 +582,6 @@ class Triangulation(object):
         slit_vertices = polygon_path_to_vertex_path_compiled(slit_face_path, padded_polygonization, inner_ring_faces, outer_ring_faces)
 
         print(f"slit_vertices: {slit_vertices}")
-
-        exit()
 
         # omega0n candidates (the verticies that are not part of the slit)
         omega0_candidates = np.setdiff1d(self.contained_polygons[omega0_face], slit_vertices) # TODO: check if this is correct
