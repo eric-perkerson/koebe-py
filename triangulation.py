@@ -5,6 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
 import networkx as nx
+from collections import defaultdict
 # from matplotlib.collections import PolyCollection
 from pathlib import Path
 
@@ -359,7 +360,7 @@ def angle_compiled(vector_1, vector_2):
     angle = np.arccos(hold)
     return angle
 
-#@numba.jit
+@numba.jit
 def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inner_ring_verticies, outer_ring_verticies):
     """Given a path of faces, converts them to a list of verticies from the outer to inner ring"""
     n_path_polygons = len(faces_path)
@@ -376,15 +377,15 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
     # find the first polygon in the path
     current_polygon_index = 0
     current_polygon = padded_polygonization[faces_path[current_polygon_index]]
-    # while the current vertex is not in the inner ring or the next vertex is on the inner ring
-    # i.e. find the edge where the vertex changes from the outer to inner ring
-    while (inner_ring_verticies.count(current_polygon[current_vertex]) == 0) or (inner_ring_verticies.count(current_polygon[next_vertex]) > 0): 
+    # find the edge where the vertex changes from the inner ring to not the inner ring
+    while not (current_polygon[current_vertex] in inner_ring_verticies and current_polygon[next_vertex] not in inner_ring_verticies):
         current_vertex = next_vertex
 
-        if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+        if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == -1:
             next_vertex = 0
         else:
             next_vertex = current_vertex + 1
+
     
     # add the first vertex to the path
     vertex_path[0] = current_polygon[current_vertex]
@@ -392,59 +393,54 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
     current_vertex = next_vertex
 
     # for intermediate polygons in the path
-    for current_polygon_index in range(n_path_polygons):
+    for current_polygon_index in range(n_path_polygons - 1):
         current_polygon = padded_polygonization[faces_path[current_polygon_index]]
         next_polygon = padded_polygonization[faces_path[current_polygon_index + 1]]
 
         # traverse new polygon until the position lines up with the vertex path
         while current_polygon[current_vertex] != vertex_path[n_vertex_path - 1]:
             current_vertex = next_vertex
-            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == -1:
                 next_vertex = 0
             else:
                 next_vertex = current_vertex + 1
-        
-        print("here1")
+    
         # Now that alignment is done, traverse polygon while adding verticies to vertexPath until nextPolygon is reached
-        #while next_polygon.count(current_polygon[next_vertex]) == 0:
-        while np.count_nonzero(next_polygon == current_polygon[next_vertex]) == 0:
+        while np.count_nonzero(next_polygon == current_polygon[current_vertex]) == 0:
             current_vertex = next_vertex
-            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
-                next_vertex = 0
-            else:
-                next_vertex = current_vertex + 1
-            n_vertex_path += 1
-            vertex_path[n_vertex_path - 1] = current_polygon[current_vertex]
-
-        print("here2")
-        # for the last polygon in the path
-        current_polygon_index = n_path_polygons - 1
-        current_polygon = padded_polygonization[faces_path[current_polygon_index]]
-
-        # traverse new polygon until the position lines up with the vertex path
-        while current_polygon[current_vertex] != vertex_path[n_vertex_path - 1]:
-            current_vertex = next_vertex
-            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
-                next_vertex = 0
-            else:
-                next_vertex = current_vertex + 1
-        
-        print("here3")
-        # Now that alignment is done, traverse polygon while adding verticies to vertexPath until outerRingverticies is reached
-        while outer_ring_verticies.count(current_polygon[current_vertex]) == 0:
-            current_vertex = next_vertex
-            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == 0:
+            if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == -1:
                 next_vertex = 0
             else:
                 next_vertex = current_vertex + 1
             n_vertex_path += 1
             vertex_path[n_vertex_path - 1] = current_polygon[current_vertex]
         
-        print("here4")
-        # remove trailing zeros
-        vertex_path = vertex_path[:n_vertex_path]
+    # for the last polygon in the path
+    current_polygon_index = n_path_polygons - 1
+    current_polygon = padded_polygonization[faces_path[current_polygon_index]]
 
-        return vertex_path
+    # traverse new polygon until the position lines up with the vertex path
+    while current_polygon[current_vertex] != vertex_path[n_vertex_path - 1]:
+        current_vertex = next_vertex
+        if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == -1:
+            next_vertex = 0
+        else:
+            next_vertex = current_vertex + 1
+    
+    # Now that alignment is done, traverse polygon while adding verticies to vertexPath until outerRingverticies is reached
+    while np.count_nonzero(outer_ring_verticies == current_polygon[current_vertex]) == 0:
+        current_vertex = next_vertex
+        if current_vertex == max_polygon_length - 1 or current_polygon[current_vertex + 1] == -1:
+            next_vertex = 0
+        else:
+            next_vertex = current_vertex + 1
+        n_vertex_path += 1
+        vertex_path[n_vertex_path - 1] = current_polygon[current_vertex]
+
+    # remove trailing zeros
+    vertex_path = vertex_path[:n_vertex_path]
+
+    return vertex_path
 
 
 @numba.jit
@@ -519,7 +515,7 @@ class Triangulation(object):
             ):
         """Build the slitted weighted voronoi graph"""
 
-        proxy_infinity = float('inf')
+        proxy_infinity = 1e10
         # TODO: make sure these are correct
         contained_verticies = set()
         for polygon in self.contained_polygons:
@@ -577,11 +573,9 @@ class Triangulation(object):
         # construct the slit
         slit_face_start = np.argmin([len(path) for path in paths_to_inner_ring_faces])
         slit_face_end = np.argmin([len(path) for path in paths_to_outer_ring_faces])
-        slit_face_path = paths_to_inner_ring_faces[slit_face_start][::-1] + paths_to_outer_ring_faces[slit_face_end][1:]
+        slit_face_path = np.array(paths_to_inner_ring_faces[slit_face_start][::-1] + paths_to_outer_ring_faces[slit_face_end][1:])
 
-        slit_vertices = polygon_path_to_vertex_path_compiled(slit_face_path, padded_polygonization, inner_ring_faces, outer_ring_faces)
-
-        print(f"slit_vertices: {slit_vertices}")
+        slit_vertices = polygon_path_to_vertex_path_compiled(slit_face_path, padded_polygonization, inner_ring_vertices, outer_ring_vertices)
 
         # omega0n candidates (the verticies that are not part of the slit)
         omega0_candidates = np.setdiff1d(self.contained_polygons[omega0_face], slit_vertices) # TODO: check if this is correct
@@ -596,19 +590,19 @@ class Triangulation(object):
                 self.voronoi_edges[i][1] not in contained_verticies or
                 self.voronoi_edges[i][0] in slit_vertices or
                 self.voronoi_edges[i][1] in slit_vertices or
-                (self.to_right_of_edge_poly_dict[self.voronoi_edges[i]] not in contained_faces and
-                 self.to_right_of_edge_poly_dict[self.voronoi_edges[i][::-1]] not in contained_faces)):
+                (self.to_right_of_edge_poly_dict[tuple(self.voronoi_edges[i])] not in contained_faces and
+                 self.to_right_of_edge_poly_dict[tuple(self.voronoi_edges[i][::-1])] not in contained_faces)):
                 
-                edges_with_weight_with_inf.append(i + 1) # add 1 to account for 1 indexing
+                edges_with_weight_with_inf.append(i) # add 1 to account for 1 indexing
 
-        edge_weights = [proxy_infinity if i in edges_with_weight_with_inf else 1 for i in range(len(self.voronoi_edges))]
+        print('edges_with_weight_with_inf', edges_with_weight_with_inf)
+        edges_plus_weights = [(u, v, proxy_infinity) if i in edges_with_weight_with_inf else (u, v, 1) for i, (u, v) in enumerate(self.voronoi_edges)]
 
         # construct the final graph
         Lambda_Graph = nx.Graph()
-        Lambda_Graph.add_nodes_from(range(1, len(self.circumcenters) + 1))
-        Lambda_Graph.add_weighted_edges_from(self.voronoi_edges, weight=edge_weights)
-        nx.set_node_attributes(Lambda_Graph, {i: str(i) for i in range(1, len(self.circumcenters) + 1)}, 'name')
-        nx.set_edge_attributes(Lambda_Graph, {i: edge_weights[i - 1] for i in range(1, len(self.voronoi_edges) + 1)}, 'weight')
+        Lambda_Graph.add_nodes_from(range(len(self.circumcenters)))
+        Lambda_Graph.add_weighted_edges_from(edges_plus_weights)
+        nx.set_node_attributes(Lambda_Graph, {i: str(i) for i in range(len(self.circumcenters))}, 'name')
 
         return Lambda_Graph, omega0n, slit_vertices
     
@@ -618,7 +612,7 @@ class Triangulation(object):
         padded_polygonization = pad_polygons_to_matrix(self.contained_polygons) #TODO: contained polygons instead of voronoi tessalation?
         to_right_of_edge_lookup = to_right_of_edge_lookup_polygons_compiled(padded_polygonization)
 
-        to_right_of_edge_poly_dict = {}
+        to_right_of_edge_poly_dict = defaultdict(lambda: -1)
         for i in range(len(to_right_of_edge_lookup)):
             to_right_of_edge_poly_dict[tuple(to_right_of_edge_lookup[i, 0:2])] = to_right_of_edge_lookup[i, 2]
 
@@ -895,17 +889,17 @@ if __name__ == '__main__':
 
     T = Triangulation.read(path)
 
-    slitted_weighted_voronoi_graph = T.build_slitted_weighted_voronoi_graph(omega0=(650, 420), point_in_hole=(900, 400))
+    slitted_weighted_voronoi_graph, omega0, slit_verticies = T.build_slitted_weighted_voronoi_graph(omega0=(650, 420), point_in_hole=(900, 400))
 
-    #print stats of networkx graph
-    print(nx.info(slitted_weighted_voronoi_graph))
+    print("slit verticies: ", slit_verticies)
+    print("omega0: ", omega0)
+    print("slitted_weighted_voronoi_graph: ", slitted_weighted_voronoi_graph)
 
     #print all edges of networkx graph
     print(list(slitted_weighted_voronoi_graph.edges(data=True)))
 
     #print all nodes of networkx graph
     print(list(slitted_weighted_voronoi_graph.nodes(data=True)))
-
 
 
     T.show("regions/test/test.png", show_vertex_indices=True, show_triangle_indices=False)
