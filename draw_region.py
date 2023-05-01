@@ -196,7 +196,8 @@ def draw_region(poly_file='test'):
             gui.destroy()
 
     canvas.bind("<ButtonRelease 1>", paint)
-    canvas.bind("<ButtonRelease 2>", new_component)
+    canvas.bind("<ButtonRelease 2>", new_component) # for mac
+    canvas.bind("<ButtonRelease 3>", new_component) # for windows   
 
     message = tk.Label(
         gui,
