@@ -183,11 +183,31 @@ function acute_triangulate(file::AbstractString; delete_files=true)
     # make_poly_file(file, region)
     # chmod(file * ".poly", 0o777)
 
-    if !isfile("acute")
-        error("The aCute program was not found")
+
+
+    # check for acute executable in directories
+    if Sys.isapple() || Sys.islinux()
+        if !isfile("./acuteSoftware/acute")
+            error("acute executable not found")
+        end
+    elseif Sys.iswindows()
+        if !isfile("./acuteSoftware/acute.exe")
+            error("acute.exe executable not found")
+        end
+    else
+        error("OS not supported")
     end
 
-    acute = run(`./acute -q35 -U89 $(file)`)
+    # run acute program for specific OS
+    acute = nothing
+    if Sys.isapple() || Sys.islinux()
+        acute = run(`./acuteSoftware/acute -q35 -U89 $(file)`)
+    elseif Sys.iswindows()
+        acute = run(`./acuteSoftware/acute.exe -q35 -U89 $(file)`)
+    else
+        error("OS not supported")
+    end
+
     if acute.exitcode != 0
         error("Error in aCute")
     end
