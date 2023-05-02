@@ -13,9 +13,6 @@ from region import read_node, read_ele, Region
 
 COLOR_PARAMETER = 250
 
-import faulthandler
-faulthandler.enable()
-
 @numba.jit
 def triangle_circumcenter(a_x, a_y, b_x, b_y, c_x, c_y):
     """Calculate the coordinates of the circumcenter of a triangle given the coordinates of its
