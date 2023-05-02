@@ -160,7 +160,8 @@ def point_to_right_of_line_compiled(tail_x, tail_y, head_x, head_y, point_x, poi
 
 @numba.jit
 def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
-    """returns a polgonization topology giving adjacent polygons across each edge of the given padded polygonization
+    """
+    returns a polgonization topology giving adjacent polygons across each edge of the given padded polygonization
     
     0 means that edge is a boundary edge
     -1 means that edge does not exist
@@ -332,7 +333,7 @@ def winding_number_compiled(x, y, path, coordinates):
 
     for i in range(n_vertices):
         head_1 = coordinates[path[i]]
-        head_2 = coordinates[path[(i + 1) % n_vertices]]  #TODO: check if this is correct
+        head_2 = coordinates[path[(i + 1) % n_vertices]] # wrap around to first vertex if at last vertex
         vector_1 = head_1 - np.array([x, y])
         vector_2 = head_2 - np.array([x, y])
         angle = angle_compiled(vector_1, vector_2)
@@ -364,7 +365,6 @@ def angle_compiled(vector_1, vector_2):
 def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inner_ring_verticies, outer_ring_verticies):
     """Given a path of faces, converts them to a list of verticies from the outer to inner ring"""
     n_path_polygons = len(faces_path)
-    n_polygons = len(padded_polygonization)
     max_polygon_length = len(padded_polygonization[0])
 
     current_polygon = np.zeros(max_polygon_length, dtype=np.int64)
@@ -375,9 +375,9 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
     vertex_path = np.zeros(max_polygon_length * n_path_polygons, dtype=np.int64)
 
     # find the first polygon in the path
+    # i.e. find the edge where the vertex changes from the inner ring to not the inner ring
     current_polygon_index = 0
     current_polygon = padded_polygonization[faces_path[current_polygon_index]]
-    # find the edge where the vertex changes from the inner ring to not the inner ring
     while not (current_polygon[current_vertex] in inner_ring_verticies and current_polygon[next_vertex] not in inner_ring_verticies):
         current_vertex = next_vertex
 
@@ -505,18 +505,28 @@ class Triangulation(object):
 
     def build_slitted_weighted_voronoi_graph(
             self, 
-            # lambda[0] = verticies of v which is the triangles of the triangulization (x,y) needs to be comp, lambda[1] = list of polygon edges (not important), lambda[2] = list of polygons
-            #voronoi_verticies, # lambda[0] (circumcenters)
-            #contained_verticies, # indecies of the contained verticies. (flattened list of contained_polygons)
-            #contained_faces, # indecies of the contained polygons.  
-            omega0, # point we are trying to find shortest path from
+            omega0,
             point_in_hole,  
-            #to_right_of_edge_poly_dict # dictionary. we have v cells, can take point and manuver around it. for each of those edges, if we 
             ):
-        """Build the slitted weighted voronoi graph"""
+        """
+        Builds the slitted weighted voronoi graph
+
+        Parameters
+        ----------
+        omega0: tuple of x,y coordinates which is the point we are trying to find the shortest path from
+        point_in_hole: tuple of x,y coordinates which is a point in a hole
+
+        Returns
+        -------
+        slitted_weighted_voronoi_graph: networkx graph object
+        omega0n: index of voronoi vertex closest to omega0
+        slit_verticies: list of verticies that are on the slit
+        
+        """
 
         proxy_infinity = 1e10
-        # TODO: make sure these are correct
+
+        # acquiring contained verticies and faces
         contained_verticies = set()
         for polygon in self.contained_polygons:
             for vertex in polygon:
@@ -530,15 +540,9 @@ class Triangulation(object):
         if omega0_face not in contained_faces:
             raise ValueError('omega0 not in contained_faces')
         
-        """
-        # keep only the polygons that are contained in the region
-        padded_polygonization = pad_polygons_to_matrix(np.take(self.contained_polygons, contained_faces, axis=0))
-        n_polygons = len(padded_polygonization)
-        max_polygon_length = len(padded_polygonization[0]) # all polygons have the same length
-        """
-        padded_polygonization = padded_polygonization_all
+        padded_polygonization = padded_polygonization_all # NOTE: used contained_polygons to create padded_polygonization_all, so they are the same
 
-        # construct and parse polygonizationTopology
+        # construct and parse polygonizationTopology for the boundary edges and internal faces/edges
         n_boundary_edges, n_internal_edges, polygonization_topology, boundary_edges, internal_edges = \
             build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization)
 
@@ -555,12 +559,11 @@ class Triangulation(object):
             outer_ring_vertices = boundary_comp_2
             inner_ring_vertices = boundary_comp_1
         
-        # create inner and outer ring faces
         # finding all faces that contain the inner and outer ring verticies
         inner_ring_faces = [i for i in range(len(padded_polygonization)) if any(np.intersect1d(inner_ring_vertices, padded_polygonization[i]))]
         outer_ring_faces = [i for i in range(len(padded_polygonization)) if any(np.intersect1d(outer_ring_vertices, padded_polygonization[i]))]
 
-        # create contained faces graph (networkx) and shortest path function
+        # create contained faces graph and shortest path function
         contained_faces_graph = nx.Graph()
         contained_faces_graph.add_nodes_from(range(len(contained_faces)))
         for edge in internal_edges:
@@ -582,7 +585,6 @@ class Triangulation(object):
         omega0n = omega0_candidates[0]
 
         # add weights to edges (makeing sure to use inf for edges of slit)
-        # TODO: make sure that indexing of edges and graph are correct
         edges_with_weight_with_inf = []
         for i in range(len(self.voronoi_edges)):
             # only append edges that should have weight of inf
@@ -608,8 +610,7 @@ class Triangulation(object):
     
     def build_edge_to_right_polygons_dict(self):
         """Build a dictionary of the polygons to the right of each edge"""
-        # TODO: why not use voronoi edges in loop/why is the lookup so much larger. Shared edges?
-        padded_polygonization = pad_polygons_to_matrix(self.contained_polygons) #TODO: contained polygons instead of voronoi tessalation?
+        padded_polygonization = pad_polygons_to_matrix(self.contained_polygons) 
         to_right_of_edge_lookup = to_right_of_edge_lookup_polygons_compiled(padded_polygonization)
 
         to_right_of_edge_poly_dict = defaultdict(lambda: -1)
