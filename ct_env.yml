@@ -9,6 +9,8 @@ dependencies:
   - scipy
   - pytest
   - networkx
-  # - fenics-dolfin
-  # - pip:
-  #   - fenics-ffc
+  # - conda-forge::fenics-dolfinx
+  # - conda-forge::mpich
+  # - conda-forge::pyvista
+
+# conda install -c conda-forge fenics-dolfinx mpich
