@@ -18,7 +18,7 @@ from mesh_conversion import dolfinx_read_xdmf
 def boundary_example():
     # REPLACE WITH CORRECT FILES
     mesh, ct, ft = dolfinx_read_xdmf("regions/test/test.1.xdmf", 
-                                     "regions/test2/test.1.facet.xdmf") 
+                                     "regions/test/test.1.facet.xdmf") 
 
     #Q = FunctionSpace(mesh, ("DG", 0))
 
@@ -41,11 +41,11 @@ def boundary_example():
     
     left_facets_2 = ft.find(2) # An inner COMPONENT of BOUNDARY CHOSEN
     left_dofs_2 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_2)
-    bcs_2 = dirichletbc(ScalarType(0), left_dofs_2, V)
+    bcs_2 = dirichletbc(ScalarType(100), left_dofs_2, V)
 
     left_facets_3 = ft.find(3) # An inner COMPONENT of BOUNDARY CHOSEN
     left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)  
-    bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
+    bcs_3 = dirichletbc(ScalarType(100), left_dofs_3, V)
     
 
     bcs = [bcs_1,bcs_2, bcs_3]
