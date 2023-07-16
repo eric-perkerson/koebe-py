@@ -17,38 +17,43 @@ from mesh_conversion import dolfinx_read_xdmf
 
 def boundary_example():
     # REPLACE WITH CORRECT FILES
-    mesh, ct, ft = dolfinx_read_xdmf("meshfile.xdmf", "facetfile.xdmf") 
+    mesh, ct, ft = dolfinx_read_xdmf("regions/test/test.1.xdmf", 
+                                     "regions/test2/test.1.facet.xdmf") 
 
-    Q = FunctionSpace(mesh, ("DG", 0))
+    #Q = FunctionSpace(mesh, ("DG", 0))
 
-    kappa = Function(Q)
-    bottom_cells = ct.find(0)
-    kappa.x.array[bottom_cells] = np.full_like(bottom_cells, 1, dtype=ScalarType)
-    top_cells = ct.find(0)
-    kappa.x.array[top_cells]  = np.full_like(top_cells, 35, dtype=ScalarType)
+    # kappa = Function(Q)
+
+    # bottom_cells = ct.find(0)
+    # kappa.x.array[bottom_cells] = np.full_like(bottom_cells, 1, dtype=ScalarType)
+    # top_cells = ct.find(0)
+    # kappa.x.array[top_cells]  = np.full_like(top_cells, 35, dtype=ScalarType)
+
+
 
     V = FunctionSpace(mesh, ("CG", 1))
     u_bc = Function(V)
 
     left_facets_1 = ft.find(1) # The outer COMPONENT of BOUNDARY CHOSEN
     left_dofs_1 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_1)
-    bcs_1 = [dirichletbc(ScalarType(1), left_dofs_1, V)]
+    bcs_1 = dirichletbc(ScalarType(100), left_dofs_1, V)
     
     
     left_facets_2 = ft.find(2) # An inner COMPONENT of BOUNDARY CHOSEN
     left_dofs_2 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_2)
-    bcs_2 = [dirichletbc(ScalarType(0), left_dofs_2, V)]
+    bcs_2 = dirichletbc(ScalarType(0), left_dofs_2, V)
 
     left_facets_3 = ft.find(3) # An inner COMPONENT of BOUNDARY CHOSEN
     left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)  
-    bcs_3 = [dirichletbc(ScalarType(0), left_dofs_3, V)]
+    bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
     
 
     bcs = [bcs_1,bcs_2, bcs_3]
 
 
     u, v = TrialFunction(V), TestFunction(V)
-    a = inner(kappa*grad(u), grad(v)) * dx
+    #a = inner(kappa*grad(u), grad(v)) * dx if you want with a kappa function
+    a = inner(grad(u), grad(v)) * dx
     x = SpatialCoordinate(mesh)
     L = Constant(mesh, ScalarType(1)) * v * dx
 

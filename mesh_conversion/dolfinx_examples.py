@@ -15,15 +15,15 @@ from mesh_conversion import dolfinx_read_xdmf
 
 
 def boundary_example():
-    mesh, ct, ft = dolfinx_read_xdmf("meshfile.xdmf", "facetfile.xdmf") # REPLACE WITH CORRECT FILES
+    mesh, ct, ft = dolfinx_read_xdmf("regions/test2/test2.1.xdmf", "regions/test2/test2.1.facet.xdmf") # REPLACE WITH CORRECT FILES
 
-    Q = FunctionSpace(mesh, ("DG", 0))
+    #Q = FunctionSpace(mesh, ("DG", 0))
 
-    kappa = Function(Q)
-    bottom_cells = ct.find(0)
-    kappa.x.array[bottom_cells] = np.full_like(bottom_cells, 1, dtype=ScalarType)
-    top_cells = ct.find(0)
-    kappa.x.array[top_cells]  = np.full_like(top_cells, 35, dtype=ScalarType)
+    # kappa = Function(Q)
+    # bottom_cells = ct.find(0)
+    # kappa.x.array[bottom_cells] = np.full_like(bottom_cells, 1, dtype=ScalarType)
+    # top_cells = ct.find(0)
+    # kappa.x.array[top_cells]  = np.full_like(top_cells, 35, dtype=ScalarType)
 
     V = FunctionSpace(mesh, ("CG", 1))
     u_bc = Function(V)
@@ -32,7 +32,7 @@ def boundary_example():
     bcs = [dirichletbc(ScalarType(1), left_dofs, V)]
 
     u, v = TrialFunction(V), TestFunction(V)
-    a = inner(kappa*grad(u), grad(v)) * dx
+    a = inner(grad(u), grad(v)) * dx
     x = SpatialCoordinate(mesh)
     L = Constant(mesh, ScalarType(1)) * v * dx
 
