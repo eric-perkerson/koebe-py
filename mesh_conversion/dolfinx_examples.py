@@ -15,7 +15,7 @@ from mesh_conversion import dolfinx_read_xdmf
 
 
 def boundary_example():
-    mesh, ct, ft = dolfinx_read_xdmf("regions/test2/test2.1.xdmf", "regions/test2/test2.1.facet.xdmf") # REPLACE WITH CORRECT FILES
+    mesh, ct, ft = dolfinx_read_xdmf("regions/test/test.1.xdmf", "regions/test/test.1.facet.xdmf") # REPLACE WITH CORRECT FILES
 
     #Q = FunctionSpace(mesh, ("DG", 0))
 
@@ -27,7 +27,7 @@ def boundary_example():
 
     V = FunctionSpace(mesh, ("CG", 1))
     u_bc = Function(V)
-    left_facets = ft.find(3) # BOUNDARY CHOSEN
+    left_facets = ft.find(1) # BOUNDARY CHOSEN
     left_dofs = locate_dofs_topological(V, mesh.topology.dim-1, left_facets)
     bcs = [dirichletbc(ScalarType(1), left_dofs, V)]
 
@@ -36,7 +36,8 @@ def boundary_example():
     x = SpatialCoordinate(mesh)
     L = Constant(mesh, ScalarType(1)) * v * dx
 
-    problem = LinearProblem(a, L, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+    problem = LinearProblem(a, L, bcs=bcs, 
+                            petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
     uh = problem.solve()
 
     topology, cell_types, x = create_vtk_mesh(mesh, mesh.topology.dim)
