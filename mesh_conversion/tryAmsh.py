@@ -43,7 +43,7 @@ proc = MPI.COMM_WORLD.rank
 
 if proc == 0:
     # Read in mesh
-    msh = meshio.read("regions/test2/two_holes.msh")
+    msh = meshio.read("regions/test2/test2.1.msh")
    
     # Create and save one file for the mesh, and one file for the facets 
     triangle_mesh = create_mesh(msh, "triangle", prune_z=True)
@@ -71,9 +71,9 @@ left_facets_2 = ft.find(2)
 left_dofs_2 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_2)
 bcs_2 = dirichletbc(ScalarType(1), left_dofs_2, V)
 
-#left_facets_3 = ft.find(3)
-#left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)
-#bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
+left_facets_3 = ft.find(3)
+left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)
+bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
 
 
 u, v = TrialFunction(V), TestFunction(V)
@@ -81,7 +81,7 @@ a = inner(grad(u), grad(v)) * dx
 x = SpatialCoordinate(mesh)
 L = Constant(mesh, ScalarType(1)) * v * dx
 
-problem = LinearProblem(a, L, bcs=[bcs_1,bcs_2], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+problem = LinearProblem(a, L, bcs=[bcs_1,bcs_2,bcs_3], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 
 # As the dolfinx.MeshTag contains a value for every cell in the
