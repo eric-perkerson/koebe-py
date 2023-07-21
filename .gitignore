@@ -135,7 +135,7 @@ dmypy.json
 .vscode/
 
 # Regions directory
-regions/
+# regions/
 
 # The acute executable
 acute
