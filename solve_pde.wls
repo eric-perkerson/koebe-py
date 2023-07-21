@@ -75,8 +75,8 @@ readData[fullFileStem_] :=
  Module[{regionCoordinates, regionBdryMarkers, regionEdges,
    pointsToDeviateForOmega0, pointsInHoles, coordinates, bdryMarkers,
    triangles, topology,
-   omega0Seq}, {regionCoordinates, regionBdryMarkers, regionEdges,
-    pointsInHoles} = ReadPolyFile[fullFileStem <> ".poly"];
+   omega0Seq},
+  {regionCoordinates, regionBdryMarkers, regionEdges, pointsInHoles} = ReadPolyFile[fullFileStem <> ".poly"];
   {coordinates, bdryMarkers} = ReadNodeFile[fullFileStem <> ".node"];
   triangles = ReadEleFile[fullFileStem <> ".ele"];
   topology = ReadEleFile[fullFileStem <> ".topo.ele"];
@@ -84,6 +84,59 @@ readData[fullFileStem_] :=
   AppendTo[pointsInHoles, pointsInHoles[[-1]]];
   Return[{regionCoordinates, regionBdryMarkers, regionEdges,
     pointsInHoles, coordinates, bdryMarkers, triangles, topology}]]
+
+
+makeRegionData[regionCoordinates_, regionEdges_, pointsInHoles_,
+  epsilon_] :=
+ Module[{componentEndingVertices, regionBdryComponents,
+   exteriorVertices, interiorVerticesByHole, region, regionSkeleton,
+   nHoles, nClasses, selectedInteriorBdryPoints,
+   selectedExteriorBdryPoint, omega0SeqInterior, omega0SeqExterior,
+   omega0Seq},
+  componentEndingVertices =
+   Flatten@Position[Differences@regionEdges[[;; , 2]], x_ /; x < 0] +
+    1;
+  PrependTo[componentEndingVertices, 0];
+  regionBdryComponents =
+   Table[
+    Range[componentEndingVertices[[i]] + 1,
+     componentEndingVertices[[i + 1]]], {i,
+     Length[componentEndingVertices] - 1}];
+  exteriorVertices = regionBdryComponents[[1]];
+  interiorVerticesByHole = regionBdryComponents[[2 ;;]];
+  region = If[nHoles == 1,
+    BoundaryMeshRegion[regionVertices,
+     Line[Append[exteriorVertices, exteriorVertices[[1]]]],
+     Line[
+      Append[interiorVerticesByHole[[1]],
+       interiorVerticesByHole[[1, 1]]] ]],
+    BoundaryMeshRegion[regionVertices,
+     Line[Append[exteriorVertices, exteriorVertices[[1]]]],
+     Line[
+      Append[interiorVerticesByHole[[1]],
+       interiorVerticesByHole[[1, 1]]] ],
+     Line[
+      Append[interiorVerticesByHole[[2]],
+       interiorVerticesByHole[[2, 1]]] ]]
+    ];
+  regionSkeleton = {MeshCoordinates[region], MeshCells[region, 1]};
+  nHoles = Length[interiorVerticesByHole];
+  nClasses = nHoles + 1;
+  selectedInteriorBdryPoints = interiorVerticesByHole[[;; , 1]];
+  selectedExteriorBdryPoint = exteriorVertices[[1]];
+  omega0SeqInterior =
+   regionCoordinates[[selectedInteriorBdryPoints]] +
+    Map[(epsilon*#/Norm[#]) &,
+     regionCoordinates[[selectedInteriorBdryPoints]] -
+      pointsInHoles[[;; -2]]];
+  omega0SeqExterior =
+   regionCoordinates[[selectedExteriorBdryPoint]] +
+    Map[(epsilon*#/Norm[#]) &, -regionCoordinates[[
+        selectedExteriorBdryPoint]] + pointsInHoles[[-1]]];
+  omega0Seq = Join[omega0SeqInterior, {omega0SeqExterior}];
+  Return[{exteriorVertices, interiorVerticesByHole, region,
+    regionSkeleton, nHoles, nClasses, omega0Seq}]
+  ]
 
 InteriorAndBoundaryEdgesCompiled::usage =
   "InteriorAndBoundaryEdgesCompiled[{{triangleList,_Integer,2},{\
@@ -156,27 +209,25 @@ WritePdeFile[fileName_, pdeValues_] :=
    ];
   Close[stream];
   ]
-(*Begin Main*)
-(* argv=Rest@$ScriptCommandLine;*)
 
-argv = {"africa_round"};
+
+(*Begin Main*)
+(* argv=Rest@$ScriptCommandLine; *)
+
+argv = {"test_example_4"};
 If[Length[argv] == 0, Print["No file stem given, exiting"];
  Exit[]]
 fileStem = argv[[1]];
 fullFileStem =
-  FileNameJoin[{"/Users/eric/Code/combinatorial-topology/regions/",
+  FileNameJoin[{"/Users/eric/Code/planar-domains/regions/",
     fileStem, fileStem}];
 
 {regionVertices, regionBdryMarkers, regionEdges, pointsInHoles,
    coordinates, bdryMarkers, triangles, triangulationTopology} =
   readData[fullFileStem];
-nHoles = Length[pointsInHoles] - 1;
-exteriorVertices = Flatten@Position[regionBdryMarkers, 0];
-interiorVerticesByHole = {};
-For[i = 1, i <= nHoles, i++,
- AppendTo[interiorVerticesByHole,
-  Flatten@Position[regionBdryMarkers, i]]
- ]
+
+{exteriorVertices, interiorVerticesByHole, region, regionSkeleton, nHoles, nClasses, omega0Seq} =
+makeRegionData[regionVertices, regionEdges, pointsInHoles, 50];
 
 T = {coordinates,
    Partition[Flatten[EdgesWrapCompiled /@ triangles], 2], triangles};
@@ -196,7 +247,6 @@ exteriorBoundary =
   Line[regionVertices[[#]] & /@
     Append[exteriorVertices, exteriorVertices[[1]]]];
 
-
 interiorBoundaries =
   Table[Line[
     regionVertices[[#]] & /@
@@ -209,11 +259,16 @@ interiorBoundaries =
   DirichletCondition[u[x, y] == 0,
    Min[RegionDistance[#, {x, y}] & /@ interiorBoundaries] < 1*10^(-5)];
 
+Print["Solving the PDE..."]
+
 f = NDSolveValue[{-Laplacian[u[x, y], {x, y}] ==
      0, \[CapitalGamma]1, \[CapitalGamma]2},
    u, {x, y} \[Element] eMesh];
 fValues = f @@@ T[[1]];
 
 WritePdeFile[
- FileNameJoin[{"/Users/eric/Code/combinatorial-topology/regions/",
+ FileNameJoin[{"/Users/eric/Code/planar-domains/regions/",
    fileStem, fileStem}], fValues]
+
+Print["Wrote the PDE solution to file: " <> FileNameJoin[{"/Users/eric/Code/planar-domains/regions/",
+   fileStem, fileStem}]]
