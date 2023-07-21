@@ -9,7 +9,7 @@ Triangulate the region with acute triangles using the aCute package by Alper Ung
 
 Included is a Julia script for uniformly refining a triangulation and its associated topology (for building the Voronoi dual) in O(n) time.
 
-Solve the Laplacian partial differential equation (PDE) with  Dirichlet boundary condition on the triangulated region.
+Solve the Laplacian partial differential equation (PDE) with Dirichlet boundary condition on the triangulated region.
 
 Partition the region along the singular level curves of the solution to the PDE.
 

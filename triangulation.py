@@ -8,13 +8,12 @@ import networkx as nx
 from collections import defaultdict
 # from matplotlib.collections import PolyCollection
 from pathlib import Path
-
 from region import read_node, read_ele, Region
+import faulthandler
+faulthandler.enable()
 
 COLOR_PARAMETER = 250
 
-import faulthandler
-faulthandler.enable()
 
 @numba.jit
 def triangle_circumcenter(a_x, a_y, b_x, b_y, c_x, c_y):
@@ -70,6 +69,7 @@ def triangle_area(triangle_coordinates):
         * (semi_perimeter - length_3)
     )
 
+
 def pad_polygons_to_matrix(polygons):
     """Pad a list of polygons with zeros to make a matrix of the same size
 
@@ -90,6 +90,7 @@ def pad_polygons_to_matrix(polygons):
         padded_polygons[i, :len(polygon)] = polygon
 
     return padded_polygons
+
 
 @numba.jit
 def find_point_in_polygon_compiled(x, y, padded_polygonization, verticies):
@@ -114,6 +115,7 @@ def find_point_in_polygon_compiled(x, y, padded_polygonization, verticies):
 
     return -1
 
+
 @numba.jit
 def point_inside_convex_padded_polygon_compiled(x, y, padded_polygon, coordinates):
     """Check if a point lies inside a convex polygon using NumPy and Numba.
@@ -134,7 +136,7 @@ def point_inside_convex_padded_polygon_compiled(x, y, padded_polygon, coordinate
             true_polygon_length = i + 1
             break
 
-    #polygon_wrap_padded = np.insert(padded_polygon, 0, padded_polygon[true_polygon_length], axis=0, dtype=np.int32)
+    # polygon_wrap_padded = np.insert(padded_polygon, 0, padded_polygon[true_polygon_length], axis=0, dtype=np.int32)
     # numba cannot handle np.insert, so:
     polygon_wrap_padded = np.zeros(true_polygon_length + 1, dtype=np.int32)
     polygon_wrap_padded[0] = padded_polygon[true_polygon_length - 1]
@@ -152,11 +154,13 @@ def point_inside_convex_padded_polygon_compiled(x, y, padded_polygon, coordinate
             return False
     return True
 
+
 @numba.jit
 def point_to_right_of_line_compiled(tail_x, tail_y, head_x, head_y, point_x, point_y):
     """Check if a point lies to the right of a line oriented from tail to head using."""
     # compute the cross product of the vectors (tail -> head) and (tail -> point)
     return (head_y - tail_y) * (point_x - tail_x) - (head_x - tail_x) * (point_y - tail_y) > 0
+
 
 @numba.jit
 def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
@@ -167,8 +171,8 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
     """
     n_polygons = len(padded_polygonization)
     max_polygon_length = len(padded_polygonization[0])
-    edges_wrapped_ordered = np.zeros((n_polygons, max_polygon_length, 2), dtype=np.int64) # (0, 0) for non-existent edges
-    polygonization_topology = np.full((n_polygons, max_polygon_length), -1, dtype=np.int64) # -1 for non-existent edges
+    edges_wrapped_ordered = np.zeros((n_polygons, max_polygon_length, 2), dtype=np.int64)  # (0, 0) for non-existent edges
+    polygonization_topology = np.full((n_polygons, max_polygon_length), -1, dtype=np.int64)  # -1 for non-existent edges
     boundary_edges = np.zeros((max_polygon_length * n_polygons, max_polygon_length), dtype=np.int64)
     internal_edges = np.zeros((max_polygon_length * n_polygons, max_polygon_length), dtype=np.int64)
     n_boundary_edges = 0
@@ -247,6 +251,7 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
 
     return n_boundary_edges, n_internal_edges, polygonization_topology, boundary_edges, internal_edges
 
+
 @numba.jit
 def boundary_connected_classes_unseeded_compiled(boundary_edges):
     """
@@ -321,6 +326,7 @@ def boundary_connected_classes_unseeded_compiled(boundary_edges):
         components.append(row[1:row[0] + 1])
 
     return components
+
 
 @numba.jit
 def winding_number_compiled(x, y, path, coordinates):
@@ -475,6 +481,7 @@ def to_right_of_edge_lookup_polygons_compiled(padded_polygonization):
 
     table[0][0] = counter - 1
     return table[1:]
+
 
 class Triangulation(object):
     """Triangulation/Voronoi dual object"""
