@@ -9,7 +9,7 @@ from collections import defaultdict
 # from matplotlib.collections import PolyCollection
 from pathlib import Path
 
-from region import read_node, read_ele, Region
+from region import read_node, read_ele, read_pde, Region
 
 COLOR_PARAMETER = 250
 
@@ -88,7 +88,7 @@ def pad_polygons_to_matrix(polygons):
 
     for i, polygon in enumerate(polygons):
         padded_polygons[i, :len(polygon)] = polygon
-    
+
     return padded_polygons
 
 @numba.jit
@@ -111,20 +111,20 @@ def find_point_in_polygon_compiled(x, y, padded_polygonization, verticies):
     for i in range(n_polygons):
         if point_inside_convex_padded_polygon_compiled(x, y, padded_polygonization[i], verticies):
             return i
-    
+
     return -1
 
 @numba.jit
 def point_inside_convex_padded_polygon_compiled(x, y, padded_polygon, coordinates):
     """Check if a point lies inside a convex polygon using NumPy and Numba.
     The polygon must be ordered in a counterclockwise direction.
-    
+
     Args:
     - x: The x coordinate of the point
     - y: The y coordinate of the point
     - padded_polygon: An array containing the indices of the vertices of the polygon
     - coordinates: A 2D NumPy array containing the coordinates of the vertices of the polygon
-    
+
     Returns:
     - A boolean indicating whether the point lies inside the polygon
     """
@@ -161,7 +161,7 @@ def point_to_right_of_line_compiled(tail_x, tail_y, head_x, head_y, point_x, poi
 @numba.jit
 def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
     """returns a polgonization topology giving adjacent polygons across each edge of the given padded polygonization
-    
+
     0 means that edge is a boundary edge
     -1 means that edge does not exist
     """
@@ -169,7 +169,7 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
     max_polygon_length = len(padded_polygonization[0])
     edges_wrapped_ordered = np.zeros((n_polygons, max_polygon_length, 2), dtype=np.int64) # (0, 0) for non-existent edges
     polygonization_topology = np.full((n_polygons, max_polygon_length), -1, dtype=np.int64) # -1 for non-existent edges
-    boundary_edges = np.zeros((max_polygon_length * n_polygons, max_polygon_length), dtype=np.int64) 
+    boundary_edges = np.zeros((max_polygon_length * n_polygons, max_polygon_length), dtype=np.int64)
     internal_edges = np.zeros((max_polygon_length * n_polygons, max_polygon_length), dtype=np.int64)
     n_boundary_edges = 0
     n_internal_edges = 0
@@ -201,7 +201,7 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
                     # CASE : edge exists
                     edges_wrapped_ordered[i, j, 0] = padded_polygonization[i, j]
                     edges_wrapped_ordered[i, j, 1] = padded_polygonization[i, j + 1]
-    
+
     # build polygonization_topology
     for i in range(n_polygons):
         for k in range(max_polygon_length):
@@ -232,19 +232,19 @@ def build_poly_topo_bdryEdges_intEdges_compiled(padded_polygonization):
                         else:
                             internal_edges[n_internal_edges - 1, 0] = j
                             internal_edges[n_internal_edges - 1, 1] = i
-                        
+
                         found_flag = True
 
             if not found_flag:
                 polygonization_topology[i, k] = 0
                 n_boundary_edges += 1
-                boundary_edges[n_boundary_edges - 1, 0] = current_edge[1] # remember edge was reversed 
+                boundary_edges[n_boundary_edges - 1, 0] = current_edge[1] # remember edge was reversed
                 boundary_edges[n_boundary_edges - 1, 1] = current_edge[0] # remember edge was reversed
-    
+
     # take only first two columns of boundary_edges and internal_edges and rows up to n_boundary_edges and n_internal_edges
     boundary_edges = boundary_edges[:n_boundary_edges, :2]
     internal_edges = internal_edges[:n_internal_edges, :2]
-    
+
     return n_boundary_edges, n_internal_edges, polygonization_topology, boundary_edges, internal_edges
 
 @numba.jit
@@ -313,7 +313,7 @@ def boundary_connected_classes_unseeded_compiled(boundary_edges):
                     edges_used[i] = 1
                     position += 1
         class_list[n_classes - 1, 0] = position - 1 # store length of class
-    
+
     # unpack class_list and remove 0s using length of class
     class_list = class_list[:n_classes, :]
     components = []
@@ -341,9 +341,9 @@ def winding_number_compiled(x, y, path, coordinates):
             sign = -1
         else:
             sign = 1
-        
+
         winding_number += sign * angle
-    
+
     return winding_number / (2 * np.pi)
 
 @numba.jit
@@ -386,7 +386,7 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
         else:
             next_vertex = current_vertex + 1
 
-    
+
     # add the first vertex to the path
     vertex_path[0] = current_polygon[current_vertex]
     vertex_path[1] = current_polygon[next_vertex]
@@ -404,7 +404,7 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
                 next_vertex = 0
             else:
                 next_vertex = current_vertex + 1
-    
+
         # Now that alignment is done, traverse polygon while adding verticies to vertexPath until nextPolygon is reached
         while np.count_nonzero(next_polygon == current_polygon[current_vertex]) == 0:
             current_vertex = next_vertex
@@ -414,7 +414,7 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
                 next_vertex = current_vertex + 1
             n_vertex_path += 1
             vertex_path[n_vertex_path - 1] = current_polygon[current_vertex]
-        
+
     # for the last polygon in the path
     current_polygon_index = n_path_polygons - 1
     current_polygon = padded_polygonization[faces_path[current_polygon_index]]
@@ -426,7 +426,7 @@ def polygon_path_to_vertex_path_compiled(faces_path, padded_polygonization, inne
             next_vertex = 0
         else:
             next_vertex = current_vertex + 1
-    
+
     # Now that alignment is done, traverse polygon while adding verticies to vertexPath until outerRingverticies is reached
     while np.count_nonzero(outer_ring_verticies == current_polygon[current_vertex]) == 0:
         current_vertex = next_vertex
@@ -450,7 +450,7 @@ def to_right_of_edge_lookup_polygons_compiled(padded_polygonization):
 
     Contains rows with the following information:
     [edge[0], edge[1], polygon_index]
-    
+
     """
     n_polygons = len(padded_polygonization)
     max_polygon_length = len(padded_polygonization[0])
@@ -478,12 +478,13 @@ def to_right_of_edge_lookup_polygons_compiled(padded_polygonization):
 
 class Triangulation(object):
     """Triangulation/Voronoi dual object"""
-    def __init__(self, region, vertices, boundary_markers, triangles, topology):
+    def __init__(self, region, vertices, boundary_markers, triangles, topology, pde_values):
         self.region = region
         self.vertices = vertices
         self.triangles = triangles
         self.boundary_markers = boundary_markers
         self.topology = topology
+        self.pde_values = pde_values
 
         self.triangulation_edges = self.make_triangulation_edges()
         self.triangulation_edges_unique = self.make_unique_triangulation_edges()
@@ -504,14 +505,14 @@ class Triangulation(object):
             self.to_right_of_edge_poly_dict = self.build_edge_to_right_polygons_dict()
 
     def build_slitted_weighted_voronoi_graph(
-            self, 
+            self,
             # lambda[0] = verticies of v which is the triangles of the triangulization (x,y) needs to be comp, lambda[1] = list of polygon edges (not important), lambda[2] = list of polygons
             #voronoi_verticies, # lambda[0] (circumcenters)
             #contained_verticies, # indecies of the contained verticies. (flattened list of contained_polygons)
-            #contained_faces, # indecies of the contained polygons.  
+            #contained_faces, # indecies of the contained polygons.
             omega0, # point we are trying to find shortest path from
-            point_in_hole,  
-            #to_right_of_edge_poly_dict # dictionary. we have v cells, can take point and manuver around it. for each of those edges, if we 
+            point_in_hole,
+            #to_right_of_edge_poly_dict # dictionary. we have v cells, can take point and manuver around it. for each of those edges, if we
             ):
         """Build the slitted weighted voronoi graph"""
 
@@ -529,7 +530,7 @@ class Triangulation(object):
         omega0_face = find_point_in_polygon_compiled(omega0[0], omega0[1], padded_polygonization_all, self.circumcenters)
         if omega0_face not in contained_faces:
             raise ValueError('omega0 not in contained_faces')
-        
+
         """
         # keep only the polygons that are contained in the region
         padded_polygonization = pad_polygons_to_matrix(np.take(self.contained_polygons, contained_faces, axis=0))
@@ -554,7 +555,7 @@ class Triangulation(object):
         if winding_1 <= 0:
             outer_ring_vertices = boundary_comp_2
             inner_ring_vertices = boundary_comp_1
-        
+
         # create inner and outer ring faces
         # finding all faces that contain the inner and outer ring verticies
         inner_ring_faces = [i for i in range(len(padded_polygonization)) if any(np.intersect1d(inner_ring_vertices, padded_polygonization[i]))]
@@ -592,7 +593,7 @@ class Triangulation(object):
                 self.voronoi_edges[i][1] in slit_vertices or
                 (self.to_right_of_edge_poly_dict[tuple(self.voronoi_edges[i])] not in contained_faces and
                  self.to_right_of_edge_poly_dict[tuple(self.voronoi_edges[i][::-1])] not in contained_faces)):
-                
+
                 edges_with_weight_with_inf.append(i) # add 1 to account for 1 indexing
 
         print('edges_with_weight_with_inf', edges_with_weight_with_inf)
@@ -605,7 +606,7 @@ class Triangulation(object):
         nx.set_node_attributes(Lambda_Graph, {i: str(i) for i in range(len(self.circumcenters))}, 'name')
 
         return Lambda_Graph, omega0n, slit_vertices
-    
+
     def build_edge_to_right_polygons_dict(self):
         """Build a dictionary of the polygons to the right of each edge"""
         # TODO: why not use voronoi edges in loop/why is the lookup so much larger. Shared edges?
@@ -617,7 +618,6 @@ class Triangulation(object):
             to_right_of_edge_poly_dict[tuple(to_right_of_edge_lookup[i, 0:2])] = to_right_of_edge_lookup[i, 2]
 
         return to_right_of_edge_poly_dict
-
 
     def make_barycenters(self):
         """Build the array of barycenters from a triangulation"""
@@ -795,7 +795,12 @@ class Triangulation(object):
             topology = read_ele(path.with_suffix('.topo.ele'))
         else:
             topology = None
-        return Triangulation(region, vertices, boundary_markers, triangles, topology)
+
+        if path.with_suffix('.pde').is_file():
+            pde_values = read_pde(path.with_suffix('.pde'))
+        else:
+            pde_values = None
+        return Triangulation(region, vertices, boundary_markers, triangles, topology, pde_values)
 
     def show(self, file_name, show_vertex_indices=False, show_triangle_indices=False):
         """Show an image of the triangulation"""
@@ -876,7 +881,7 @@ class Triangulation(object):
                 plt.text(barycenters[i, 0], barycenters[i, 1], str(i), fontsize=6, weight='bold')
         if show_vertex_indices:
             for i in range(len(self.circumcenters)):
-                plt.text(self.circumcenters[i, 0], self.circumcenters[i, 1], str(i), fontsize=6, weight='bold') 
+                plt.text(self.circumcenters[i, 0], self.circumcenters[i, 1], str(i), fontsize=6, weight='bold')
 
         axes.autoscale()
         axes.margins(0.1)
