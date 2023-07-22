@@ -37,12 +37,12 @@ def boundary_example():
 
     left_facets_1 = ft.find(1) # The outer COMPONENT of BOUNDARY CHOSEN
     left_dofs_1 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_1)
-    bcs_1 = dirichletbc(ScalarType(1), left_dofs_1, V)
+    bcs_1 = dirichletbc(ScalarType(0), left_dofs_1, V)
     
 
     left_facets_2 = ft.find(2) # An inner COMPONENT of BOUNDARY CHOSEN
     left_dofs_2 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_2)
-    bcs_2 = dirichletbc(ScalarType(0), left_dofs_2, V)
+    bcs_2 = dirichletbc(ScalarType(1), left_dofs_2, V)
 
     left_facets_3 = ft.find(3) # An inner COMPONENT of BOUNDARY CHOSEN
     left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)  

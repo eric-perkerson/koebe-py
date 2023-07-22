@@ -27,7 +27,7 @@ def boundary_example():
 
     V = FunctionSpace(mesh, ("CG", 1))
     u_bc = Function(V)
-    left_facets = ft.find(1) # BOUNDARY CHOSEN
+    left_facets = ft.find(2) # BOUNDARY CHOSEN
     left_dofs = locate_dofs_topological(V, mesh.topology.dim-1, left_facets)
     bcs = [dirichletbc(ScalarType(1), left_dofs, V)]
 
