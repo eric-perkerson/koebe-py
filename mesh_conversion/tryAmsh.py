@@ -58,13 +58,14 @@ with XDMFFile(MPI.COMM_WORLD, "mt.xdmf", "r") as xdmf:
 
 
 V = FunctionSpace(mesh, ("CG", 1))
+u_bc = Function(V)
+
 
 #
 # print(V.tabulate_dof_coordinates())
 #
 
-u_bc = Function(V)
-
+### Define the boundaries and boundary conditions.
 left_facets_1 = ft.find(1)
 left_dofs_1 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_1)
 bcs_1 = dirichletbc(ScalarType(10), left_dofs_1, V)
@@ -77,6 +78,8 @@ left_facets_3 = ft.find(3)
 left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)
 bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
 
+### Set the trial functions, the bi-linear and linear forms, problem to solve
+### and the solution.
 
 u, v = TrialFunction(V), TestFunction(V)
 a = inner(grad(u), grad(v)) * dx
