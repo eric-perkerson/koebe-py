@@ -97,7 +97,7 @@ uh = problem.solve()
 
 # If you want to open with Paraview
  
-# with XDMFFile(mesh.comm, "result_tryamsh.xdmf","w") as xdmf:
+# with XDMFFile(mesh.comm, "result_tryAmsh.xdmf","w") as xdmf:
 #        xdmf.write_mesh(mesh)
 #        xdmf.write_function(uh)
 
