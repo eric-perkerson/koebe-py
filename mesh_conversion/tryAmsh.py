@@ -102,7 +102,6 @@ uh = problem.solve()
 #        xdmf.write_function(uh)
 
  
-
 # As the dolfinx.MeshTag contains a value for every cell in the
 # geometry, we can attach it directly to the grid
 
