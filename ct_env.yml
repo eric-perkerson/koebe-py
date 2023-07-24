@@ -1,4 +1,7 @@
 name: ct
+channels:
+  - conda-forge
+  - defaults
 dependencies:
   - python=3.9.*
   - numba
@@ -9,8 +12,8 @@ dependencies:
   - scipy
   - pytest
   - networkx
-  # - conda-forge::fenics-dolfinx
-  # - conda-forge::mpich
-  # - conda-forge::pyvista
-
-# conda install -c conda-forge fenics-dolfinx mpich
+  - fenics-dolfinx
+  - mpich
+  - pyvista
+  - meshio
+  # - gmsh
