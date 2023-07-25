@@ -312,3 +312,35 @@ def read_poly(file_name):
 
         edges = edges - 1  # Correct for 1-based indexing
         return vertices, vertex_boundary_markers, edges, edge_boundary_markers, points_in_holes
+
+
+def read_pde(file_name):
+    """Reads a .pde file and returns the values on vertices of the PDE solution
+
+    Parameters
+    ----------
+    file_name : str
+        The file name to read
+
+    Returns
+    -------
+    pde_values : np.array
+        1D array of values giving the PDE values on each vertex
+    """
+    with open(file_name, 'r', encoding='utf-8') as file:
+        for line_index, line in enumerate(file):
+            if line.strip()[0] == '#':  # Skip comment lines
+                continue
+            if line_index == 0:  # First real line in file contains header information
+                (
+                    num_vertices,
+                ) = list(map(int, line.split()))
+                pde_values = np.zeros(num_vertices)
+            else:  # Following lines contain one vertex/node each
+                (
+                    one_based_index,
+                    pde_value
+                ) = list(map(float, line.split()))
+                zero_based_index = int(one_based_index) - 1
+                pde_values[zero_based_index] = pde_value
+    return pde_values
