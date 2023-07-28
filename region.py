@@ -167,6 +167,28 @@ class Region:
         axes.margins(0.1)
         fig.savefig(file_name)
 
+    def figure(self, show_vertex_indices=False):
+        """Show an image of the region"""
+        fig, axes = plt.subplots()
+        axes.scatter(self.coordinates[:, 0], self.coordinates[:, 1])
+        lines = [
+            [
+                tuple(self.coordinates[edge[0]]),
+                tuple(self.coordinates[edge[1]])
+            ] for edge in self.edges
+        ]
+        line_collection = mc.LineCollection(lines, linewidths=2)
+
+        axes.add_collection(line_collection)
+
+        if show_vertex_indices:
+            for i in range(self.num_vertices):
+                plt.text(self.coordinates[i, 0], self.coordinates[i, 1], str(i))
+        axes.autoscale()
+        axes.margins(0.1)
+        return fig
+        # fig.savefig(file_name)
+
 
 def read_node(file_name):
     """Reads a .node file and returns the vertices and boundary markers

@@ -90,7 +90,7 @@ class Triangulation(object):
             self.voronoi_tesselation = self.make_voronoi_tesselation()  # lambda[2]
             self.contained_polygons = self.make_contained_polygons()  # lambda[2]
             self.voronoi_edges = self.make_voronoi_edges()  # lambda[1]
- #           self.to_right_of_edge_poly_dict = self.build_edge_to_right_polygons_dict() 
+            # self.to_right_of_edge_poly_dict = self.build_edge_to_right_polygons_dict()
 
     def make_barycenters(self):
         """Build the array of barycenters from a triangulation"""
