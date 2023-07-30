@@ -187,10 +187,9 @@ class Triangulation(object):
                     vertex_index_to_triangle[vertex] = triangle_index
         return vertex_index_to_triangle
 
-    def build_vertex_topology(self):
+    def _build_vertex_topology_unordered(self):
         """Build a data structure where the ith row is all vertices connected by an edge to
         vertex i"""
-        # TODO: TEST THIS
         num_edges = len(self.triangulation_edges)
         num_neighbors_table = np.zeros(self.num_vertices, dtype=np.int64)
         valence_upper_bound = 50
@@ -204,6 +203,51 @@ class Triangulation(object):
             vertex_topology[v2, num_neighbors_table[v2] - 1] = v1
         max_valence = np.max(num_neighbors_table)
         return vertex_topology[:, :max_valence]
+
+    def build_vertex_topology(self):
+        vertex_topology_unordered = self._build_vertex_topology_unordered()
+        vertex_topology = []
+        for vertex_index in range(self.num_vertices):
+            neighbors_ordered = self.vertex_neighbors_ordered(vertex_index, vertex_topology_unordered)
+            vertex_topology.append(neighbors_ordered)
+        return vertex_topology
+
+    def vertex_neighbors_ordered(self, vertex, vertex_topology_unordered):
+        """Take an interior vertex and return all vertices in the triangulation that are neighbors of
+        the given vertex in either counterclockwise or clockwise order. Will fail SILENTLY on boundary
+        vertices."""
+        max_valence = len(vertex_topology_unordered[0])
+
+        # If vertex is a boundary vertex, return vector of -1s
+        if self.vertex_boundary_markers[vertex] != 0:
+            return np.full(max_valence, -1)
+
+        neighbors_extended = vertex_topology_unordered[vertex]
+        num_neighbors = max_valence
+        for j in range(max_valence):
+            if neighbors_extended[j] == -1:
+                num_neighbors = j
+                break
+        neighbors = neighbors_extended[:num_neighbors]
+        result = np.zeros(num_neighbors, dtype=np.int64)
+        result[0] = neighbors[0]
+        # There will always be two intersections between two rings of neighbors.
+        # In the first iteration, pick one arbitrarily,
+        # since we don't care if counterclockwise or clockwise.
+        for j in range(max_valence):
+            if vertex_topology_unordered[result[0], j] in neighbors:
+                result[1] = vertex_topology_unordered[result[0], j]
+                break
+        # Now continue chaining together elements of neighbors connected to the previously added
+        # element of result
+        for i in range(1, num_neighbors - 1):
+            for j in range(max_valence):
+                if (vertex_topology_unordered[result[i], j] in neighbors) and (vertex_topology_unordered[result[i], j] != result[i - 1]):
+                    result[i + 1] = vertex_topology_unordered[result[i], j]
+                    break
+            if result[i] == result[0]:
+                return result[:-1]
+        return result
 
     def make_voronoi_tesselation(self):
         """Build the Voronoi tesselation from a triangulation"""

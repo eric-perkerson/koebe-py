@@ -11,9 +11,9 @@ dependencies:
   - pylint
   - scipy
   - pytest
-  - networkx
-  - fenics-dolfinx
-  - mpich
-  - pyvista
-  - meshio
+  # - networkx
+  # - fenics-dolfinx
+  # - mpich
+  # - pyvista
+  # - meshio
   # - gmsh
