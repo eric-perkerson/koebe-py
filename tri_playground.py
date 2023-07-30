@@ -5,7 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-file_stem = 'test_example_4'
+file_stem = 'test_example_0'
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
 tri.show('test.png', show_vertex_indices=False)
