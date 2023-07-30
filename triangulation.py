@@ -117,26 +117,34 @@ class Triangulation(object):
         edges_list = []
         edge_boundary_marker_list = []
         num_triangles = self.triangles.shape[0]
-        for triangle in range(num_triangles):
+        for triangle_index in range(num_triangles):
+            triangle = self.triangles[triangle_index]
+
             edges_list.append(np.sort(np.array(
-                [self.triangles[triangle, 0], self.triangles[triangle, 1]]
+                [triangle[0], triangle[1]]
             )))
             edges_list.append(np.sort(np.array(
-                [self.triangles[triangle, 1], self.triangles[triangle, 2]]
+                [triangle[1], triangle[2]]
             )))
             edges_list.append(np.sort(np.array(
-                [self.triangles[triangle, 2], self.triangles[triangle, 0]]
+                [triangle[2], triangle[0]]
             )))
 
-            edge_boundary_marker_list.append(
-                0 if self.vertex_boundary_markers[self.triangles[triangle, 0]] != self.vertex_boundary_markers[self.triangles[triangle, 1]] else self.vertex_boundary_markers[self.triangles[triangle, 0]]
-            )
-            edge_boundary_marker_list.append(
-                0 if self.vertex_boundary_markers[self.triangles[triangle, 1]] != self.vertex_boundary_markers[self.triangles[triangle, 2]] else self.vertex_boundary_markers[self.triangles[triangle, 1]]
-            )
-            edge_boundary_marker_list.append(
-                0 if self.vertex_boundary_markers[self.triangles[triangle, 2]] != self.vertex_boundary_markers[self.triangles[triangle, 0]] else self.vertex_boundary_markers[self.triangles[triangle, 2]]
-            )
+            if self.vertex_boundary_markers[triangle[0]] != self.vertex_boundary_markers[triangle[1]]:
+                edge_boundary_marker_list.append(0)
+            else:
+                edge_boundary_marker_list.append(self.vertex_boundary_markers[triangle[0]])
+
+            if self.vertex_boundary_markers[triangle[1]] != self.vertex_boundary_markers[triangle[2]]:
+                edge_boundary_marker_list.append(0)
+            else:
+                edge_boundary_marker_list.append(self.vertex_boundary_markers[triangle[1]])
+
+            if self.vertex_boundary_markers[triangle[2]] != self.vertex_boundary_markers[triangle[0]]:
+                edge_boundary_marker_list.append(0)
+            else:
+                edge_boundary_marker_list.append(self.vertex_boundary_markers[triangle[2]])
+
         return np.vstack(edges_list), np.array(edge_boundary_marker_list)
 
     def make_unique_triangulation_edges(self):
