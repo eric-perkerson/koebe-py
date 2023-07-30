@@ -72,11 +72,11 @@ class Triangulation(object):
         self.topology = topology
         self.pde_values = pde_values
 
-        self._triangulation_edges, self._edge_boundary_markers = self.make_triangulation_edges()
-        self.triangulation_edges_unique, self.edge_boundary_markers_unique = self.make_unique_triangulation_edges()
+        self._triangulation_edges_all, self._edge_boundary_markers = self.make_triangulation_edges()
+        self.triangulation_edges, self.edge_boundary_markers_unique = self.make_unique_triangulation_edges()
 
         self.num_vertices = len(vertices)
-        self.num_edges = len(self.triangulation_edges_unique)
+        self.num_edges = len(self.triangulation_edges)
         self.num_triangles = len(triangles)
 
         self.triangle_coordinates = self.make_triangle_coordinates()
@@ -149,7 +149,7 @@ class Triangulation(object):
 
     def make_unique_triangulation_edges(self):
         """Get the unique edges by first sorting"""
-        edges_sorted = np.copy(self._triangulation_edges)
+        edges_sorted = np.copy(self._triangulation_edges_all)
         edge_boundary_markers_sorted = np.copy(self._edge_boundary_markers)
 
         num_edges = len(edges_sorted)
@@ -191,13 +191,13 @@ class Triangulation(object):
         """Build a data structure where the ith row is all vertices connected by an edge to
         vertex i"""
         # TODO: TEST THIS
-        num_edges = len(self.triangulation_edges_unique)
+        num_edges = len(self.triangulation_edges)
         num_neighbors_table = np.zeros(self.num_vertices, dtype=np.int64)
         valence_upper_bound = 50
         vertex_topology = np.full((self.num_vertices, valence_upper_bound), -1, dtype=np.int64)
         for i in range(num_edges):
-            v1 = self.triangulation_edges_unique[i, 0]
-            v2 = self.triangulation_edges_unique[i, 1]
+            v1 = self.triangulation_edges[i, 0]
+            v2 = self.triangulation_edges[i, 1]
             num_neighbors_table[v1] += 1
             num_neighbors_table[v2] += 1
             vertex_topology[v1, num_neighbors_table[v1] - 1] = v2
@@ -285,10 +285,10 @@ class Triangulation(object):
             stream.write(
                 f'{self.num_edges} {num_boundary_markers}\n'
             )
-            for i in range(len(self.triangulation_edges_unique)):
+            for i in range(len(self.triangulation_edges)):
                 stream.write(
-                    f'{i + 1} {self.triangulation_edges_unique[i, 0] + 1} '
-                    + f'{self.triangulation_edges_unique[i, 1] + 1} {self.edge_boundary_markers_unique[i]}\n'
+                    f'{i + 1} {self.triangulation_edges[i, 0] + 1} '
+                    + f'{self.triangulation_edges[i, 1] + 1} {self.edge_boundary_markers_unique[i]}\n'
                 )
 
             stream.write(
@@ -313,7 +313,7 @@ class Triangulation(object):
             [
                 tuple(self.vertices[edge[0]]),
                 tuple(self.vertices[edge[1]])
-            ] for edge in self._triangulation_edges
+            ] for edge in self._triangulation_edges_all
         ]
         line_collection = mc.LineCollection(lines, linewidths=2)
         # color_array = np.ones(self.num_triangles) * color  # np.random.random(self.num_triangles) * 500
