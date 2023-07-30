@@ -5,12 +5,19 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-path = Path('regions/test_example_0/test_example_0')
+file_stem = 'test_example_4'
+path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
-tri.show('test.png', show_vertex_indices=True)
+tri.show('test.png', show_vertex_indices=False)
+
+for neighbors in tri.vertex_topology:
+    print(neighbors)
 
 for i, neighbors in enumerate(tri.vertex_topology):
     print(i, neighbors)
+
+for i, value in enumerate(tri.pde_values):
+    print(i, value)
 
 # Plot the PDE solution on the vertices (from Mathematica)
 pde_min = np.min(tri.pde_values)
