@@ -1,5 +1,3 @@
-#
-
 from triangulation import Triangulation
 from pathlib import Path
 import matplotlib.pyplot as plt
