@@ -13,3 +13,10 @@ for i in range(5):
         f'regions/test_example_{i}.ele',
     ])
     break
+
+
+#python mesh_conversion/mesh_conversion.py -p regions/test_example_0/test_example_0.output.poly -n regions/test_example_0/test_example_0.node -e regions/test_example_0/test_example_0.ele
+
+#regions/test_example_0/test_example_0.output.poly
+
+#1.12.2
