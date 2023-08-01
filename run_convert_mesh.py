@@ -6,11 +6,11 @@ for i in range(5):
         'python',
         'mesh_conversion/mesh_conversion.py',
         '-p',
-        f'regions/test_example_{i}.output.poly',
+        f'regions/test_example_{i}/test_example_{i}.output.poly',
         '-n',
-        f'regions/test_example_{i}.node',
+        f'regions/test_example_{i}/test_example_{i}.node',
         '-e',
-        f'regions/test_example_{i}.ele',
+        f'regions/test_example_{i}/test_example_{i}.ele',
     ])
     break
 
