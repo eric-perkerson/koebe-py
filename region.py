@@ -182,7 +182,7 @@ class Region:
         axes.add_collection(line_collection)
 
         if show_vertex_indices:
-            for i in range(self.num_vertices):
+            for i in range(len(self.coordinates)):
                 plt.text(self.coordinates[i, 0], self.coordinates[i, 1], str(i))
         axes.autoscale()
         axes.margins(0.1)
