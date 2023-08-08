@@ -2,9 +2,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 
-
-#define BUFFSIZE 4096
+#define BUFFSIZE 99999
 
 
 
@@ -19,7 +19,7 @@ int parse (char *raw, int rawSize, long double *array, int arraySize, int fd) {
   int len = 0;
   int desiredNumFlag = 0;
   int bytesReadSinceNewline = 0;
-  char *num = calloc(rawSize, sizeof(char));
+  char num[rawSize];
   for (int i = 0; i < rawSize; i++) {
     //printf("Current character is %c\n", raw[i]);
     if (raw[i] == '\n') {
@@ -43,6 +43,46 @@ int parse (char *raw, int rawSize, long double *array, int arraySize, int fd) {
   lseek(fd, bytesReadSinceNewline * -1, SEEK_CUR);
   return size;
 } // parse
+
+int parseTri (char *raw, int rawSize, int **array, int arraySize, int fd, char *length) {
+  int size = arraySize;
+  int bytesReadSinceNewline = 0;
+  int bytesRead = 0;
+  int count = 0;
+  int len = 0;
+  char str[strlen(length)];
+  array[size] = calloc(8, sizeof(int));
+  for (int i = 0; i < rawSize; i++) {
+    //printf("Char is %c\n", raw[i]);
+    if (raw[i] == '\n') {
+      str[len] = '\0';
+      array[size][count] = atoi(str);
+      array[size][0] = count - 1;
+      len = 0;
+      count = 1;
+      /*
+      for (int i = 0; i < 8; i++) {
+	printf(" %d", array[size][i]);
+      } // for
+      printf("\n");
+      */
+      size++;
+      array[size] = calloc(8, sizeof(int));
+      
+    } else if (raw[i] == ' ') {
+      str[len] = '\0';
+      array[size][count] = atoi(str);
+      len = 0;
+      count++;
+    } else {
+      str[len] = raw[i];
+      len++;
+    } // if
+  } // for
+  
+  
+  return size;
+} // parseTri
 
 int main (int argc, char *argv[]) {
   char *filePathPde;
@@ -94,22 +134,49 @@ int main (int argc, char *argv[]) {
   char length[header];
   copy(buf, length, header);
   printf("The length is %s\n", length);
-  long double array[atoi(length)];
+  int vertexLen = atoi(length);
+  long double pdeValues[vertexLen];
   int arraySize = 0;
 
   do {
     n = read(pdeFd, buf, BUFFSIZE);
-    arraySize = parse(buf, n, array, arraySize, pdeFd);
+    arraySize = parse(buf, n, pdeValues, arraySize, pdeFd);
   } while (n == BUFFSIZE);
 
+  if (vertexLen != arraySize) {
+    printf("VertexLen is %d, while arraySize is %d\n", vertexLen, arraySize);
+  } // if
+  /*
   for (int i = 0; i < arraySize; i++) {
-    printf("%.16Lf\n", array[i]);
+    printf("%.16Lf\n", pdeValues[i]);
   } // for
+  */
   close(pdeFd);
   if ((triFd = open(filePathTri, O_RDONLY)) == -1) {
     perror("open");
     return EXIT_FAILURE;
   } // if
+
+  for (header = 0; buf[0] != '\n'; header++) {
+    if (read(triFd, buf, 1) == -1) {
+      perror("read");
+      return EXIT_FAILURE;
+    } // if
+  } // for
+  //lseek(triFd, 0, SEEK_SET);
+  int **neighbor = calloc(vertexLen, sizeof(int*));
+  arraySize = 0;
+  do {
+    n = read(triFd, buf, BUFFSIZE);
+    arraySize = parseTri(buf, n, neighbor, arraySize, triFd, length);
+  } while (n == BUFFSIZE);
+
+  /*
+  for (int i = 0; i < neighbor[0][0]; i++) {
+    printf("%d ", neighbor[0][i + 1]);
+  } // for
+  printf("\n");
+  */
 
   
 
