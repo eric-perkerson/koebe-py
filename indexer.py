@@ -8,12 +8,13 @@ Created on Mon Aug  7 13:05:49 2023
 
 from triangulation import Triangulation
 from pathlib import Path
+import sys
 
-file_stem = 'test_example_0'
-path = Path(f'regions/{file_stem}/{file_stem}')
+file_stem = sys.argv[1]
+path = Path(f'../regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
 
-name = Path(f'index/{file_stem}.jos')
+name = Path(f'{file_stem}.jos')
 fd = open(name, "w")
 
 
