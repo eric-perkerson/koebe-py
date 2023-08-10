@@ -42,14 +42,14 @@ domain = Region.region_from_components(
             (-0.6500000000000004, -1.12583302491977)
         ]
     ]
-)
+) 
 with open("regions/3_fold_sym/3_fold_sym.poly", 'w') as file:
     domain.write(file)
 
 file_stem = '3_fold_sym'
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
-
+tri.write("3_fold_sym.output.poly")
 
 subprocess.run([
     'python',
