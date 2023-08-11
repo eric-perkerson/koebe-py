@@ -1,11 +1,6 @@
-#import numpy as np
-#import faulthandler; faulthandler.enable()
-#from mesh_conversion import dolfinx_read_xdmf
-
-#import faulthandler; faulthandler.enable()
-
-#from mesh_conversion import dolfinx_read_xdmf
-#gmsh.initialize()
+"""
+A first example to create one singular vertex of max index
+"""
 
 import pyvista
 
@@ -26,7 +21,7 @@ from mpi4py import MPI # new
 
 import meshio
 
-
+# Definition to create mesh using meshio
 
 def create_mesh(mesh, cell_type, prune_z=False):
     cells = mesh.get_cells_type(cell_type)
@@ -36,12 +31,15 @@ def create_mesh(mesh, cell_type, prune_z=False):
                            cell_data={"name_to_read":[cell_data]})
     return out_mesh
 
-
+# Determine the number of parallel processes
 proc = MPI.COMM_WORLD.rank 
+
+# read the msh file from path and use create mesh and write to xdmf files:
+# mesh.xdmf and mt.xdmf
 
 if proc == 0:
     # Read in mesh
-    msh = meshio.read("regions/test3/test3.output.msh")
+    msh = meshio.read("regions/3_fold_sym/3_fold_sym.output.msh")
     
     
     # Create and save one file for the mesh, and one file for the facets 
@@ -51,6 +49,7 @@ if proc == 0:
     meshio.write("mesh.xdmf", triangle_mesh)
     meshio.write("mt.xdmf", line_mesh)
 
+# This creates the meshtags and topology of the mesh from the xdmf files above
 
 with XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as xdmf:
     mesh = xdmf.read_mesh(name="Grid")
@@ -59,21 +58,17 @@ mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim-1)
 with XDMFFile(MPI.COMM_WORLD, "mt.xdmf", "r") as xdmf:
     ft = xdmf.read_meshtags(mesh, name="Grid")
 
-
-### Defining the finite element function space
-
 V = FunctionSpace(mesh, ("CG", 1))
-#u_bc = Function(V)
-
 
 #
 # print(V.tabulate_dof_coordinates())
 #
 
 ### Define the boundaries and boundary conditions.
+
 left_facets_1 = ft.find(1)
 left_dofs_1 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_1)
-bcs_1 = dirichletbc(ScalarType(100), left_dofs_1, V)
+bcs_1 = dirichletbc(ScalarType(2), left_dofs_1, V)
 
 left_facets_2 = ft.find(2)
 left_dofs_2 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_2)
@@ -83,6 +78,9 @@ left_facets_3 = ft.find(3)
 left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)
 bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
 
+left_facets_4 = ft.find(4)
+left_dofs_4 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_4)
+bcs_4 = dirichletbc(ScalarType(0), left_dofs_4, V)
 
 
 ### Set the trial functions, the bi-linear and linear forms, problem to solve
@@ -93,16 +91,17 @@ a = inner(grad(u), grad(v)) * dx
 x = SpatialCoordinate(mesh)
 L = Constant(mesh, ScalarType(0)) * v * dx
 
-problem = LinearProblem(a, L, bcs=[bcs_1,bcs_2,bcs_3], 
+problem = LinearProblem(a, L, bcs=[bcs_1,bcs_2,bcs_3,bcs_4], 
                         petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
+
 
 
 ### Reading and Printing the solution to a file
 
 # Write the solution, uh, to a file, entry per line
 
-with open('regions/test3/solution.txt','w') as output_file:
+with open('regions/3_fold_sym/solution_fenicsx.txt','w') as output_file:
      for entry in uh.x.array:
 #         output_file.write(str(entry) + '\n')
           output_file.write(f"{entry}\n")
@@ -111,10 +110,7 @@ with open('regions/test3/solution.txt','w') as output_file:
 # open file in read mode and copy solution values at node to 
 # values[], a list
 
-
-# TODO: add a try here and a message!
-file_of_solution = open('regions/test3/solution.txt','r')
-#display content
+file_of_solution = open('regions/3_fold_sym/solution_fenicsx.txt','r')
 values=[]
 for line in file_of_solution.readlines():
     #print(line, end='')
@@ -123,38 +119,22 @@ file_of_solution.close()
 
 print(values[200:205])
 
+# Some estimates on the size of you domain
 
 # print(min(mesh.geometry.x[:,0]), max(mesh.geometry.x[:,0]))
 
 # print(min(mesh.geometry.x[:,1]),max(mesh.geometry.x[:,1]))
 
-
-# If you want to open with Paraview
- 
-# with XDMFFile(mesh.comm, "result_tryAmsh.xdmf","w") as xdmf:
-#        xdmf.write_mesh(mesh)
-#        xdmf.write_function(uh)
-
- 
-# As the dolfinx.MeshTag contains a value for every cell in the
-# geometry, we can attach it directly to the grid
-
-### We will visualizing the mesh using pyvista, 
-# an interface to the VTK toolkit. We start by 
-# converting the mesh to a format that can be used with pyvista. 
-# To do this we use the function dolfinx.plot.create_vtk_mesh. 
-# The first step is to create an unstructured grid that can be used by pyvista.
-###
-
+## We can now use the pyvista.Plotter to visualize the mesh. We visualize it 
+## by showing it in 2D and warped in 3D.
+## need to use the magic %matplotlib if using Jupyter and/or Ipython!
 
 
 topology, cell_types, x = create_vtk_mesh(mesh, mesh.topology.dim)
 grid = pyvista.UnstructuredGrid(topology, cell_types, x)
 
-## We can now use the pyvista.Plotter to visualize the mesh. We visualize it 
-## by showing it in 2D and warped in 3D.
-## need to use the magic %matplotlib if using Jupyter and/or Ipython!
 
+## need to use the magic %matplotlib if using Jupyter and/or Ipython!
 plotter = pyvista.Plotter()
 plotter.add_mesh(grid, show_edges=True)
 plotter.view_xy()
@@ -162,7 +142,6 @@ if not pyvista.OFF_SCREEN:
     plotter.show()
 else:
     figure = plotter.screenshot("fundamentals_mesh.png")
-
 
 
 ### Plotting a function using pyvista
@@ -194,31 +173,3 @@ plotter2 = pyvista.Plotter()
 plotter2.add_mesh(warped, show_edges=True, show_scalar_bar=True)
 if not pyvista.OFF_SCREEN:
     plotter2.show()
-
-
-
-
-####
-### External post-processing
-###
-#For post-processing outside the python code, 
-# it is suggested to save the solution to file using either 
-# dolfinx.io.VTXWriter or dolfinx.io.XDMFFile and using Paraview. 
-# This is especially suggested for 3D visualization.
-
-from dolfinx import io
-
-###TODO: Save files for postprocessing this tomorrow!
-
-with io.VTXWriter(mesh.comm, "output.bp", [uh]) as vtx:
-    vtx.write(0.0)
-with XDMFFile(mesh.comm, "output.xdmf", "w") as xdmf:
-    xdmf.write_mesh(mesh)
-    xdmf.write_function(uh)
-
-
-
-# print(min(mesh.geometry.x[:,0]), max(mesh.geometry.x[:,0]))
-
-# print(min(mesh.geometry.x[:,1]),max(mesh.geometry.x[:,1]))
-#print(uh.x.array.real)

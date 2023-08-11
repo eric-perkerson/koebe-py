@@ -115,3 +115,5 @@ plt.scatter(
 plt.show()
 
 # TODO: Figure out how to compute the singular vertex using the Triangulation object
+
+# TODO: Add level curves, several of these, definitely the singular one.
