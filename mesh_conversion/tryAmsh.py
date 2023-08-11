@@ -1,11 +1,6 @@
-#import numpy as np
-#import faulthandler; faulthandler.enable()
-#from mesh_conversion import dolfinx_read_xdmf
-
-#import faulthandler; faulthandler.enable()
-
-#from mesh_conversion import dolfinx_read_xdmf
-#gmsh.initialize()
+"""
+An example with two holes--one singular vertex
+"""
 
 import pyvista
 
@@ -102,7 +97,7 @@ uh = problem.solve()
 
 # Write the solution, uh, to a file, entry per line
 
-with open('regions/test3/solution.txt','w') as output_file:
+with open('regions/test3/solution_fenicsx.txt','w') as output_file:
      for entry in uh.x.array:
 #         output_file.write(str(entry) + '\n')
           output_file.write(f"{entry}\n")
