@@ -1,5 +1,5 @@
 """
-A first example to create one singular vertex of max index
+An example to create one singular vertex of max index
 """
 
 import pyvista
@@ -95,6 +95,51 @@ problem = LinearProblem(a, L, bcs=[bcs_1,bcs_2,bcs_3,bcs_4],
                         petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+
+x_coord = mesh.geometry.x[:,0]
+y_coord = mesh.geometry.x[:,1]
+
+
+z_coord= uh.x.array
+
+fig = plt.figure(figsize=(12,8))
+gs = mpl.gridspec.GridSpec(2, 2)
+
+ax1 = fig.add_subplot(gs[0:,0],projection="3d")
+ax1.plot_trisurf(x_coord,y_coord,z_coord)
+ax1.set_xlabel("$x$")
+ax1.set_ylabel("$y$")
+ax1.set_zlabel("$z$")
+ax1.set_title("Approximate surface")
+
+ax2=fig.add_subplot(gs[0,1])
+levels = np.arange(0.0,0.8, 0.0125)
+ax2.tricontour(x_coord,y_coord,z_coord,levels=levels)
+levels = np.arange(0.0, 2.0, 0.25)
+ax2.set_xlabel("$x$")
+ax2.set_ylabel("$y$")
+ax2.set_title("Approximate contour in $[-0.5,0.5]^2$")
+ax2.set_ybound(-0.5,0.5)
+ax2.set_xbound(-0.5,0.5)
+
+ax3=fig.add_subplot(gs[1,1:])
+levels = np.arange(0.0,0.8, 0.0125)
+ax3.tricontour(x_coord,y_coord,z_coord,levels=levels)
+levels = np.arange(0.0, 2.0, 0.25)
+ax3.set_xlabel("$x$")
+ax3.set_ylabel("$y$")
+ax3.set_title("Approximate contours")
+
+
+fig.tight_layout()
+plt.show()
+
+#TODO: Make this into a nice array of figures!
+
+
 
 
 ### Reading and Printing the solution to a file
@@ -120,6 +165,10 @@ file_of_solution.close()
 print(values[200:205])
 
 # Some estimates on the size of you domain
+# mesh.geometry.x --- for the whole coordinates
+# 
+# x_coord = mesh.geometry.x[:,0] for only the x - ccordinates
+# y_coord = x_coord = mesh.geometry.x[:,1] the y - coordinates
 
 # print(min(mesh.geometry.x[:,0]), max(mesh.geometry.x[:,0]))
 
