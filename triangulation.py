@@ -1,4 +1,5 @@
 """This module contains the Triangulation object."""
+import math
 import numpy as np
 import numba
 import matplotlib.pyplot as plt
@@ -91,6 +92,9 @@ class Triangulation(object):
             self.contained_polygons = self.make_contained_polygons()  # lambda[2]
             self.voronoi_edges = self.make_voronoi_edges()  # lambda[1]
             # self.to_right_of_edge_poly_dict = self.build_edge_to_right_polygons_dict()
+
+        if pde_values is not None:
+            self.singular_vertices = self.find_singular_vertices()
 
     def make_barycenters(self):
         """Build the array of barycenters from a triangulation"""
@@ -292,6 +296,25 @@ class Triangulation(object):
         voronoi_edges_non_flat = list(map(self.make_polygon_edges, self.contained_polygons))
         voronoi_edges = np.array([val for sublist in voronoi_edges_non_flat for val in sublist])
         return voronoi_edges
+
+    def find_singular_vertices(self):
+        singular_vertices = []
+        for vertex, neighbors in enumerate(self.vertex_topology):
+            vertex_value = self.pde_values[vertex]
+            sign_changes = 0
+            sign_values = []  # Tracks whether neighbors are bigger or smaller than vertex_value
+            if neighbors[0] != -1:  # While there is still a valid neighbor...
+                for neighbor in neighbors:
+                    diff = np.sign(vertex_value - self.pde_values[neighbor])
+                    sign_values.append(diff)
+                for j in range(0, len(sign_values) - 1):  # TODO: What if sign value is 0? This will count 2 sign changes where there should only be one
+                    if sign_values[j] != sign_values[j + 1]:
+                        sign_changes += 1
+                if sign_values[len(sign_values) - 1] != sign_values[0]:  # Checks for sign change between start and end
+                    sign_changes += 1
+            if sign_changes > 2:
+                singular_vertices.append(vertex)
+        return singular_vertices
 
     @staticmethod
     def read(file_name):
