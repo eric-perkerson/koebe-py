@@ -214,7 +214,7 @@ WritePdeFile[fileName_, pdeValues_] :=
 (*Begin Main*)
 (* argv=Rest@$ScriptCommandLine; *)
 
-argv = {"test_example_4"};
+argv = {"3_fold_sym"};
 If[Length[argv] == 0, Print["No file stem given, exiting"];
  Exit[]]
 fileStem = argv[[1]];
