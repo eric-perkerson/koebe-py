@@ -152,6 +152,7 @@ class Triangulation(object):
 
         if pde_values is not None:
             self.singular_vertices = self.find_singular_vertices()
+            self.singular_heights = self.pde_values[self.singular_vertices]
 
     def make_barycenters(self):
         """Build the array of barycenters from a triangulation"""
@@ -430,7 +431,9 @@ class Triangulation(object):
         show_vertex_indices=False,
         show_triangle_indices=False,
         show_level_curves=False,
-        face_color=[153/255, 204/255, 255/255]
+        show_singular_level_curves=False,
+        face_color=[153/255, 204/255, 255/255],
+        num_level_curves=25
     ):
         """Show an image of the triangulation"""
         fig, axes = plt.subplots()
@@ -461,8 +464,14 @@ class Triangulation(object):
         if show_vertex_indices:
             for i in range(self.num_vertices):
                 plt.text(self.vertices[i, 0], self.vertices[i, 1], str(i))
-        if show_level_curves:
-            heights = np.linspace(0, 1, 25)[1:-1]
+        if show_level_curves or show_singular_level_curves:
+            if show_level_curves:
+                heights = np.linspace(0, 1, num_level_curves + 2)[1:-1]
+                if show_singular_level_curves:
+                    heights = np.concatenate([heights, self.singular_heights])
+            else:
+                if show_singular_level_curves:
+                    heights = self.singular_heights
             rng = np.random.default_rng()
             colors = rng.random((len(heights), 3))
 
