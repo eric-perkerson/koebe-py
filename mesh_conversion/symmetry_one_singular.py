@@ -4,12 +4,17 @@ An example to create one singular vertex of max index
 
 import pyvista
 
+import dolfinx
+
 from dolfinx.fem import (Constant, dirichletbc, Function , FunctionSpace, 
                          locate_dofs_topological)
 from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import XDMFFile
 
-from dolfinx import plot
+from dolfinx import mesh
+
+from dolfinx import plot 
+
 from dolfinx.plot import create_vtk_mesh
 
 from ufl import (SpatialCoordinate, TestFunction, TrialFunction,
@@ -20,6 +25,8 @@ from petsc4py.PETSc import ScalarType
 from mpi4py import MPI # new
 
 import meshio
+
+import numpy as np
 
 # Definition to create mesh using meshio
 
@@ -46,17 +53,75 @@ if proc == 0:
 
     triangle_mesh = create_mesh(msh, "triangle", prune_z=True)
     line_mesh = create_mesh(msh, "line", prune_z=True)
-    meshio.write("mesh.xdmf", triangle_mesh)
-    meshio.write("mt.xdmf", line_mesh)
+    meshio.write("regions/3_fold_sym/mesh.xdmf", triangle_mesh)
+    meshio.write("regions/3_fold_sym/mt.xdmf", line_mesh)
 
 # This creates the meshtags and topology of the mesh from the xdmf files above
 
-with XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as xdmf:
+with XDMFFile(MPI.COMM_WORLD, "regions/3_fold_sym/mesh.xdmf", "r") as xdmf:
     mesh = xdmf.read_mesh(name="Grid")
     ct = xdmf.read_meshtags(mesh, name="Grid")
 mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim-1)
-with XDMFFile(MPI.COMM_WORLD, "mt.xdmf", "r") as xdmf:
+with XDMFFile(MPI.COMM_WORLD, "regions/3_fold_sym/mt.xdmf", "r") as xdmf:
     ft = xdmf.read_meshtags(mesh, name="Grid")
+
+
+################################################################
+##
+##  Getting list of edges and triangles.
+##
+#################################################################
+# mesh = mesh.create_unit_square(MPI.COMM_WORLD, 8, 8, mesh.CellType.triangle)
+
+# fdim = mesh.topology.dim - 1
+# mesh.topology.create_connectivity(fdim, 0)
+# num_facets_owned_by_proc = mesh.topology.index_map(fdim).size_local
+# geometry_entitites =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim, 
+#                     np.arange(num_facets_owned_by_proc, dtype=np.int32), False)
+
+# fdim_2 = mesh.topology.dim 
+# mesh.topology.create_connectivity(fdim_2, 0)
+# num_traingles_owned_by_proc = mesh.topology.index_map(fdim_2).size_local
+# geometry_entitites_triangles =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim_2, 
+#                     np.arange(num_traingles_owned_by_proc, dtype=np.int32), False)
+
+####################################################################
+# points = mesh.geometry.x
+# for e, entity in enumerate(geometry_entitites):
+#     print(e, points[entity])
+
+
+# mesh = mesh.create_unit_square(MPI.COMM_WORLD, 8, 8, mesh.CellType.triangle)
+# fdim = mesh.topology.dim - 1
+# mesh.topology.create_connectivity(fdim, 0)
+
+# num_facets_owned_by_proc = mesh.topology.index_map(fdim).size_local
+# geometry_entitites = dolfinx.cpp.mesh.entities_to_geometry(mesh, 
+#             fdim, np.arange(num_facets_owned_by_proc, dtype=np.int32), False)
+
+
+# #triangles=dolfinx.cpp.mesh.get_entity_vertices(dolfinx.cpp.mesh.point,0)
+# #geo_ent_1 = dolfinx.cpp.mesh.entities_to_geometry(mesh, 
+#             2, np.arange(num_facets_owned_by_proc, dtype=np.int32), False)
+
+
+# points = mesh.geometry.x
+
+# for e, entity in enumerate(geometry_entitites):
+#     print(e, points[entity])
+
+
+#################################################################
+
+
+
+
+
+
+
+
+
+
 
 V = FunctionSpace(mesh, ("CG", 1))
 
@@ -154,15 +219,18 @@ with open('regions/3_fold_sym/solution_fenicsx.txt','w') as output_file:
 
 # open file in read mode and copy solution values at node to 
 # values[], a list
+try:
+    file_of_solution = open('regions/3_fold_sym/solution_fenicsx.txt','r')
+except:
+    print("I can't find this file, search the correct folder.\n")
+else:     
+    values=[]
+    for line in file_of_solution.readlines():
+        #print(line, end='')
+        values.append(float(line[0:-1]))
+        file_of_solution.close()
 
-file_of_solution = open('regions/3_fold_sym/solution_fenicsx.txt','r')
-values=[]
-for line in file_of_solution.readlines():
-    #print(line, end='')
-    values.append(float(line[0:-1]))
-file_of_solution.close()
-
-print(values[200:205])
+print(values[200:205], type(values[1]))
 
 # Some estimates on the size of you domain
 # mesh.geometry.x --- for the whole coordinates
@@ -212,13 +280,17 @@ u_plotter.add_mesh(grid_uh, show_edges=True)
 u_plotter.view_xy()
 if not pyvista.OFF_SCREEN:
     u_plotter.show()
+else:
+    figure = plotter.screenshot("fundamentals_mesh.png")
 #print(uh.x.array.real)
 
 
 ### We can also warp the mesh by scalar to make use of the 3D plotting.
-
+u_plotter = pyvista.Plotter()
 warped = grid_uh.warp_by_scalar()
 plotter2 = pyvista.Plotter()
 plotter2.add_mesh(warped, show_edges=True, show_scalar_bar=True)
 if not pyvista.OFF_SCREEN:
     plotter2.show()
+else:
+    figure = plotter.screenshot("fundamentals_mesh.png")
