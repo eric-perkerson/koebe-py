@@ -14,7 +14,7 @@ pde_min = np.min(tri.pde_values)
 pde_max = np.max(tri.pde_values)
 pde_colors = (tri.pde_values - pde_min) / (pde_max - pde_min)
 
-fig = tri.region.figure('test')
+#fig = tri.region.figure('test')
 plt.scatter(
     tri.vertices[:, 0],
     tri.vertices[:, 1],
