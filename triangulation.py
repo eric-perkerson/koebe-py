@@ -4,11 +4,12 @@ import numpy as np
 import numba
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
+from cmcrameri import cm
 from pathlib import Path
 from region import read_node, read_ele, read_pde, Region
 
 
-# @numba.njit
+@numba.njit
 def line_height_intersect(point_1, point_2, value_1, value_2, height):
     t = (height - value_1) / (value_2 - value_1)
     return t * (point_2 - point_1) + point_1
@@ -65,7 +66,7 @@ def flatten_list_of_lists(list_of_lists):
     return [item for sublist in list_of_lists for item in sublist]
 
 
-@numba.jit
+@numba.njit
 def triangle_circumcenter(a_x, a_y, b_x, b_y, c_x, c_y):
     """Calculate the coordinates of the circumcenter of a triangle given the coordinates of its
     vertices"""
@@ -428,32 +429,50 @@ class Triangulation(object):
         self,
         file_name,
         show_vertices=False,
+        show_edges=False,
+        show_triangles=True,
         show_vertex_indices=False,
         show_triangle_indices=False,
         show_level_curves=False,
         show_singular_level_curves=False,
         face_color=[153/255, 204/255, 255/255],
-        num_level_curves=25
+        num_level_curves=25,
+        line_width=1,
+        **kwargs
     ):
         """Show an image of the triangulation"""
+
+        def subsample_color_map(colormap, num_samples, start_color=0, end_color=255, reverse=False):
+            sample_points_float = np.linspace(start_color, end_color, num_samples)
+            sample_points = np.floor(sample_points_float).astype(np.int64)
+            all_colors = colormap.colors
+            if reverse:
+                all_colors = np.flip(all_colors, axis=0)
+            return all_colors[sample_points]
+
+        graded_level_curve_color_map = cm.lajolla
+        singular_level_curve_color_map = cm.tokyo
+
         fig, axes = plt.subplots()
         if show_vertices:
             axes.scatter(self.vertices[:, 0], self.vertices[:, 1])
-        lines = [
-            [
-                tuple(self.vertices[edge[0]]),
-                tuple(self.vertices[edge[1]])
-            ] for edge in self._triangulation_edges_all
-        ]
-        line_collection = mc.LineCollection(lines, linewidths=2)
+        if show_edges:
+            lines = [
+                [
+                    tuple(self.vertices[edge[0]]),
+                    tuple(self.vertices[edge[1]])
+                ] for edge in self._triangulation_edges_all
+            ]
+            line_collection = mc.LineCollection(lines, linewidths=2)
+            axes.add_collection(line_collection)
         # color_array = np.ones(self.num_triangles) * color  # np.random.random(self.num_triangles) * 500
-        poly_collection = mc.PolyCollection(
-            self.triangle_coordinates,
-            # array=color_array, cmap=matplotlib.cm.Blues
-        )
-        poly_collection.set(facecolor=face_color)
-        axes.add_collection(line_collection)
-        axes.add_collection(poly_collection)
+        if show_triangles:
+            poly_collection = mc.PolyCollection(
+                self.triangle_coordinates,
+                # array=color_array, cmap=matplotlib.cm.Blues
+            )
+            poly_collection.set(facecolor=face_color)
+            axes.add_collection(poly_collection)
         if show_triangle_indices:
             barycenters = np.array(list(map(
                 lambda x: np.mean(x, axis=0),
@@ -465,15 +484,24 @@ class Triangulation(object):
             for i in range(self.num_vertices):
                 plt.text(self.vertices[i, 0], self.vertices[i, 1], str(i))
         if show_level_curves or show_singular_level_curves:
+            if len(self.singular_heights) > 0:
+                singular_level_curve_colors = subsample_color_map(
+                    singular_level_curve_color_map,
+                    len(self.singular_heights),
+                    start_color=32,
+                    end_color=223,
+                    reverse=True
+                )
             if show_level_curves:
                 heights = np.linspace(0, 1, num_level_curves + 2)[1:-1]
+                colors = subsample_color_map(graded_level_curve_color_map, len(heights), end_color=240)
                 if show_singular_level_curves:
                     heights = np.concatenate([heights, self.singular_heights])
+                    colors = np.concatenate([colors, singular_level_curve_colors])
             else:
                 if show_singular_level_curves:
                     heights = self.singular_heights
-            rng = np.random.default_rng()
-            colors = rng.random((len(heights), 3))
+                    colors = singular_level_curve_colors
 
             for i, height in enumerate(heights):
                 tri_level_sets_unfiltered = flatten_list_of_lists(
@@ -492,13 +520,15 @@ class Triangulation(object):
                         tuple(line_segment[1])
                     ] for line_segment in tri_level_sets_filtered
                 ]
-                line_collection = mc.LineCollection(lines, linewidths=2)
+                line_collection = mc.LineCollection(lines, linewidths=line_width)
                 line_collection.set(color=colors[i])
                 axes.add_collection(line_collection)
 
+        axes.grid(False)
+        axes.axis('off')
         axes.autoscale()
-        axes.margins(0.1)
-        fig.savefig(file_name)
+        axes.margins(0.0)
+        fig.savefig(file_name, **kwargs)
 
     def show_voronoi_tesselation(self, file_name, show_vertex_indices=False, show_polygon_indices=False):
         """Show the voronoi tesselation"""

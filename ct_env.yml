@@ -11,6 +11,7 @@ dependencies:
   - pylint
   - scipy
   - pytest
+  - cmcrameri
   # - networkx
   # - fenics-dolfinx
   # - mpich
