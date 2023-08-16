@@ -1,15 +1,20 @@
 """
-An example to create one singular vertex of max index
-"""
+An example: one singular vertex of max index, genus 3 surface
 
+"""
 import pyvista
+
+import dolfinx
 
 from dolfinx.fem import (Constant, dirichletbc, Function , FunctionSpace, 
                          locate_dofs_topological)
 from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import XDMFFile
 
-from dolfinx import plot
+from dolfinx import mesh
+
+from dolfinx import plot 
+
 from dolfinx.plot import create_vtk_mesh
 
 from ufl import (SpatialCoordinate, TestFunction, TrialFunction,
@@ -20,6 +25,8 @@ from petsc4py.PETSc import ScalarType
 from mpi4py import MPI # new
 
 import meshio
+
+import numpy as np
 
 # Definition to create mesh using meshio
 
@@ -40,27 +47,75 @@ proc = MPI.COMM_WORLD.rank
 if proc == 0:
     # Read in mesh
     msh = meshio.read("regions/3_fold_sym/3_fold_sym.output.msh")
-    
-    
     # Create and save one file for the mesh, and one file for the facets 
-
     triangle_mesh = create_mesh(msh, "triangle", prune_z=True)
     line_mesh = create_mesh(msh, "line", prune_z=True)
-    meshio.write("mesh.xdmf", triangle_mesh)
-    meshio.write("mt.xdmf", line_mesh)
+    meshio.write("regions/3_fold_sym/mesh.xdmf", triangle_mesh)
+    meshio.write("regions/3_fold_sym/mt.xdmf", line_mesh)
 
 # This creates the meshtags and topology of the mesh from the xdmf files above
 
-with XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as xdmf:
+with XDMFFile(MPI.COMM_WORLD, "regions/3_fold_sym/mesh.xdmf", "r") as xdmf:
     mesh = xdmf.read_mesh(name="Grid")
     ct = xdmf.read_meshtags(mesh, name="Grid")
 mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim-1)
-with XDMFFile(MPI.COMM_WORLD, "mt.xdmf", "r") as xdmf:
+with XDMFFile(MPI.COMM_WORLD, "regions/3_fold_sym/mt.xdmf", "r") as xdmf:
     ft = xdmf.read_meshtags(mesh, name="Grid")
+
+
+################################################################
+##
+##  Generating a list of edges and triangles.
+##
+#################################################################
+# mesh = mesh.create_unit_square(MPI.COMM_WORLD, 8, 8, mesh.CellType.triangle)
+
+# fdim = mesh.topology.dim - 1
+# mesh.topology.create_connectivity(fdim, 0)
+# num_facets_owned_by_proc = mesh.topology.index_map(fdim).size_local
+# geometry_entitites =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim, 
+#                     np.arange(num_facets_owned_by_proc, dtype=np.int32), False)
+
+# fdim_2 = mesh.topology.dim 
+# mesh.topology.create_connectivity(fdim_2, 0)
+# num_traingles_owned_by_proc = mesh.topology.index_map(fdim_2).size_local
+# geometry_entitites_triangles =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim_2, 
+#                     np.arange(num_traingles_owned_by_proc, dtype=np.int32), False)
+####################################################################
+####################################################################
+# points = mesh.geometry.x
+# for e, entity in enumerate(geometry_entitites):
+#     print(e, points[entity])
+
+
+# mesh = mesh.create_unit_square(MPI.COMM_WORLD, 8, 8, mesh.CellType.triangle)
+# fdim = mesh.topology.dim - 1
+# mesh.topology.create_connectivity(fdim, 0)
+
+# num_facets_owned_by_proc = mesh.topology.index_map(fdim).size_local
+# geometry_entitites = dolfinx.cpp.mesh.entities_to_geometry(mesh, 
+#             fdim, np.arange(num_facets_owned_by_proc, dtype=np.int32), False)
+
+
+# #triangles=dolfinx.cpp.mesh.get_entity_vertices(dolfinx.cpp.mesh.point,0)
+# #geo_ent_1 = dolfinx.cpp.mesh.entities_to_geometry(mesh, 
+#             2, np.arange(num_facets_owned_by_proc, dtype=np.int32), False)
+
+
+# points = mesh.geometry.x
+
+# for e, entity in enumerate(geometry_entitites):
+#     print(e, points[entity])
+
+
+#################################################################
+
+
+### The function space
 
 V = FunctionSpace(mesh, ("CG", 1))
 
-#
+# The following will print the coordinates of vertices with degree of freedom
 # print(V.tabulate_dof_coordinates())
 #
 
@@ -68,7 +123,7 @@ V = FunctionSpace(mesh, ("CG", 1))
 
 left_facets_1 = ft.find(1)
 left_dofs_1 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_1)
-bcs_1 = dirichletbc(ScalarType(2), left_dofs_1, V)
+bcs_1 = dirichletbc(ScalarType(1), left_dofs_1, V)
 
 left_facets_2 = ft.find(2)
 left_dofs_2 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_2)
@@ -95,6 +150,7 @@ problem = LinearProblem(a, L, bcs=[bcs_1,bcs_2,bcs_3,bcs_4],
                         petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 
+##### All of this i
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -102,40 +158,91 @@ import numpy as np
 x_coord = mesh.geometry.x[:,0]
 y_coord = mesh.geometry.x[:,1]
 
+fdim = mesh.topology.dim - 1
+mesh.topology.create_connectivity(fdim, 0)
+num_facets_owned_by_proc = mesh.topology.index_map(fdim).size_local
+geometry_entitites =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim, 
+                    np.arange(num_facets_owned_by_proc, dtype=np.int32), False)
 
+fdim_2 = mesh.topology.dim 
+mesh.topology.create_connectivity(fdim_2, 0)
+num_traingles_owned_by_proc = mesh.topology.index_map(fdim_2).size_local
+geometry_entitites_triangles =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim_2, 
+                    np.arange(num_traingles_owned_by_proc, dtype=np.int32), False)
+
+triangles =  geometry_entitites_triangles
 z_coord= uh.x.array
 
-fig = plt.figure(figsize=(12,8))
+triangulation = mpl.tri.Triangulation(x_coord, y_coord,
+                                      triangles)
+
+fig = plt.figure(figsize=(16,12))
 gs = mpl.gridspec.GridSpec(2, 2)
 
-ax1 = fig.add_subplot(gs[0:,0],projection="3d")
-ax1.plot_trisurf(x_coord,y_coord,z_coord)
-ax1.set_xlabel("$x$")
-ax1.set_ylabel("$y$")
-ax1.set_zlabel("$z$")
-ax1.set_title("Approximate surface")
+ax1= fig.add_subplot(gs[0,0])
+ax1.set_aspect('equal')
+ax1.triplot(triangulation, 'go-', lw=1.0)
+ax1.set_title("tri plot of the triangulation") 
 
-ax2=fig.add_subplot(gs[0,1])
-levels = np.arange(0.0,0.8, 0.0125)
-ax2.tricontour(x_coord,y_coord,z_coord,levels=levels)
-levels = np.arange(0.0, 2.0, 0.25)
-ax2.set_xlabel("$x$")
-ax2.set_ylabel("$y$")
-ax2.set_title("Approximate contour in $[-0.5,0.5]^2$")
-ax2.set_ybound(-0.5,0.5)
-ax2.set_xbound(-0.5,0.5)
+ax2 =fig.add_subplot(gs[0,1:])
+levels = [0.33051698]
+ax2.tricontour(triangulation, z_coord, levels=levels)
+ax2.set_title("contours of the triangulation with respect to the solution") 
 
-ax3=fig.add_subplot(gs[1,1:])
-levels = np.arange(0.0,0.8, 0.0125)
-ax3.tricontour(x_coord,y_coord,z_coord,levels=levels)
-levels = np.arange(0.0, 2.0, 0.25)
-ax3.set_xlabel("$x$")
-ax3.set_ylabel("$y$")
-ax3.set_title("Approximate contours")
-
+ax3 = fig.add_subplot(gs[1,0],projection='3d')
+ax3.plot_trisurf(triangulation, z_coord)
+plt.title('3D Surface Plot from Triangulation')
 
 fig.tight_layout()
 plt.show()
+
+# fig1,ax1 = plt.subplots()
+# ax1.axis([-0.05,0.05,-0.05,0.05])
+# ax1.set_aspect('equal')
+# tcf = ax1.tricontourf(triangulation, z_coord)
+# fig1.colorbar(tcf)
+# ax1.tricontour(triangulation, z_coord,200, colors='k')
+# ax1.set_title('Contour plot of the triangulation and level curves')
+
+
+# dolfin.plot(mesh)
+
+# for i in range(0,len(tcf.collections)):
+#     print(tcf.collections[i].get_paths())
+
+
+
+# fig = plt.figure(figsize=(12,8))
+# gs = mpl.gridspec.GridSpec(2, 2)
+
+# ax1 = fig.add_subplot(gs[0:,0],projection="3d")
+# ax1.plot_trisurf(x_coord,y_coord,z_coord)
+# ax1.set_xlabel("$x$")
+# ax1.set_ylabel("$y$")
+# ax1.set_zlabel("$z$")
+# ax1.set_title("Approximate surface")
+
+# ax2=fig.add_subplot(gs[0,1])
+# levels = np.arange(0.0,0.8, 0.0125)
+# ax2.tricontour(x_coord,y_coord,z_coord,levels=levels)
+# levels = np.arange(0.0, 2.0, 0.25)
+# ax2.set_xlabel("$x$")
+# ax2.set_ylabel("$y$")
+# ax2.set_title("Approximate contour in $[-0.5,0.5]^2$")
+# ax2.set_ybound(-0.5,0.5)
+# ax2.set_xbound(-0.5,0.5)
+
+# ax3=fig.add_subplot(gs[1,1:])
+# levels = np.arange(0.0,0.8, 0.0125)
+# ax3.tricontour(x_coord,y_coord,z_coord,levels=levels)
+# levels = np.arange(0.0, 2.0, 0.25)
+# ax3.set_xlabel("$x$")
+# ax3.set_ylabel("$y$")
+# ax3.set_title("Approximate contours")
+
+
+# fig.tight_layout()
+# plt.show()
 
 #TODO: Make this into a nice array of figures!
 
@@ -143,26 +250,36 @@ plt.show()
 
 
 ### Reading and Printing the solution to a file
-
 # Write the solution, uh, to a file, entry per line
 
-with open('regions/3_fold_sym/solution_fenicsx.txt','w') as output_file:
-     for entry in uh.x.array:
+with open('regions/3_fold_sym/solution_fenicsx.pde', 'w') as output_file:
+     num_vertices = len(uh.x.array)
+     output_file.write(f'{num_vertices}\n')
+     for i, entry in enumerate(uh.x.array, 1):
 #         output_file.write(str(entry) + '\n')
-          output_file.write(f"{entry}\n")
+          output_file.write(f"{i} {entry}\n")
+
+
+# with open('regions/3_fold_sym/solution_fenicsx.txt','w') as output_file:
+#      for entry in uh.x.array:
+# #         output_file.write(str(entry) + '\n')
+#           output_file.write(f"{entry}\n")
 
 
 # open file in read mode and copy solution values at node to 
 # values[], a list
+try:
+    file_of_solution = open('regions/3_fold_sym/solution_fenicsx.txt','r')
+except:
+    print("I can't find this file, search the correct folder.\n")
+else:     
+    values=[]
+    for line in file_of_solution.readlines():
+        #print(line, end='')
+        values.append(float(line[0:-1]))
+        file_of_solution.close()
 
-file_of_solution = open('regions/3_fold_sym/solution_fenicsx.txt','r')
-values=[]
-for line in file_of_solution.readlines():
-    #print(line, end='')
-    values.append(float(line[0:-1]))
-file_of_solution.close()
-
-print(values[200:205])
+print(values[200:205], type(values[1]))
 
 # Some estimates on the size of you domain
 # mesh.geometry.x --- for the whole coordinates
@@ -212,13 +329,17 @@ u_plotter.add_mesh(grid_uh, show_edges=True)
 u_plotter.view_xy()
 if not pyvista.OFF_SCREEN:
     u_plotter.show()
+else:
+    figure = plotter.screenshot("fundamentals_mesh.png")
 #print(uh.x.array.real)
 
 
 ### We can also warp the mesh by scalar to make use of the 3D plotting.
-
+u_plotter = pyvista.Plotter()
 warped = grid_uh.warp_by_scalar()
 plotter2 = pyvista.Plotter()
 plotter2.add_mesh(warped, show_edges=True, show_scalar_bar=True)
 if not pyvista.OFF_SCREEN:
     plotter2.show()
+else:
+    figure = plotter.screenshot("fundamentals_mesh.png")

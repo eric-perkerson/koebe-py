@@ -58,6 +58,7 @@ with XDMFFile(MPI.COMM_WORLD, "mt.xdmf", "r") as xdmf:
 ### Defining the finite element function space
 
 V = FunctionSpace(mesh, ("CG", 1))
+
 #u_bc = Function(V)
 
 
@@ -108,15 +109,20 @@ with open('regions/test3/solution_fenicsx.txt','w') as output_file:
 
 
 # TODO: add a try here and a message!
-file_of_solution = open('regions/test3/solution.txt','r')
+try:
+      file_of_solution = open('regions/test3/solution_fenicsx.txt','r')
+except:
+       print("This file can't be found. Check the folder!\n")
+else:
 #display content
-values=[]
-for line in file_of_solution.readlines():
+    values=[]
+    for line in file_of_solution.readlines():
     #print(line, end='')
-    values.append(float(line[0:-1]))
-file_of_solution.close()
+        values.append(float(line[0:-1]))
+    file_of_solution.close()
 
-print(values[200:205])
+#print some random values
+print(values[200:205], type(values[202]))
 
 
 # print(min(mesh.geometry.x[:,0]), max(mesh.geometry.x[:,0]))
