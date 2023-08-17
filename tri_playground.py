@@ -13,6 +13,6 @@ tri.show(
     show_level_curves=True,
     show_singular_level_curves=True,
     dpi=500,
-    num_level_curves=50,
+    num_level_curves=500,
     line_width=0.75
 )

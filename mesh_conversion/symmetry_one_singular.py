@@ -176,7 +176,7 @@ z_coord= uh.x.array
 triangulation = mpl.tri.Triangulation(x_coord, y_coord,
                                       triangles)
 
-fig = plt.figure(figsize=(16,12))
+fig = plt.figure(figsize=(12,12))
 gs = mpl.gridspec.GridSpec(2, 2)
 
 ax1= fig.add_subplot(gs[0,0])
@@ -185,13 +185,13 @@ ax1.triplot(triangulation, 'go-', lw=1.0)
 ax1.set_title("tri plot of the triangulation") 
 
 ax2 =fig.add_subplot(gs[0,1:])
-levels = [0.33051698]
+levels =[0.33051698]
 ax2.tricontour(triangulation, z_coord, levels=levels)
 ax2.set_title("contours of the triangulation with respect to the solution") 
 
 ax3 = fig.add_subplot(gs[1,0],projection='3d')
 ax3.plot_trisurf(triangulation, z_coord)
-plt.title('3D Surface Plot from Triangulation')
+ax3.set_title('3D Surface Plot from Triangulation')
 
 fig.tight_layout()
 plt.show()
@@ -209,6 +209,11 @@ plt.show()
 
 # for i in range(0,len(tcf.collections)):
 #     print(tcf.collections[i].get_paths())
+
+#num_levels = len(cs.allsegs)
+##num_element = len(cs.allsegs[0])  # in level 0
+#num_vertices = len(cs.allsegs[0][0])  # of element 0, in level 0
+#num_coord = len(cs.allsegs[0][0][0])  # of vertex 0, in element 0, in level 0
 
 
 
