@@ -150,7 +150,9 @@ problem = LinearProblem(a, L, bcs=[bcs_1,bcs_2,bcs_3,bcs_4],
                         petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 
-##### All of this i
+##### All of this  is for depict the level curves, the singular one and the 
+##### surface
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -187,6 +189,7 @@ ax1.set_title("tri plot of the triangulation")
 ax2 =fig.add_subplot(gs[0,1:])
 levels =[0.33051698]
 ax2.tricontour(triangulation, z_coord, levels=levels)
+ax2.tricontour(triangulation, z_coord, 100)
 ax2.set_title("contours of the triangulation with respect to the solution") 
 
 ax3 = fig.add_subplot(gs[1,0],projection='3d')
@@ -195,6 +198,17 @@ ax3.set_title('3D Surface Plot from Triangulation')
 
 fig.tight_layout()
 plt.show()
+
+
+###TODO: extracting information about a singular level curve
+
+# for i in range(0,len(tcf.collections)):
+#     print(tcf.collections[i].get_paths())
+
+#num_levels = len(cs.allsegs)
+##num_element = len(cs.allsegs[0])  # in level 0
+#num_vertices = len(cs.allsegs[0][0])  # of element 0, in level 0
+#num_coord = len(cs.allsegs[0][0][0])  # of vertex 0, in element 0, in level 0
 
 # fig1,ax1 = plt.subplots()
 # ax1.axis([-0.05,0.05,-0.05,0.05])
@@ -207,13 +221,7 @@ plt.show()
 
 # dolfin.plot(mesh)
 
-# for i in range(0,len(tcf.collections)):
-#     print(tcf.collections[i].get_paths())
 
-#num_levels = len(cs.allsegs)
-##num_element = len(cs.allsegs[0])  # in level 0
-#num_vertices = len(cs.allsegs[0][0])  # of element 0, in level 0
-#num_coord = len(cs.allsegs[0][0][0])  # of vertex 0, in element 0, in level 0
 
 
 
@@ -250,8 +258,6 @@ plt.show()
 # plt.show()
 
 #TODO: Make this into a nice array of figures!
-
-
 
 
 ### Reading and Printing the solution to a file
@@ -336,7 +342,8 @@ if not pyvista.OFF_SCREEN:
     u_plotter.show()
 else:
     figure = plotter.screenshot("fundamentals_mesh.png")
-#print(uh.x.array.real)
+
+#print(uh.x.array.real)--for the solution values.
 
 
 ### We can also warp the mesh by scalar to make use of the 3D plotting.
