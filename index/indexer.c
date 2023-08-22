@@ -83,7 +83,9 @@ int parseTri (char *raw, int rawSize, int **array, int arraySize, int fd, char *
   int count = 1; // count keeps track of which neighbor has been read in
   int len = 0; // same as parse
   char str[strlen(length)]; // same as parse, except the length is capped at the length of the total number of verticies
-  array[size] = calloc(10, sizeof(int)); // initializes the first array being filled in for this parseTri call
+  if (arraySize == 0) {
+    array[size] = calloc(10, sizeof(int)); // initializes the first array being filled in for this parseTri call
+  } // if
   for (int i = 0; i < rawSize; i++) {
     if (raw[i] == '\n') {
       str[len] = '\0';
@@ -216,6 +218,7 @@ int main (int argc, char *argv[]) {
   int count = 0; // keeps track of sign changes
   long double change = 0; // variable storing the difference between home vertex and neighbor
   long double change2 = 0; // same as change, but stores the difference between home vertex and the NEXT neighbor
+
   
   for (int i = 0; i < vertexLen; i++) { // loops through all verticies
     if (neighbor[i][1] != -1) { // skips any boundry verticies
@@ -231,11 +234,15 @@ int main (int argc, char *argv[]) {
     } else {
       indexes[i] = 2; // fills in any boundry points with 2 to ignore them
     } // if
-    
+
     if (indexes[i] != 2) { // loops through each vertex and prints any with non-2 indicies
       printf("Found %d at %d\n", indexes[i], i);
     } // if
-    
   } // for
 
+  for (int i = 0; i < arraySize + 1; i++) {
+    free(neighbor[i]);
+  } // for
+  free(neighbor);
+ 
 } // main
