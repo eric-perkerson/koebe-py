@@ -104,7 +104,7 @@ with XDMFFile(MPI.COMM_WORLD, "regions/3_fold_sym/mt.xdmf", "r") as xdmf:
 
 # points = mesh.geometry.x
 
-# for e, entity in enumerate(geometry_entitites):
+# for e, entity in enumerate(geometry_entities):
 #     print(e, points[entity])
 
 
@@ -168,9 +168,9 @@ geometry_entitites =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim,
 
 fdim_2 = mesh.topology.dim 
 mesh.topology.create_connectivity(fdim_2, 0)
-num_traingles_owned_by_proc = mesh.topology.index_map(fdim_2).size_local
+num_triangles_owned_by_proc = mesh.topology.index_map(fdim_2).size_local
 geometry_entitites_triangles =  dolfinx.cpp.mesh.entities_to_geometry(mesh, fdim_2, 
-                    np.arange(num_traingles_owned_by_proc, dtype=np.int32), False)
+                    np.arange(num_triangles_owned_by_proc, dtype=np.int32), False)
 
 triangles =  geometry_entitites_triangles
 z_coord= uh.x.array
