@@ -4,7 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
 
-file_stem = '3_fold_sym'
+import subprocess
+
+file_stem = 'No_3_fold_sym'
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
 
@@ -15,7 +17,8 @@ tri.show(
     dpi=500,
     num_level_curves=500,
     line_width=0.75
-)
+   )
+plt.show()
 
 
 from region import Region
@@ -57,8 +60,31 @@ domain = Region.region_from_components(
 )
 
 
+with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
+    domain.write(f)
+
+subprocess.run([
+        'julia',
+        'triangulate_via_julia.jl',
+        "{file_stem}",
+        "{file_stem}",
+        "500"
+    ])
+
+t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+t.write(f'regions/{file_stem}/{file_stem}.output.poly')
 
 
+subprocess.run([
+        'python',
+        'mesh_conversion/mesh_conversion.py',
+        '-p',
+        f'regions/{file_stem}/{file_stem}.output.poly',
+        '-n',
+        f'regions/{file_stem}/{file_stem}.node',
+        '-e',
+        f'regions/{file_stem}/{file_stem}.ele',
+    ])
 
 
 
