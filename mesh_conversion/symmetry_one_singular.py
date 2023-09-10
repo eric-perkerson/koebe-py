@@ -200,64 +200,6 @@ fig.tight_layout()
 plt.show()
 
 
-###TODO: extracting information about a singular level curve
-
-# for i in range(0,len(tcf.collections)):
-#     print(tcf.collections[i].get_paths())
-
-#num_levels = len(cs.allsegs)
-##num_element = len(cs.allsegs[0])  # in level 0
-#num_vertices = len(cs.allsegs[0][0])  # of element 0, in level 0
-#num_coord = len(cs.allsegs[0][0][0])  # of vertex 0, in element 0, in level 0
-
-# fig1,ax1 = plt.subplots()
-# ax1.axis([-0.05,0.05,-0.05,0.05])
-# ax1.set_aspect('equal')
-# tcf = ax1.tricontourf(triangulation, z_coord)
-# fig1.colorbar(tcf)
-# ax1.tricontour(triangulation, z_coord,200, colors='k')
-# ax1.set_title('Contour plot of the triangulation and level curves')
-
-
-# dolfin.plot(mesh)
-
-
-
-
-
-# fig = plt.figure(figsize=(12,8))
-# gs = mpl.gridspec.GridSpec(2, 2)
-
-# ax1 = fig.add_subplot(gs[0:,0],projection="3d")
-# ax1.plot_trisurf(x_coord,y_coord,z_coord)
-# ax1.set_xlabel("$x$")
-# ax1.set_ylabel("$y$")
-# ax1.set_zlabel("$z$")
-# ax1.set_title("Approximate surface")
-
-# ax2=fig.add_subplot(gs[0,1])
-# levels = np.arange(0.0,0.8, 0.0125)
-# ax2.tricontour(x_coord,y_coord,z_coord,levels=levels)
-# levels = np.arange(0.0, 2.0, 0.25)
-# ax2.set_xlabel("$x$")
-# ax2.set_ylabel("$y$")
-# ax2.set_title("Approximate contour in $[-0.5,0.5]^2$")
-# ax2.set_ybound(-0.5,0.5)
-# ax2.set_xbound(-0.5,0.5)
-
-# ax3=fig.add_subplot(gs[1,1:])
-# levels = np.arange(0.0,0.8, 0.0125)
-# ax3.tricontour(x_coord,y_coord,z_coord,levels=levels)
-# levels = np.arange(0.0, 2.0, 0.25)
-# ax3.set_xlabel("$x$")
-# ax3.set_ylabel("$y$")
-# ax3.set_title("Approximate contours")
-
-
-# fig.tight_layout()
-# plt.show()
-
-#TODO: Make this into a nice array of figures!
 
 
 ### Reading and Printing the solution to a file

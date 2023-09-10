@@ -7,6 +7,8 @@ from cmcrameri import cm
 import subprocess
 
 file_stem = 'No_3_fold_sym'
+#file_stem = '3_fold_sym'
+
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
 
