@@ -1,6 +1,6 @@
 import meshio 
 import gmsh 
-import pyvista
+#import pyvista
 import numpy as np
 import collections
 import argparse
@@ -261,4 +261,4 @@ if __name__ == '__main__':
     create_mesh(output_name, mesh)
 
     # plot mesh
-    plot_mesh(meshio.read(output_name + '.msh'))
+#    plot_mesh(meshio.read(output_name + '.msh'))

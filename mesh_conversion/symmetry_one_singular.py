@@ -2,6 +2,7 @@
 An example: one singular vertex of max index, genus 3 surface
 
 """
+
 import pyvista
 
 import dolfinx
