@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
 
+#import Pkg; Pkg.add("PKg")
+#Pkg.add("RecipesBase")
 import subprocess
 
 file_stem = 'No_3_fold_sym'
@@ -66,7 +68,7 @@ with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
     domain.write(f)
 
 subprocess.run([
-        'julia',
+        '/Users/saarhersonsky/opt/anaconda3/envs/ct/bin/julia',
         'triangulate_via_julia.jl',
         "{file_stem}",
         "{file_stem}",
