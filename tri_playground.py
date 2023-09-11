@@ -7,7 +7,7 @@ import subprocess
 from region import Region
 
 file_stem = 'No_3_fold_sym'
-#file_stem = '3_fold_sym'
+# file_stem = '3_fold_sym'
 
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
@@ -49,7 +49,6 @@ domain = Region.region_from_components(
     ]
 )
 
-
 with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
     domain.write(f)
 
@@ -63,7 +62,6 @@ subprocess.run([
 
 t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 t.write(f'regions/{file_stem}/{file_stem}.output.poly')
-
 
 subprocess.run([
         'python',
@@ -83,13 +81,16 @@ subprocess.run([
 ])
 
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-
-
 print(tri.singular_heights)
 print(tri.singular_vertices)
 
-plt.scatter(tri.vertices[:,0],tri.vertices[:,1],c=tri.pde_values)
+plt.scatter(
+    tri.vertices[:, 0],
+    tri.vertices[:, 1],
+    c=tri.pde_values
+)
 plt.show()
+
 tri.show(
     'test.png',
     show_level_curves=True,
