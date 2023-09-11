@@ -1,15 +1,15 @@
-import meshio 
-import gmsh 
-import pyvista
+import meshio
+import gmsh
 import numpy as np
 import collections
 import argparse
 from dolfinx.io import XDMFFile
 from mpi4py import MPI
 
-def read_triangle(poly_file, ele_file, node_file = None):
+
+def read_triangle(poly_file, ele_file, node_file=None):
     """
-    poly-file reader, that creates a python dictionary 
+    poly-file reader, that creates a python dictionary
     with information about vertices, edges and holes.
     it assumes that vertices have no attributes
     no regional attributes or area constraints are parsed.
@@ -17,7 +17,7 @@ def read_triangle(poly_file, ele_file, node_file = None):
     if verticies are not given in the poly-file, they must be given in a node-file.
     if node-file is not given, and vertices are not given in the poly-file, the function will search for a node-file with the same name as the poly-file, but with the extension .node
     """
-    
+
     output = {'vertices': None, 'holes': None, 'segments': None, 'triangles': None}
 
     # open file and store lines in a list
@@ -50,15 +50,14 @@ def read_triangle(poly_file, ele_file, node_file = None):
             vertex_lines = [x for x in vertex_lines if x[0] != '#']
         except:
             raise Exception(f"no vertices given in poly-file and no node-file found at {node_file}")
-        
+
         # append vertex lines to lines, so that the rest of the code can be used as is.
         lines = vertex_lines + lines[1:]
-    
+
     # vertex stats
     n_vertices, dimension, attr, bdry_markers = [int(x) for x in lines[0]]
     vertex_lines = lines[1:n_vertices+1]
 
-    
     # segment stats
     n_segments, bdry_markers = [int(x) for x in lines[n_vertices+1]]
     segment_lines = lines[n_vertices+2:n_vertices+n_segments+2]
@@ -87,7 +86,7 @@ def read_triangle(poly_file, ele_file, node_file = None):
     holes = []
     for line in hole_lines:
         values = [float(x) for x in line]
-        holes.append(values[1:]) # ignore label
+        holes.append(values[1:])  # ignore label
     output['holes'] = np.array(holes)
 
     # Read triangles
@@ -103,16 +102,17 @@ def read_triangle(poly_file, ele_file, node_file = None):
         # store triangles
         triangles = []
         for line in triangle_lines[1:]:
-            values = [int(x) for x in line] # read as tuple in case of boundary markers
-            values[1] -= 1 # subtract 1 to get 0-based indexing
+            values = [int(x) for x in line]  # read as tuple in case of boundary markers
+            values[1] -= 1  # subtract 1 to get 0-based indexing
             values[2] -= 1 # subtract 1 to get 0-based indexing
-            values[3] -= 1 # subtract 1 to get 0-based indexing
+            values[3] -= 1  # subtract 1 to get 0-based indexing
             triangles.append(values[1:]) # ignore label
         output['triangles'] = np.array(triangles)
-    except:
-        raise Exception(f"no triangles given in ele-file")
+    except Exception:
+        raise Exception("no triangles given in ele-file")
 
     return output
+
 
 def create_xdmf(cell_type, mesh_name):
     """
@@ -126,6 +126,7 @@ def create_xdmf(cell_type, mesh_name):
     points = mesh.points[:, :2]
     out_mesh = meshio.Mesh(points=points, cells={cell_type: cells}, cell_data={"name_to_read": [cell_data]})
     return out_mesh
+
 
 def create_mesh(output_name, poly_dict):
     """
@@ -143,7 +144,7 @@ def create_mesh(output_name, poly_dict):
     for vertex in poly_dict['vertices']:
         x, y, z = vertex[0], vertex[1], 0
         points.append(gmsh.model.geo.addPoint(x, y, z))
-    
+
     # add boundary segments
     lines = collections.defaultdict(list)
     for segment in poly_dict['segments']:
@@ -155,7 +156,7 @@ def create_mesh(output_name, poly_dict):
 
         if boundary:
             lines[boundary].append(line)
-    
+
     # add triangles
     triangles = []
     for triangle in poly_dict['triangles']:
@@ -166,7 +167,7 @@ def create_mesh(output_name, poly_dict):
         loop = gmsh.model.geo.addCurveLoop([l1, l2, l3])
         triangle = gmsh.model.geo.addPlaneSurface([loop])
         triangles.append(triangle)
-    
+
     # synchronize geometry before adding physical groups
     gmsh.option.set_number("Geometry.Tolerance", 1e-3)
     gmsh.model.geo.remove_all_duplicates()
@@ -195,21 +196,23 @@ def create_mesh(output_name, poly_dict):
     meshio.write(f"{output_name}.xdmf", create_xdmf("triangle", f"{output_name}.msh"))
     meshio.write(f"{output_name}.facet.xdmf", create_xdmf("line", f"{output_name}.msh"))
 
-def plot_mesh(mesh):
-    """
-    plots a mesh using pyvista
-    """
-    pyvista.set_plot_theme("document")
 
-    p = pyvista.Plotter(window_size=(800, 800))
-    p.add_mesh(
-        mesh=pyvista.from_meshio(mesh),
-        scalar_bar_args={"title": "Materials"},
-        show_scalar_bar=False,
-        show_edges=True,
-    )
-    p.view_xy()
-    p.show()
+# def plot_mesh(mesh):
+#     """
+#     plots a mesh using pyvista
+#     """
+#     pyvista.set_plot_theme("document")
+
+#     p = pyvista.Plotter(window_size=(800, 800))
+#     p.add_mesh(
+#         mesh=pyvista.from_meshio(mesh),
+#         scalar_bar_args={"title": "Materials"},
+#         show_scalar_bar=False,
+#         show_edges=True,
+#     )
+#     p.view_xy()
+#     p.show()
+
 
 def dolfinx_read_xdmf(mesh_file, facet_file):
     """
@@ -221,20 +224,24 @@ def dolfinx_read_xdmf(mesh_file, facet_file):
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
     with XDMFFile(MPI.COMM_WORLD, facet_file, "r") as xdmf:
         facet_tags = xdmf.read_meshtags(mesh, name="Grid")
-    
+
     return mesh, cell_tags, facet_tags
 
 
-
 if __name__ == '__main__':
-    # print versions of imports 
+    # print versions of imports
     print("-------------------------------------")
     print('meshio version: ', meshio.__version__)
     print('gmsh version: ', gmsh.__version__)
     print("-------------------------------------\n")
 
     # create command line parser
-    parser = argparse.ArgumentParser(description='Converts a Triangle mesh file to xdmf. If no node-file is given, the function will search for a node-file with the same name as the poly-file, but with the extension .node')
+    parser = argparse.ArgumentParser(
+        description=(
+            'Converts a Triangle mesh file to xdmf. If no node-file is given, the function will search for a'
+            'node-file with the same name as the poly-file, but with the extension .node'
+        )
+    )
     parser.add_argument('-p', '--poly', help='Name of the .poly file to convert', required=True, dest='poly')
     parser.add_argument('-e', '--ele', help='Name of the .ele file to convert', required=True, dest='ele')
     parser.add_argument('-n', '--node', help='Name of the .node file to convert', required=False, dest='node')
@@ -261,4 +268,4 @@ if __name__ == '__main__':
     create_mesh(output_name, mesh)
 
     # plot mesh
-    plot_mesh(meshio.read(output_name + '.msh'))
+    # plot_mesh(meshio.read(output_name + '.msh'))

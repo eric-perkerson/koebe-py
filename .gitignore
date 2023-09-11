@@ -144,3 +144,8 @@ regions/test3_Eric_Julia/
 
 # The acute executable
 acute
+
+# Image files
+*.png
+*.jpg
+*.jpeg

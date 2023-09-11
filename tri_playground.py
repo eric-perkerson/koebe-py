@@ -3,29 +3,15 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
-
-#import Pkg; Pkg.add("PKg")
-#Pkg.add("RecipesBase")
 import subprocess
+from region import Region
 
 file_stem = 'No_3_fold_sym'
-#file_stem = '3_fold_sym'
+# file_stem = '3_fold_sym'
 
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
 
-tri.show(
-    'test.png',
-    show_level_curves=True,
-    show_singular_level_curves=True,
-    dpi=500,
-    num_level_curves=500,
-    line_width=0.75
-   )
-plt.show()
-
-
-from region import Region
 domain = Region.region_from_components(
     [
         [
@@ -63,21 +49,19 @@ domain = Region.region_from_components(
     ]
 )
 
-
 with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
     domain.write(f)
 
 subprocess.run([
-        '/Users/saarhersonsky/opt/anaconda3/envs/ct/bin/julia',
+        'julia',
         'triangulate_via_julia.jl',
-        "{file_stem}",
-        "{file_stem}",
+        file_stem,
+        file_stem,
         "500"
     ])
 
 t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 t.write(f'regions/{file_stem}/{file_stem}.output.poly')
-
 
 subprocess.run([
         'python',
@@ -90,10 +74,32 @@ subprocess.run([
         f'regions/{file_stem}/{file_stem}.ele',
     ])
 
+subprocess.run([
+    'python',
+    'mesh_conversion/fenicsx_solver.py',
+    file_stem,
+])
 
+tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+print(tri.singular_heights)
+print(tri.singular_vertices)
 
+plt.scatter(
+    tri.vertices[:, 0],
+    tri.vertices[:, 1],
+    c=tri.pde_values
+)
+plt.show()
 
-
+tri.show(
+    'test.png',
+    show_level_curves=True,
+    show_singular_level_curves=True,
+    dpi=500,
+    num_level_curves=500,
+    line_width=0.75
+       )
+plt.show()
 
 # from region import Region
 # domain = Region.region_from_components(
