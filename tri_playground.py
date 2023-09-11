@@ -3,6 +3,9 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from cmcrameri import cm
+
+#import Pkg; Pkg.add("PKg")
+#Pkg.add("RecipesBase")
 import subprocess
 from region import Region
 
@@ -12,6 +15,10 @@ file_stem = 'No_3_fold_sym'
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
 
+
+
+
+from region import Region
 domain = Region.region_from_components(
     [
         [
@@ -54,6 +61,7 @@ with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
     domain.write(f)
 
 subprocess.run([
+    #    'julia',
         'julia',
         'triangulate_via_julia.jl',
         file_stem,
