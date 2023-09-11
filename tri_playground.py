@@ -54,7 +54,7 @@ with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
     domain.write(f)
 
 subprocess.run([
-        '/Users/saarhersonsky/opt/anaconda3/envs/ct/bin/julia',
+        'julia',
         'triangulate_via_julia.jl',
         file_stem,
         file_stem,
@@ -87,7 +87,6 @@ tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 
 print(tri.singular_heights)
 print(tri.singular_vertices)
-
 
 plt.scatter(tri.vertices[:,0],tri.vertices[:,1],c=tri.pde_values)
 plt.show()
