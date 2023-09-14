@@ -7,12 +7,9 @@ import subprocess
 from region import Region
 import pyvista
 file_stem = 'No_3_fold_sym'
-<<<<<<< HEAD
 
 #file_stem = '3_fold_sym'
-=======
 # file_stem = '3_fold_sym'
->>>>>>> refs/remotes/origin/vertics-permutation-fenicsx-fix
 
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(path)
