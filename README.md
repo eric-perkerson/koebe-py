@@ -16,8 +16,17 @@ Partition the region along the singular level curves of the solution to the PDE.
 Build a harmonic conjugate for the solution to the PDE on each annular component.
 
 # How to Triangulate Example
-python draw_region.py  # Will generate a .poly file for the drawn region
+Choose a name for the example, e.g. my_example (make sure the name has no space characters)
+`python draw_region.py my_example`  # Will generate a my_example.poly file for the drawn region
 
-julia triangulate_via_julia.jl input_file_stem output_file_stem MINIMUM_NUMBER_OF_TRIANGLES
-
-python chain.py # Will run the chain program
+Now the parts of the tri_playground file starting with
+`subprocess.run([
+        'julia',
+        'triangulate_via_julia.jl',
+        file_stem,
+        file_stem,
+        "500"
+    ])
+`
+can be run.
+`julia triangulate_via_julia.jl my_example my_example MINIMUM_NUMBER_OF_TRIANGLES`  # MINIMUM_NUMBER_OF_TRIANGLES should be a number, e.g. 1500
