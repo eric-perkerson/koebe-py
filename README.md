@@ -30,3 +30,12 @@ Now the parts of the tri_playground file starting with
 `
 can be run.
 `julia triangulate_via_julia.jl my_example my_example MINIMUM_NUMBER_OF_TRIANGLES`  # MINIMUM_NUMBER_OF_TRIANGLES should be a number, e.g. 1500
+
+
+# TODO
+Add examples of:
+round annulus
+africa with round holes
+south america with asymmetric, non-convex holes
+3-fold symmetry
+3-fold asymmetry

@@ -141,6 +141,7 @@ class Triangulation(object):
         self.triangle_coordinates = self.make_triangle_coordinates()
         self.barycenters = self.make_barycenters()
         self.circumcenters = self.make_circumcenters()  # coordinates of voin diagram. lambda[0]
+        self.conductance = self.build_conductance_dict()
 
         self.vertex_topology = self.build_vertex_topology()
 
@@ -392,6 +393,29 @@ class Triangulation(object):
         else:
             pde_values = None
         return Triangulation(region, vertices, vertex_boundary_markers, triangles, topology, pde_values)
+
+    def build_conductance_dict(self):
+        """Builds a dictionary mapping edges in the triangulation to their conductance, given by
+        the distance between circumcenters of the adjoining triangles divided by the distance
+        between the endpoints of the edge.
+
+        Returns
+        -------
+        dict
+            dictionary mapping edges in the triangulation to their conductance
+        """
+        result = {}
+        for edge in self.triangulation_edges:
+            circumcenter_distance = np.linalg.norm(
+                self.circumcenters[edge[0]] - self.circumcenters[edge[1]]
+            )
+            distance = np.linalg.norm(
+                self.triangle_coordinates[edge[0]] - self.triangle_coordinates[edge[1]]
+            )
+            conductance = circumcenter_distance / distance
+            result[tuple(edge)] = conductance
+            result[tuple(np.flip(edge))] = conductance
+        return result
 
     def write(self, file_name):
         """Write a triangulation object as a .poly file with node and edge information containing boundary markers"""
