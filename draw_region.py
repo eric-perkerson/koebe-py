@@ -37,7 +37,7 @@ RAND_14 = '#488f2e'
 RAND_15 = '#54179f'
 
 
-FG_COLOR = WHITE
+FG_COLOR = WHITE # No idea actually
 BDRY_COLORS = [
     MAGENTA,
     BLUE,
@@ -61,7 +61,7 @@ BDRY_COLORS = [
     RAND_14,
     RAND_15
 ]
-FILL_COLORS = [WHITE] + (len(BDRY_COLORS) - 1) * [BG_COLOR]
+FILL_COLORS = [MAGENTA] + (len(BDRY_COLORS) - 1) * [BG_COLOR] # sets the fill color for the shape, not sure the point of the second term
 
 
 def is_number(string):
@@ -107,8 +107,8 @@ def get_unused_file_name(poly_file):
     """
     suffix = 1
     path = EXAMPLE_DIRECTORY / poly_file
-    already_exists = path.with_suffix('.poly').exists()
-    while path.with_suffix('.poly').exists():
+    already_exists = path.with_suffix('.poly').exists() # boolean for if theres already a file with that name
+    while path.with_suffix('.poly').exists(): # loops until a new file is created
         parts = path.stem.split('_')
         first_part = '_'.join(parts[:-1])
         last_part = parts[-1]
@@ -138,26 +138,48 @@ def draw_region(poly_file='test'):
     if not example_directory.is_dir():
         example_directory.mkdir(parents=True, exist_ok=True)
     poly_path = (example_directory / poly_file).with_suffix('.poly')
+    # The above sets up the file to be written too.
 
-    components = [[]]
+    components = [[]] 
 
-    gui = tk.Tk()
-    gui['bg'] = BG_COLOR
-    gui.title("Define a Polygonal Region with Polygonal Holes")
-    canvas_width = gui.winfo_screenwidth()
-    canvas_height = gui.winfo_screenheight()
+    gui = tk.Tk() # initialized Tk
+    gui['bg'] = BG_COLOR # sets the background color to that grey
+    gui.title("Define a Polygonal Region with Polygonal Holes") 
+    canvas_width = gui.winfo_screenwidth() 
+    canvas_height = gui.winfo_screenheight() # this and above set height and width variables that fill the screen
 
-    canvas = tk.Canvas(gui, width=canvas_width, height=canvas_height, bg=BG_COLOR)
-    canvas.pack(expand=tk.YES, fill=tk.BOTH)
+    canvas = tk.Canvas(gui, width=canvas_width, height=canvas_height, bg=BG_COLOR) # puts a canvas into gui, having it fill the screen, and have that grey color
+    canvas.pack(expand=tk.YES, fill=tk.BOTH) # Eric used pack, huh
 
     def flatten_list(list_of_lists):
-        return [item for sublist in list_of_lists for item in sublist]
+        """Takes in a list of lists and combines all its lists into a single list.
+
+        Parameters
+        ----------
+        list_of_lists : list, required
+            The list of lists to be flattened
+            
+        Returns
+        -------
+        list
+            The flattoned list
+        """
+        return [item for sublist in list_of_lists for item in sublist] # horrific looking, but combines all items in all lists in the list of lists to a single list
 
     def paint(event, epsilon=5):
+        """Adds verticies to the domain, and fills in the area between them if theres 3 or more.
+
+        Parameters
+        ----------
+        event : event, required
+            Event that will call this function
+        epsilon : number, optional
+            The size of the pins representing verticies
+        """
         epsilon = 5
         x_1, y_1 = (event.x - epsilon), (event.y - epsilon)
-        x_2, y_2 = (event.x + epsilon), (event.y + epsilon)
-        components[len(components) - 1].append([event.x, event.y])
+        x_2, y_2 = (event.x + epsilon), (event.y + epsilon) # this and above create edges for the oval that will be set at that x and y
+        components[len(components) - 1].append([event.x, event.y]) # adds the coordinates to the components list at the current "color" basically
         oval = canvas.create_oval(
             x_1,
             y_1,
@@ -165,7 +187,7 @@ def draw_region(poly_file='test'):
             y_2,
             fill=BDRY_COLORS[len(components) - 1],
             outline=''
-        )
+        ) # creates a little oval to make the vertex more visible
         canvas.tag_raise(oval)
         if len(components[len(components) - 1]) >= 3:
             tag = "Poly" + str(len(components) - 1)
