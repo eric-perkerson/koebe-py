@@ -141,6 +141,8 @@ class Triangulation(object):
         self.triangle_coordinates = self.make_triangle_coordinates()
         self.barycenters = self.make_barycenters()
         self.circumcenters = self.make_circumcenters()  # coordinates of voin diagram. lambda[0]
+        self.edge_to_right_of_triangle_dict = self.make_triangle_to_right_of_edge_dict()
+
         self.conductance = self.build_conductance_dict()
 
         self.vertex_topology = self.build_vertex_topology()
@@ -155,6 +157,14 @@ class Triangulation(object):
         if pde_values is not None:
             self.singular_vertices = self.find_singular_vertices()
             self.singular_heights = self.pde_values[self.singular_vertices]
+
+    def make_triangle_to_right_of_edge_dict(self):
+        edge_to_right_of_triangle_dict = {}
+        for i, triangle in enumerate(self.triangles):
+            edge_to_right_of_triangle_dict[tuple([triangle[1], triangle[0]])] = i
+            edge_to_right_of_triangle_dict[tuple([triangle[2], triangle[1]])] = i
+            edge_to_right_of_triangle_dict[tuple([triangle[0], triangle[2]])] = i
+        return edge_to_right_of_triangle_dict
 
     def make_barycenters(self):
         """Build the array of barycenters from a triangulation"""
@@ -376,6 +386,19 @@ class Triangulation(object):
                 singular_vertices.append(vertex)
         return singular_vertices
 
+    def find_singular_intersecting_edges(self, singular_height_index=0):
+        # Find the edges that intersect the singluar level curve, oriented so the first vertex has a lower f value
+        h = self.singular_heights[singular_height_index]
+        self.singular_vertices
+        edge_pde_values = self.pde_values[self.triangulation_edges]
+        intersecting_edges = []
+        for i in range(len(edge_pde_values)):
+            if edge_pde_values[i, 0] >= h and edge_pde_values[i, 1] < h:
+                intersecting_edges.append(tuple(self.triangulation_edges[i]))
+            elif edge_pde_values[i, 0] < h and edge_pde_values[i, 1] >= h:
+                intersecting_edges.append(tuple(np.flip(self.triangulation_edges[i])))
+        return intersecting_edges
+
     @staticmethod
     def read(file_name):
         """Read a triangulation object from files with the given path"""
@@ -405,12 +428,15 @@ class Triangulation(object):
             dictionary mapping edges in the triangulation to their conductance
         """
         result = {}
-        for edge in self.triangulation_edges:
+        for edge_index, edge in enumerate(self.triangulation_edges):
+            if self.edge_boundary_markers_unique[edge_index] != 0:
+                continue
             circumcenter_distance = np.linalg.norm(
-                self.circumcenters[edge[0]] - self.circumcenters[edge[1]]
+                self.circumcenters[self.edge_to_right_of_triangle_dict[tuple(edge)]]
+                - self.circumcenters[self.edge_to_right_of_triangle_dict[tuple(edge[::-1])]]  # Reversed edge
             )
             distance = np.linalg.norm(
-                self.triangle_coordinates[edge[0]] - self.triangle_coordinates[edge[1]]
+                self.vertices[edge[0]] - self.vertices[edge[1]]
             )
             conductance = circumcenter_distance / distance
             result[tuple(edge)] = conductance
