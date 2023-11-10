@@ -196,30 +196,31 @@ flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[1]])
 )
 
 # Find connected components using the lower pde value for each intersecting edge
-lower_vertices = [edge[0] if tri.pde_values[edge[0]] < tri.singular_heights[singular_height_index] else edge[1] for edge in intersecting_edges]
+lower_vertices = np.unique([edge[0] if tri.pde_values[edge[0]] < tri.singular_heights[singular_height_index] else edge[1] for edge in intersecting_edges])
 if np.any(tri.vertex_boundary_markers[lower_vertices] != 0):
     raise Exception('lower_vertices intersects the boundary, vertex topology will not be fully initialized')
 
 
-# component_vertices_1 = [lower_vertices[0]]
-# already_used = np.zeros(len(lower_vertices), dtype=np.bool_)
-# already_used[0] = True
+component_vertices_1 = [lower_vertices[0]]
+already_used = np.zeros(len(lower_vertices), dtype=np.bool_)
+already_used[0] = True
 
-# break_flag = False
-# while not break_flag:
-#     break_flag = True
-#     for vertex_index, vertex in enumerate(lower_vertices):
-#         if already_used[vertex_index]:
-#             continue
-#         for vertex_to_match in
-#         for vertex_to_match in tri.vertex_topology[component_vertices_1[-1]]:
-#             if vertex_to_match in component_vertices_1:
-#                 continue
-#             if vertex_to_match == vertex:
-#                 print(vertex)
-#                 component_vertices_1.append(vertex)
-#                 already_used[vertex_index] = True
-#                 break_flag = False
+break_flag = False
+while not break_flag:
+    break_flag = True
+    for component_vertex in component_vertices_1:
+        for neighboring_vertex in tri.vertex_topology[component_vertex]:
+            for index, test_vertex in enumerate(lower_vertices):
+                if already_used[index]:
+                    continue
+                if test_vertex == neighboring_vertex:
+                    print(test_vertex)
+                    component_vertices_1.append(test_vertex)
+                    already_used[index] = True
+                    break_flag = False
+
+
+component_vertices_2 = lower_vertices[np.where(~already_used)[0]]
 
 tri.show(
     str(path.with_suffix('.png')),
@@ -237,76 +238,30 @@ plt.scatter(
     s=25,
     color=[1, 0, 0]
 )
-plt.show()
-# plt.scatter(
-#     tri.vertices[tri.singular_vertices][0][0],
-#     tri.vertices[tri.singular_vertices][0][1],
-#     s=10,
-#     color=[1,.5,1]
-# )
 plt.scatter(
     tri.vertices[component_vertices_1][:, 0],
     tri.vertices[component_vertices_1][:, 1],
-    s=10
+    s=10,
+    color=[0, 1, 0]
 )
 plt.scatter(
-    tri.vertices[component_vertices_1[-1]][0],
-    tri.vertices[component_vertices_1[-1]][1],
-    s=25,
-    color=[1,.5,1]
+    tri.vertices[component_vertices_2][:, 0],
+    tri.vertices[component_vertices_2][:, 1],
+    s=10,
+    color=[0, 0, 1]
 )
 plt.show()
 
-# Find connected components of the intersecting_edges DOESN"T WORK
-# singular_vertex = tri.singular_vertices[singular_height_index]
-# component_edges_1 = [intersecting_edges[0]]
-# already_used = np.zeros(len(intersecting_edges), dtype=np.bool_)
-# already_used[0] = True
 
-# break_flag = False
-# while not break_flag:
-#     break_flag = True
-#     for edge_index, edge in enumerate(intersecting_edges):
-#         if already_used[edge_index]:
-#             continue
-#         for edge_to_match in component_edges_1:
-#             if (
-#                 (edge[0] == edge_to_match[0] and edge[0] != singular_vertex)
-#                 or (edge[0] == edge_to_match[1] and edge[0] != singular_vertex)
-#                 or (edge[1] == edge_to_match[0] and edge[1] != singular_vertex)
-#                 or (edge[1] == edge_to_match[1] and edge[1] != singular_vertex)
-#             ):
-#                 if already_used[edge_index]:
-#                     continue
-#                 component_edges_1.append(edge)
-#                 already_used[edge_index] = True
-#                 break_flag = False
+component_edges_1 = []
+for edge in intersecting_edges:
+    if (edge[0] in component_vertices_1) or (edge[1] in component_vertices_1):
+        component_edges_1.append(edge)
 
-# component_seed_2 = get_first_unused(already_used)
-# component_edges_2 = [intersecting_edges[component_seed_2]]
-# already_used[component_seed_2] = True
-
-# break_flag = False
-# while not break_flag:
-#     break_flag = True
-#     for edge_index, edge in enumerate(intersecting_edges):
-#         if already_used[edge_index]:
-#             continue
-#         for edge_to_match in component_edges_2:
-#             if (
-#                 (edge[0] == edge_to_match[0] and edge[0] != singular_vertex)
-#                 or (edge[0] == edge_to_match[1] and edge[0] != singular_vertex)
-#                 or (edge[1] == edge_to_match[0] and edge[1] != singular_vertex)
-#                 or (edge[1] == edge_to_match[1] and edge[1] != singular_vertex)
-#             ):
-#                 if already_used[edge_index]:
-#                     continue
-#                 component_edges_2.append(edge)
-#                 already_used[edge_index] = True
-#                 break_flag = False
-
-# if not np.all(already_used):
-#     raise Exception('Failed to use all edges')
+component_edges_2 = []
+for edge in intersecting_edges:
+    if (edge[0] in component_vertices_2) or (edge[1] in component_vertices_2):
+        component_edges_2.append(edge)
 
 
 flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[2]])
@@ -330,7 +285,7 @@ plt.scatter(
     tri.vertices[tri.singular_vertices][0][0],
     tri.vertices[tri.singular_vertices][0][1],
     s=10,
-    color=[0,0,1]
+    color=[0, 0, 1]
 )
 plt.show()
 
