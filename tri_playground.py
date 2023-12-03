@@ -88,7 +88,7 @@ subprocess.run([
         'triangulate_via_julia.jl',
         file_stem,
         file_stem,
-        "750"
+        "1000"
     ])
 
 t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
@@ -124,11 +124,11 @@ plt.show()
 
 #change how_singular_level_curves=True to False in case of an annulus
 tri.show(
-    'test.png',
+    'regions/3_holes_along_line/3_holes_along_line.png',
     show_level_curves=True,
     show_singular_level_curves=True,
     dpi=500,
-    num_level_curves=500,
+    num_level_curves=700,
     line_width=0.75
        )
 plt.show()
