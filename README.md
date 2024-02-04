@@ -34,8 +34,10 @@ can be run.
 
 # TODO
 Add examples of:
-round annulus
-africa with round holes
-south america with asymmetric, non-convex holes
-3-fold symmetry
-3-fold asymmetry
+    round annulus
+    africa with round holes
+    south america with asymmetric, non-convex holes
+    3-fold symmetry
+    3-fold asymmetry
+
+TODO: tri.vertex_topology has some clockwise-oriented cells

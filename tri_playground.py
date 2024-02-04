@@ -1,5 +1,9 @@
 from region import Region
-from triangulation import Triangulation
+from triangulation import (
+    Triangulation,
+    point_to_right_of_line_compiled,
+    polygon_oriented_counterclockwise
+)
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -331,3 +335,280 @@ plt.show()
 #         ]
 #     ]
 # )
+
+
+# Annulus
+from region import Region
+from triangulation import (
+    Triangulation,
+    point_to_right_of_line_compiled,
+    polygon_oriented_counterclockwise,
+    segment_intersects_segment
+)
+from pathlib import Path
+import numpy as np
+import matplotlib.pyplot as plt
+from cmcrameri import cm
+import subprocess
+from region import Region
+import pyvista
+from matplotlib import collections as mc
+import numba
+
+NUM_TRIANGLES = 200
+USE_WOLFRAM_SOLVER = True
+
+file_stem = "concentric_annulus"
+path = Path(f'regions/{file_stem}/{file_stem}')
+tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+
+# Choose a base point on the inner boundary
+base_point = np.where(tri.vertex_boundary_markers == 2)[0][0]
+
+
+@numba.njit
+def angle_compiled(vector_1, vector_2):
+    """Find the angle between two vectors"""
+    dot = np.dot(vector_1, vector_2)
+    norm1 = np.linalg.norm(vector_1)
+    norm2 = np.linalg.norm(vector_2)
+    hold = dot / (norm1 * norm2)
+    if hold >= 1:
+        hold = 1
+    elif hold <= -1:
+        hold = -1
+    angle = np.arccos(hold)
+    return angle
+
+
+# # Test
+# angle_compiled(
+#     np.array([1.0, 0.0]),
+#     np.array([0.0, 1.0])
+# )
+# angle_compiled(
+#     np.array([1.0, 0.0]),
+#     np.array([1.0, 1.0])
+# )
+
+
+@numba.njit
+def winding_number_compiled(x, y, path, coordinates):
+    """Find the winding number of the path (indices in the given list of coordinates) with respect to the point (x, y)"""
+    n_vertices = len(path)
+    winding_number = 0
+    angle = 0
+    sign = 0
+
+    for i in range(n_vertices):
+        head_1 = coordinates[path[i]]
+        head_2 = coordinates[path[(i + 1) % n_vertices]]  # TODO: check if this is correct
+        vector_1 = head_1 - np.array([x, y])
+        vector_2 = head_2 - np.array([x, y])
+        angle = angle_compiled(vector_1, vector_2)
+
+        if point_to_right_of_line_compiled(x, y, head_1[0], head_1[1], head_2[0], head_2[1]):
+            sign = -1
+        else:
+            sign = 1
+
+        winding_number += sign * angle
+
+    return winding_number / (2 * np.pi)
+
+
+def get_base_cell(tri, omega_0):
+    for i, cell in enumerate(tri.contained_polygons):
+        if omega_0 in cell:
+            return i
+    return -1
+
+
+hole_x, hole_y = tri.region.points_in_holes[0]
+# omega_0_x, omega_0_y = 1.0, 0.0
+omega_0 = 338
+omega_0_x, omega_0_y = tri.circumcenters[omega_0]
+base_cell = get_base_cell(tri, omega_0)
+
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=True,
+#     # highlight_vertices=[omega_0],
+#     highlight_polygons=[base_cell]
+# )
+# plt.scatter(
+#     [hole_x],
+#     [hole_y],
+#     c=[[1, 0, 0]]
+# )
+# plt.show()
+
+
+# base_point = tri.vertices[base_cell]
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=True,
+#     # highlight_vertices=[omega_0],
+#     highlight_polygons=[base_cell]
+# )
+# plt.scatter(
+#     [base_point[0]],
+#     [base_point[1]],
+#     c=[[0, 1, 1]],
+# )
+# plt.scatter(
+#     [hole_x],
+#     [hole_y],
+#     c=[[1, 0, 0]]
+# )
+# plt.show()
+
+base_point = tri.vertices[tri.contained_to_original_index[base_cell]]
+for cell in tri.voronoi_tesselation:
+    for vertex in cell:
+        point_x, point_y = tri.circumcenters[vertex]
+        to_right = point_to_right_of_line_compiled(hole_x, hole_y, base_point[0], base_point[1], point_x, point_y)
+
+
+def segment_intersects_line(tail, head):
+    tail_to_right = point_to_right_of_line_compiled(
+        hole_x,
+        hole_y,
+        base_point[0],
+        base_point[1],
+        tail[0],
+        tail[1]
+    )
+    head_to_right = point_to_right_of_line_compiled(
+        hole_x,
+        hole_y,
+        base_point[0],
+        base_point[1],
+        head[0],
+        head[1]
+    )
+    return head_to_right ^ tail_to_right
+
+
+def segment_intersects_line_positive(tail, head):
+    tail_to_right = point_to_right_of_line_compiled(hole_x, hole_y, base_point[0], base_point[1], tail[0], tail[1])
+    head_to_right = point_to_right_of_line_compiled(hole_x, hole_y, base_point[0], base_point[1], head[0], head[1])
+    return (head_to_right and not tail_to_right)
+
+
+def segment_intersects_line_negative(tail, head):
+    tail_to_right = point_to_right_of_line_compiled(hole_x, hole_y, base_point[0], base_point[1], tail[0], tail[1])
+    head_to_right = point_to_right_of_line_compiled(hole_x, hole_y, base_point[0], base_point[1], head[0], head[1])
+    return (not head_to_right and tail_to_right)
+
+
+def build_polygon_edges(polygon_vertices):
+    edges = []
+    for i in range(len(polygon_vertices) - 1):
+        edge = [
+            polygon_vertices[i],
+            polygon_vertices[i + 1]
+        ]
+        edges.append(edge)
+    edges.append([polygon_vertices[-1], polygon_vertices[0]])
+    return edges
+
+
+# Create the contained topology
+contained_topology_all = [
+    [tri.original_to_contained_index[vertex] if vertex in tri.original_to_contained_index else -1 for vertex in cell] for cell in tri.vertex_topology
+]
+contained_topology = [contained_topology_all[i] for i in tri.contained_to_original_index]
+
+# TODO
+# Create cell path from base_cell to boundary_a
+base_vertex = tri.contained_to_original_index[base_cell]
+contained_topology[base_cell]
+base_cell_vertices = tri.contained_polygons[base_cell]
+edges = build_polygon_edges(base_cell_vertices)
+for i, edge in enumerate(edges):
+    if segment_intersects_line_positive(
+            tri.circumcenters[edge[0]],
+            tri.circumcenters[edge[1]]
+    ):
+        print(i)
+        break
+
+base_cell
+contained_topology[base_cell]
+
+
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_polygon_indices=True,
+#     show_edges=True
+# )
+# plt.show()
+
+# Show setup with line from point_in_hole to base_point
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=False,
+#     show_polygon_indices=True,
+#     show_edges=True,
+#     # highlight_polygons=[base_cell]
+# )
+# plt.scatter(
+#     [base_point[0]],
+#     [base_point[1]],
+#     c=[[0, 1, 1]],
+# )
+# plt.scatter(
+#     [hole_x],
+#     [hole_y],
+#     c=[[1, 0, 0]]
+# )
+# lines = [
+#     [
+#         tuple(base_point),
+#         tuple([hole_x, hole_y])
+#     ]
+# ]
+# line_collection = mc.LineCollection(lines, linewidths=2)
+# axes = plt.gca()
+# axes.add_collection(line_collection)
+# plt.show()
+
+
+# Check polygon orientation
+np.all([polygon_oriented_counterclockwise(poly, tri.circumcenters) for poly in tri.contained_polygons])
+np.all([not polygon_oriented_counterclockwise(np.flip(poly), tri.circumcenters) for poly in tri.contained_polygons])
+
+# # Show the changed base points for vertex_topology to align with the first edge in each polygon
+# for counter, contained_poly_index in enumerate(range(len(tri.contained_polygons) - 5, len(tri.contained_polygons))):
+#     poly = tri.contained_polygons[contained_poly_index]
+#     edges = build_polygon_edges(poly)
+#     triangle_index = tri.contained_to_original_index[contained_poly_index]
+#     first_poly_edge = np.array([poly[0], poly[1]])
+
+#     tri.show_voronoi_tesselation(
+#         'voronoi.png',
+#         show_vertex_indices=False,
+#         show_polygon_indices=True,
+#         show_edges=True,
+#     )
+#     poly_edge_lines = [
+#         [
+#             tuple(tri.circumcenters[first_poly_edge[0]]),
+#             tuple(tri.circumcenters[first_poly_edge[1]])
+#         ]
+#     ]
+#     tri_edge_lines = [
+#         [
+#             tuple(tri.vertices[triangle_index]),
+#             tuple(tri.vertices[tri.vertex_topology[triangle_index][0]])
+#         ]
+#     ]
+#     poly_edge_line_collection = mc.LineCollection(poly_edge_lines, linewidths=2)
+#     tri_edge_line_collection = mc.LineCollection(tri_edge_lines, linewidths=2)
+#     poly_edge_line_collection.set(color=[1, 0, 0])
+#     tri_edge_line_collection.set(color=[0, 1, 0])
+#     axes = plt.gca()
+#     axes.add_collection(poly_edge_line_collection)
+#     axes.add_collection(tri_edge_line_collection)
+#     plt.show()

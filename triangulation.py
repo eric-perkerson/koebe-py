@@ -66,6 +66,63 @@ def flatten_list_of_lists(list_of_lists):
     return [item for sublist in list_of_lists for item in sublist]
 
 
+def build_polygon_edges(polygon_vertices):
+    edges = []
+    for i in range(len(polygon_vertices) - 1):
+        edge = [
+            polygon_vertices[i],
+            polygon_vertices[i + 1]
+        ]
+        edges.append(edge)
+    edges.append([polygon_vertices[-1], polygon_vertices[0]])
+    return edges
+
+
+@numba.njit
+def point_to_right_of_line_compiled(tail_x, tail_y, head_x, head_y, point_x, point_y):
+    """Check if a point lies to the right of a line oriented from tail to head using."""
+    # compute the cross product of the vectors (tail -> head) and (tail -> point)
+    return (head_y - tail_y) * (point_x - tail_x) - (head_x - tail_x) * (point_y - tail_y) > 0
+
+
+@numba.njit
+def segment_intersects_segment(a_x, a_y, b_x, b_y, c_x, c_y, d_x, d_y):
+    return (
+        (
+            point_to_right_of_line_compiled(
+                a_x, a_y, b_x, b_y, c_x, c_y
+            )
+            != point_to_right_of_line_compiled(
+                a_x, a_y, b_x, b_y, d_x, d_y
+            )
+        )
+        and (
+            point_to_right_of_line_compiled(
+                c_x, c_y, d_x, d_y, a_x, a_y
+            )
+            != point_to_right_of_line_compiled(
+                c_x, c_y, d_x, d_y, b_x, b_y
+            )
+        )
+    )
+
+
+def polygon_oriented_counterclockwise(polygon, coordinates):
+    """For convex polygons, returns True if the polygon is oriented counterclockwise and returns False otherwise"""
+    n = len(polygon)
+    for i in range(n):
+        if point_to_right_of_line_compiled(
+            coordinates[polygon[i], 0],
+            coordinates[polygon[i], 1],
+            coordinates[polygon[(i + 1) % n], 0],
+            coordinates[polygon[(i + 1) % n], 1],
+            coordinates[polygon[(i + 2) % n], 0],
+            coordinates[polygon[(i + 2) % n], 1]
+        ):
+            return False
+    return True
+
+
 @numba.njit
 def triangle_circumcenter(a_x, a_y, b_x, b_y, c_x, c_y):
     """Calculate the coordinates of the circumcenter of a triangle given the coordinates of its
@@ -150,7 +207,14 @@ class Triangulation(object):
         self.vertex_index_to_triangle = self.make_vertex_index_to_triangle()
         if topology is not None:
             self.voronoi_tesselation = self.make_voronoi_tesselation()  # lambda[2]
-            self.contained_polygons = self.make_contained_polygons()  # lambda[2]
+            self.contained_polygons, self.contained_to_original_index = self.make_contained_polygons()  # lambda[2]
+            self.rebase_vertex_topology()
+
+            # Now make the inverse mapping array
+            self.original_to_contained_index = np.full((self.contained_to_original_index[-1] + 1,), -1)
+            for i in range(len(self.contained_to_original_index)):
+                self.original_to_contained_index[self.contained_to_original_index[i]] = i
+
             self.voronoi_edges = self.make_voronoi_edges()  # lambda[1]
             # self.to_right_of_edge_poly_dict = self.build_edge_to_right_polygons_dict()
 
@@ -284,7 +348,30 @@ class Triangulation(object):
         for vertex_index in range(self.num_vertices):
             neighbors_ordered = self.vertex_neighbors_ordered(vertex_index, vertex_topology_unordered)
             vertex_topology.append(neighbors_ordered)
+
         return vertex_topology
+
+    def rebase_vertex_topology(self):
+        """Set the vertex topology start point to align with the start point of each polygon"""
+        for contained_poly_index in range(len(self.contained_polygons)):
+            poly = self.contained_polygons[contained_poly_index]
+            triangle_index = self.contained_to_original_index[contained_poly_index]
+
+            # Find the triangle edge intersecting the first_poly_edge
+            for i in range(len(self.vertex_topology[triangle_index])):
+                if segment_intersects_segment(
+                    self.circumcenters[poly[0]][0],
+                    self.circumcenters[poly[0]][1],
+                    self.circumcenters[poly[1]][0],
+                    self.circumcenters[poly[1]][1],
+                    self.vertices[triangle_index][0],
+                    self.vertices[triangle_index][1],
+                    self.vertices[self.vertex_topology[triangle_index][i]][0],
+                    self.vertices[self.vertex_topology[triangle_index][i]][1]
+                ):
+                    # Negative to rotate clockwise instead of counterclockwise
+                    self.vertex_topology[triangle_index] = np.roll(self.vertex_topology[triangle_index], -i)
+                    break
 
     def vertex_neighbors_ordered(self, vertex, vertex_topology_unordered):
         """Take an interior vertex and return all vertices in the triangulation that are neighbors of
@@ -350,7 +437,8 @@ class Triangulation(object):
         """Make the list of polygons from the Voronoi tesselation that are completely contained
         in the region"""
         contained_polygons = [v for v in self.voronoi_tesselation if len(v) != 0]
-        return contained_polygons
+        contained_polygons_indices = [i for i in range(len(self.voronoi_tesselation)) if len(self.voronoi_tesselation[i]) != 0]
+        return contained_polygons, contained_polygons_indices
 
     @staticmethod
     def make_polygon_edges(polygon):
@@ -580,55 +668,110 @@ class Triangulation(object):
         axes.margins(0.0)
         fig.savefig(file_name, **kwargs)
 
-    def show_voronoi_tesselation(self, file_name, show_vertex_indices=False, show_polygon_indices=False):
+    def show_voronoi_tesselation(
+        self,
+        file_name,
+        show_vertex_indices=False,
+        show_polygon_indices=False,
+        show_vertices=False,
+        show_edges=False,
+        show_polygons=True,
+        show_region=True,
+        highlight_vertices=[],
+        highlight_edges=[],
+        highlight_polygons=[],
+        highlight_vertices_color=[1, 1, 0],
+        highlight_edges_color=[1, 1, 0],
+        highlight_polygons_color=[255/255, 102/255, 102/255]
+    ):
         """Show the voronoi tesselation"""
         fig, axes = plt.subplots()
 
-        # Plot the edges of the polygons
-        polygon_lines = [
-            [
-                tuple(self.circumcenters[edge[0]]),
-                tuple(self.circumcenters[edge[1]])
-            ] for edge in self.voronoi_edges
-        ]
-        polygon_line_collection = mc.LineCollection(polygon_lines, linewidths=2)
-
-        # Plot the region outline
-        region_lines = [
-            [
-                tuple(self.region.coordinates[edge[0]]),
-                tuple(self.region.coordinates[edge[1]])
-            ] for edge in self.region.edges
-        ]
-        region_line_collection = mc.LineCollection(region_lines, linewidths=2)
-
-        # Plot the polygons
-        polygon_coordinates = [
-            np.array(list(map(lambda x: self.circumcenters[x], polygon)))
-            for polygon in self.contained_polygons
-        ]
-        polygon_collection = mc.PolyCollection(
-            polygon_coordinates
-        )
-        polygon_collection.set(facecolor=[180/255, 213/255, 246/255])
-        axes.add_collection(polygon_line_collection)
-        axes.add_collection(region_line_collection)
-        axes.add_collection(polygon_collection)
+        if show_vertices:
+            axes.scatter(self.circumcenters[:, 0], self.circumcenters[:, 1])
+        if highlight_vertices:
+            axes.scatter(
+                self.circumcenters[np.array(highlight_vertices), 0],
+                self.circumcenters[np.array(highlight_vertices), 1],
+                c=np.tile(highlight_vertices_color, (len(highlight_vertices), 1)),
+                zorder=5
+            )
+        if show_edges:
+            polygon_lines = [
+                [
+                    tuple(self.circumcenters[edge[0]]),
+                    tuple(self.circumcenters[edge[1]])
+                ] for edge in self.voronoi_edges
+            ]
+            polygon_line_collection = mc.LineCollection(polygon_lines, linewidths=2)
+            axes.add_collection(polygon_line_collection)
+        if highlight_edges:
+            polygon_lines = [
+                [
+                    tuple(self.circumcenters[edge[0]]),
+                    tuple(self.circumcenters[edge[1]])
+                ] for edge in self.voronoi_edges
+            ]
+            polygon_line_collection = mc.LineCollection(polygon_lines, linewidths=2)
+            axes.add_collection(polygon_line_collection)
+        if show_region:
+            region_lines = [
+                [
+                    tuple(self.region.coordinates[edge[0]]),
+                    tuple(self.region.coordinates[edge[1]])
+                ] for edge in self.region.edges
+            ]
+            region_line_collection = mc.LineCollection(region_lines, linewidths=2)
+            axes.add_collection(region_line_collection)
+        if show_polygons:
+            polygon_coordinates = [
+                np.array(list(map(lambda x: self.circumcenters[x], polygon)))
+                for polygon in self.contained_polygons
+            ]
+            polygon_collection = mc.PolyCollection(
+                polygon_coordinates
+            )
+            polygon_collection.set(facecolor=[180/255, 213/255, 246/255])
+            axes.add_collection(polygon_collection)
+        if highlight_polygons:
+            polygon_coordinates = [
+                np.array(
+                    list(map(lambda x: self.circumcenters[x], polygon))
+                )
+                for polygon in [self.contained_polygons[i] for i in highlight_polygons]
+            ]
+            polygon_collection = mc.PolyCollection(
+                polygon_coordinates
+            )
+            polygon_collection.set(facecolor=highlight_polygons_color)
+            axes.add_collection(polygon_collection)
         if show_polygon_indices:
             barycenters = np.array(list(map(
                 lambda x: np.mean(x, axis=0),
                 polygon_coordinates
             )))
             for i in range(len(barycenters)):
-                plt.text(barycenters[i, 0], barycenters[i, 1], str(i), fontsize=6, weight='bold')
+                plt.text(
+                    barycenters[i, 0],
+                    barycenters[i, 1],
+                    str(i),
+                    fontsize=6,
+                    weight='bold',
+                    zorder=7
+                )
         if show_vertex_indices:
             for i in range(len(self.circumcenters)):
-                plt.text(self.circumcenters[i, 0], self.circumcenters[i, 1], str(i), fontsize=6, weight='bold')
+                plt.text(
+                    self.circumcenters[i, 0],
+                    self.circumcenters[i, 1],
+                    str(i),
+                    fontsize=6,
+                    weight='bold',
+                    zorder=6
+                )
 
         axes.autoscale()
         axes.margins(0.1)
-        axes.scatter(self.circumcenters[:, 0], self.circumcenters[:, 1])
-        fig.show()
         fig.savefig(file_name)
 
 
