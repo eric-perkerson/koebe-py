@@ -704,7 +704,7 @@ class Triangulation(object):
         highlight_polygons=[],
         highlight_vertices_color=[1, 1, 0],
         highlight_edges_color=[1, 1, 0],
-        highlight_polygons_color=[255/255, 102/255, 102/255]
+        highlight_polygons_color=[247/255, 165/255, 131/255]
     ):
         """Show the voronoi tesselation"""
         fig, axes = plt.subplots()

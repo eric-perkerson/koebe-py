@@ -514,10 +514,7 @@ def build_polygon_edges(polygon_vertices):
     return edges
 
 
-
-
 # Create the contained topology
-original_index = tri.contained_to_original_index[149]
 contained_topology_all = [
     [
         tri.original_to_contained_index[vertex]
@@ -529,6 +526,7 @@ contained_topology_all = [
 contained_topology = [contained_topology_all[i] for i in tri.contained_to_original_index]
 
 # Create cell path from base_cell to boundary_1
+base_cell = 178
 poly = base_cell
 poly_path_outward = []
 while poly != -1:
@@ -561,13 +559,44 @@ poly_path_inward = poly_path_inward[1:]
 poly_path_inward.reverse()
 cell_path = poly_path_inward + poly_path_outward
 
+# Create poly edge path to right of line
+connected_component = []
+perpendicular_edges = []
+for cell_path_index, cell in enumerate(cell_path):
+    flag = False
+    edges = tri.make_polygon_edges(tri.contained_polygons[cell])
+    num_edges = len(edges)
+    edge_index = -1
+    while True:
+        edge_index = (edge_index + 1) % num_edges  # Next edge
+        edge = edges[edge_index]
+        if flag:
+            if (not segment_intersects_line_negative(
+                tri.circumcenters[edge[0]],
+                tri.circumcenters[edge[1]]
+            )):
+                if (contained_topology[cell][edge_index] != -1):  # Might remove this depending on which path is needed
+                    connected_component.append(edge)
+                    perpendicular_edges.append((cell, contained_topology[cell][edge_index]))
+            else:
+                break
+        if segment_intersects_line_positive(
+            tri.circumcenters[edge[0]],
+            tri.circumcenters[edge[1]]
+        ):
+            flag = True
+
+
+perpendicular_edges
+
+
 # Show setup with line from point_in_hole to base_point
 tri.show_voronoi_tesselation(
     'voronoi.png',
     show_vertex_indices=True,
     show_polygon_indices=True,
     show_edges=True,
-    # highlight_polygons=[base_cell]
+    highlight_polygons=cell_path
 )
 plt.scatter(
     [base_point[0]],
@@ -592,3 +621,6 @@ line_collection.set(color=[1, 0, 0])
 axes = plt.gca()
 axes.add_collection(line_collection)
 plt.show()
+
+cell_path
+contained_topology[cell_path[0]]
