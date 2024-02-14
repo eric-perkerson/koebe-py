@@ -208,7 +208,8 @@ class Triangulation(object):
         if topology is not None:
             self.voronoi_tesselation = self.make_voronoi_tesselation()  # lambda[2]
             self.contained_polygons, self.contained_to_original_index = self.make_contained_polygons()  # lambda[2]
-            self.rebase_vertex_topology()
+            self._orient_vertex_topology()
+            self._rebase_vertex_topology()
 
             # Now make the inverse mapping array
             self.original_to_contained_index = np.full((self.contained_to_original_index[-1] + 1,), -1)
@@ -351,7 +352,15 @@ class Triangulation(object):
 
         return vertex_topology
 
-    def rebase_vertex_topology(self):
+    def _orient_vertex_topology(self):
+        """Orients vertex_topology so each is oriented counterclockwise"""
+        for i, topo in enumerate(self.vertex_topology):
+            if topo[0] == -1:
+                continue
+            if not polygon_oriented_counterclockwise(topo, self.vertices):
+                self.vertex_topology[i] = np.flip(topo)
+
+    def _rebase_vertex_topology(self):
         """Set the vertex topology start point to align with the start point of each polygon"""
         for contained_poly_index in range(len(self.contained_polygons)):
             poly = self.contained_polygons[contained_poly_index]
@@ -573,6 +582,9 @@ class Triangulation(object):
         show_triangle_indices=False,
         show_level_curves=False,
         show_singular_level_curves=False,
+        highlight_vertices=[],
+        highlight_edges=[],
+        highlight_polygons=[],
         face_color=[153/255, 204/255, 255/255],
         num_level_curves=25,
         line_width=1,
@@ -604,6 +616,16 @@ class Triangulation(object):
             line_collection = mc.LineCollection(lines, linewidths=2)
             axes.add_collection(line_collection)
         # color_array = np.ones(self.num_triangles) * color  # np.random.random(self.num_triangles) * 500
+        if highlight_edges:
+            triangle_lines = [
+                [
+                    tuple(self.vertices[edge[0]]),
+                    tuple(self.vertices[edge[1]])
+                ] for edge in self.triangulation_edges
+            ]
+            triangle_line_collection = mc.LineCollection(triangle_lines, linewidths=2)
+            triangle_line_collection.set_color(face_color)
+            axes.add_collection(triangle_line_collection)
         if show_triangles:
             poly_collection = mc.PolyCollection(
                 self.triangle_coordinates,

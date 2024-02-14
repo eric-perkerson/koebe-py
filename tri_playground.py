@@ -514,101 +514,167 @@ def build_polygon_edges(polygon_vertices):
     return edges
 
 
+
+
 # Create the contained topology
+original_index = tri.contained_to_original_index[149]
 contained_topology_all = [
-    [tri.original_to_contained_index[vertex] if vertex in tri.original_to_contained_index else -1 for vertex in cell] for cell in tri.vertex_topology
+    [
+        tri.original_to_contained_index[vertex]
+        if vertex in tri.contained_to_original_index
+        else -1
+        for vertex in cell
+    ] for cell in tri.vertex_topology
 ]
 contained_topology = [contained_topology_all[i] for i in tri.contained_to_original_index]
 
-# TODO
-# Create cell path from base_cell to boundary_a
-base_vertex = tri.contained_to_original_index[base_cell]
-contained_topology[base_cell]
-base_cell_vertices = tri.contained_polygons[base_cell]
-edges = build_polygon_edges(base_cell_vertices)
-for i, edge in enumerate(edges):
-    if segment_intersects_line_positive(
-            tri.circumcenters[edge[0]],
-            tri.circumcenters[edge[1]]
-    ):
-        print(i)
-        break
+# Create cell path from base_cell to boundary_1
+poly = base_cell
+poly_path_outward = []
+while poly != -1:
+    cell_vertices = tri.contained_polygons[poly]
+    edges = build_polygon_edges(cell_vertices)
+    for i, edge in enumerate(edges):
+        if segment_intersects_line_negative(
+                tri.circumcenters[edge[0]],
+                tri.circumcenters[edge[1]]
+        ):
+            poly_path_outward.append(poly)
+            poly = contained_topology[poly][i]
 
-base_cell
-contained_topology[base_cell]
+# Create cell path from base_cell to boundary_0
+poly = base_cell
+poly_path_inward = []
+while poly != -1:
+    cell_vertices = tri.contained_polygons[poly]
+    edges = build_polygon_edges(cell_vertices)
+    for i, edge in enumerate(edges):
+        if segment_intersects_line_positive(
+                tri.circumcenters[edge[0]],
+                tri.circumcenters[edge[1]]
+        ):
+            poly_path_inward.append(poly)
+            poly = contained_topology[poly][i]
 
-
-# tri.show_voronoi_tesselation(
-#     'voronoi.png',
-#     show_polygon_indices=True,
-#     show_edges=True
-# )
-# plt.show()
+# Create slit cell path by joining
+poly_path_inward = poly_path_inward[1:]
+poly_path_inward.reverse()
+cell_path = poly_path_inward + poly_path_outward
 
 # Show setup with line from point_in_hole to base_point
-# tri.show_voronoi_tesselation(
-#     'voronoi.png',
-#     show_vertex_indices=False,
-#     show_polygon_indices=True,
-#     show_edges=True,
-#     # highlight_polygons=[base_cell]
-# )
-# plt.scatter(
-#     [base_point[0]],
-#     [base_point[1]],
-#     c=[[0, 1, 1]],
-# )
-# plt.scatter(
-#     [hole_x],
-#     [hole_y],
-#     c=[[1, 0, 0]]
-# )
-# lines = [
-#     [
-#         tuple(base_point),
-#         tuple([hole_x, hole_y])
-#     ]
-# ]
-# line_collection = mc.LineCollection(lines, linewidths=2)
-# axes = plt.gca()
-# axes.add_collection(line_collection)
-# plt.show()
+tri.show_voronoi_tesselation(
+    'voronoi.png',
+    show_vertex_indices=True,
+    show_polygon_indices=True,
+    show_edges=True,
+    # highlight_polygons=[base_cell]
+)
+plt.scatter(
+    [base_point[0]],
+    [base_point[1]],
+    c=[[0, 1, 1]],
+)
+plt.scatter(
+    [hole_x],
+    [hole_y],
+    c=[[1, 0, 0]]
+)
+hole_point = np.array([hole_x, hole_y])
+line_segment_end = 2 * (base_point - hole_point) + hole_point
+lines = [
+    [
+        tuple(line_segment_end),
+        tuple(hole_point)
+    ]
+]
+
+line_collection = mc.LineCollection(lines, linewidths=2)
+line_collection.set(color=[1, 0, 0])
+axes = plt.gca()
+axes.add_collection(line_collection)
+plt.show()
 
 
 # Check polygon orientation
 np.all([polygon_oriented_counterclockwise(poly, tri.circumcenters) for poly in tri.contained_polygons])
 np.all([not polygon_oriented_counterclockwise(np.flip(poly), tri.circumcenters) for poly in tri.contained_polygons])
 
-# # Show the changed base points for vertex_topology to align with the first edge in each polygon
-# for counter, contained_poly_index in enumerate(range(len(tri.contained_polygons) - 5, len(tri.contained_polygons))):
-#     poly = tri.contained_polygons[contained_poly_index]
-#     edges = build_polygon_edges(poly)
-#     triangle_index = tri.contained_to_original_index[contained_poly_index]
-#     first_poly_edge = np.array([poly[0], poly[1]])
+# Oriend contained_topology
+oriented_contained_topology = []
+for i in range(len(contained_topology)):
+    if not (
+        contained_topology[i][0] != -1
+        or polygon_oriented_counterclockwise(contained_topology[i], tri.vertices[tri.contained_to_original_index])
+    ):
+        oriented_contained_topology.append(list(reversed(contained_topology[i])))
+    else:
+        oriented_contained_topology.append(contained_topology[i])
 
-#     tri.show_voronoi_tesselation(
-#         'voronoi.png',
-#         show_vertex_indices=False,
-#         show_polygon_indices=True,
-#         show_edges=True,
-#     )
-#     poly_edge_lines = [
-#         [
-#             tuple(tri.circumcenters[first_poly_edge[0]]),
-#             tuple(tri.circumcenters[first_poly_edge[1]])
-#         ]
-#     ]
-#     tri_edge_lines = [
-#         [
-#             tuple(tri.vertices[triangle_index]),
-#             tuple(tri.vertices[tri.vertex_topology[triangle_index][0]])
-#         ]
-#     ]
-#     poly_edge_line_collection = mc.LineCollection(poly_edge_lines, linewidths=2)
-#     tri_edge_line_collection = mc.LineCollection(tri_edge_lines, linewidths=2)
-#     poly_edge_line_collection.set(color=[1, 0, 0])
-#     tri_edge_line_collection.set(color=[0, 1, 0])
-#     axes = plt.gca()
-#     axes.add_collection(poly_edge_line_collection)
-#     axes.add_collection(tri_edge_line_collection)
-#     plt.show()
+for i in range(len(oriented_contained_topology)):
+    if polygon_oriented_counterclockwise(oriented_contained_topology[i], tri.vertices[tri.contained_to_original_index]):
+        print(i)
+
+i = 0
+oriented_contained_topology[3]
+
+
+# Show the changed base points for vertex_topology to align with the first edge in each polygon
+for counter, contained_poly_index in enumerate(range(len(tri.contained_polygons) - 5, len(tri.contained_polygons))):
+contained_poly_index = 149
+poly = tri.contained_polygons[contained_poly_index]
+edges = build_polygon_edges(poly)
+triangle_index = tri.contained_to_original_index[contained_poly_index]
+first_poly_edge = np.array([poly[0], poly[1]])
+
+tri.show_voronoi_tesselation(
+    'voronoi.png',
+    show_vertex_indices=False,
+    show_polygon_indices=True,
+    show_edges=True,
+)
+poly_edge_lines = [
+    [
+        tuple(tri.circumcenters[first_poly_edge[0]]),
+        tuple(tri.circumcenters[first_poly_edge[1]])
+    ]
+]
+tri_edge_lines = [
+    [
+        tuple(tri.vertices[triangle_index]),
+        tuple(tri.vertices[tri.vertex_topology[triangle_index][0]])
+    ]
+]
+poly_edge_line_collection = mc.LineCollection(poly_edge_lines, linewidths=2)
+tri_edge_line_collection = mc.LineCollection(tri_edge_lines, linewidths=2)
+poly_edge_line_collection.set(color=[1, 0, 0])
+tri_edge_line_collection.set(color=[0, 1, 0])
+axes = plt.gca()
+axes.add_collection(poly_edge_line_collection)
+axes.add_collection(tri_edge_line_collection)
+plt.show()
+
+
+# Visualize vertex topology
+i = 0
+tri.show(
+    'test.png',
+    show_edges=True,
+)
+plt.scatter(
+    [tri.vertices[i][0]],
+    [tri.vertices[i][1]],
+    c=[[0, 1, 1]],
+)
+lines = [
+    [
+        tuple(tri.vertices[topo][0]),
+        tuple(tri.vertices[topo][1])
+    ]
+    if topo[0] != -1 else None for topo in tri.vertex_topology[i]
+]
+
+line_collection = mc.LineCollection(lines, linewidths=2)
+line_collection.set(color=[1, 0, 0])
+axes = plt.gca()
+axes.add_collection(line_collection)
+plt.show()
