@@ -13,6 +13,7 @@ from region import Region
 import pyvista
 from matplotlib import collections as mc
 import numba
+import networkx as nx
 
 
 @numba.njit
@@ -354,6 +355,7 @@ from region import Region
 import pyvista
 from matplotlib import collections as mc
 import numba
+import networkx as nx
 
 NUM_TRIANGLES = 200
 USE_WOLFRAM_SOLVER = True
@@ -361,9 +363,6 @@ USE_WOLFRAM_SOLVER = True
 file_stem = "concentric_annulus"
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-
-# Choose a base point on the inner boundary
-base_point = np.where(tri.vertex_boundary_markers == 2)[0][0]
 
 
 @numba.njit
@@ -424,6 +423,7 @@ def get_base_cell(tri, omega_0):
     return -1
 
 
+point_in_hole = tri.region.points_in_holes[0]
 hole_x, hole_y = tri.region.points_in_holes[0]
 # omega_0_x, omega_0_y = 1.0, 0.0
 omega_0 = 338
@@ -525,6 +525,39 @@ contained_topology_all = [
 ]
 contained_topology = [contained_topology_all[i] for i in tri.contained_to_original_index]
 
+# # Show setup with line from point_in_hole to base_point
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=False,
+#     show_polygon_indices=True,
+#     show_edges=True,
+#     # highlight_polygons=cell_path
+# )
+# plt.scatter(
+#     [base_point[0]],
+#     [base_point[1]],
+#     c=[[0, 1, 1]],
+# )
+# plt.scatter(
+#     [hole_x],
+#     [hole_y],
+#     c=[[1, 0, 0]]
+# )
+# hole_point = np.array([hole_x, hole_y])
+# line_segment_end = 2 * (base_point - hole_point) + hole_point
+# lines = [
+#     [
+#         tuple(line_segment_end),
+#         tuple(hole_point)
+#     ]
+# ]
+# line_collection = mc.LineCollection(lines, linewidths=2)
+# line_collection.set(color=[1, 0, 0])
+# axes = plt.gca()
+# axes.add_collection(line_collection)
+# plt.show()
+
+
 # Create cell path from base_cell to boundary_1
 base_cell = 178
 poly = base_cell
@@ -586,41 +619,103 @@ for cell_path_index, cell in enumerate(cell_path):
         ):
             flag = True
 
+# Create contained_edges
+triangulation_edges_reindexed = tri.original_to_contained_index[tri.triangulation_edges]
+contained_edges = []
+for edge in triangulation_edges_reindexed:
+    if -1 not in edge:
+        contained_edges.append(list(edge))
 
-perpendicular_edges
+# # Create graph of cells
+# lambda_graph = nx.Graph()
+# lambda_graph.add_nodes_from(range(len(tri.contained_polygons)))
+# lambda_graph.add_edges_from(contained_edges)
+# nx.set_edge_attributes(lambda_graph, values=1, name='weight')
+# for edge in perpendicular_edges:
+#     lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
+# shortest_paths = nx.single_source_dijkstra(lambda_graph, base_cell, target=None, cutoff=None, weight='weight')[1]
+
+# Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
+# the circumcenter of the base_cell
+# TODO: rotate to avoid having the negative x-axis near the annulus slit
+slit_path = [edge[0] for edge in connected_component]
+slit_path.append(connected_component[-1][1])
+angles = np.array([
+    np.arctan2(
+        tri.circumcenters[vertex][1] - hole_x,
+        tri.circumcenters[vertex][0] - hole_y
+    )
+    for vertex in slit_path
+])
+omega_0 = slit_path[np.argmin(angles)]
+
+edges_to_weight_with_inf = []
+for edge in tri.voronoi_edges:
+    if (edge[0] in slit_path) or (edge[1] in slit_path):
+        edges_to_weight_with_inf.append(edge)
 
 
-# Show setup with line from point_in_hole to base_point
+# Create graph of circumcenters (Lambda[0])
+lambda_graph = nx.Graph()
+lambda_graph.add_nodes_from(range(len(tri.circumcenters)))
+lambda_graph.add_edges_from(tri.voronoi_edges)
+nx.set_edge_attributes(lambda_graph, values=1, name='weight')
+for edge in edges_to_weight_with_inf:
+    lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
+shortest_paths = nx.single_source_dijkstra(lambda_graph, base_cell, target=None, cutoff=None, weight='weight')[1]
+
+# Show the graph of circumcenters with edge weights
 tri.show_voronoi_tesselation(
     'voronoi.png',
     show_vertex_indices=True,
-    show_polygon_indices=True,
+    show_polygon_indices=False,
     show_edges=True,
     highlight_polygons=cell_path
 )
-plt.scatter(
-    [base_point[0]],
-    [base_point[1]],
-    c=[[0, 1, 1]],
-)
-plt.scatter(
-    [hole_x],
-    [hole_y],
-    c=[[1, 0, 0]]
-)
-hole_point = np.array([hole_x, hole_y])
-line_segment_end = 2 * (base_point - hole_point) + hole_point
-lines = [
-    [
-        tuple(line_segment_end),
-        tuple(hole_point)
-    ]
-]
-line_collection = mc.LineCollection(lines, linewidths=2)
-line_collection.set(color=[1, 0, 0])
-axes = plt.gca()
-axes.add_collection(line_collection)
+pos = {i: tri.circumcenters[i] for i in range(len(tri.circumcenters))}
+nx.draw(lambda_graph, pos, node_size=10)
+plt.axis([-2.0, 2.0, -2.0, 2.0])
+labels = nx.get_edge_attributes(lambda_graph, 'weight')
+nx.draw_networkx_edge_labels(lambda_graph, pos, edge_labels=labels)
 plt.show()
 
-cell_path
-contained_topology[cell_path[0]]
+tri.edge_to_right_of_triangle_dict
+
+# # Show the graph of cells with edge weights
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=False,
+#     show_polygon_indices=False,
+#     show_edges=True,
+# )
+# polygon_coordinates = [
+#     np.array(
+#         list(map(lambda x: tri.circumcenters[x], polygon))
+#     )
+#     for polygon in tri.contained_polygons
+# ]
+# barycenters = np.array(list(map(
+#     lambda x: np.mean(x, axis=0),
+#     polygon_coordinates
+# )))
+# pos = {i: barycenters[i] for i in range(len(barycenters))}
+# nx.draw(lambda_graph, pos, node_size=10)
+# plt.axis([-2.0, 2.0, -2.0, 2.0])
+# labels = nx.get_edge_attributes(lambda_graph, 'weight')
+# nx.draw_networkx_edge_labels(lambda_graph, pos, edge_labels=labels)
+# plt.show()
+
+
+# Show shortest paths for a particular cell
+cell = 15
+tri.show_voronoi_tesselation(
+    'voronoi.png',
+    show_vertex_indices=False,
+    show_polygon_indices=True,
+    show_edges=True,
+    highlight_polygons=shortest_paths[cell]
+)
+plt.show()
+
+
+# Compute the flux along the shortest paths

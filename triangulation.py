@@ -702,7 +702,7 @@ class Triangulation(object):
         highlight_vertices=[],
         highlight_edges=[],
         highlight_polygons=[],
-        highlight_vertices_color=[1, 1, 0],
+        highlight_vertices_color=[0, 1, 1],
         highlight_edges_color=[1, 1, 0],
         highlight_polygons_color=[247/255, 165/255, 131/255]
     ):
@@ -732,9 +732,10 @@ class Triangulation(object):
                 [
                     tuple(self.circumcenters[edge[0]]),
                     tuple(self.circumcenters[edge[1]])
-                ] for edge in self.voronoi_edges
+                ] for edge in highlight_edges
             ]
             polygon_line_collection = mc.LineCollection(polygon_lines, linewidths=2)
+            polygon_line_collection.set(color=highlight_edges_color)
             axes.add_collection(polygon_line_collection)
         if show_region:
             region_lines = [
@@ -768,6 +769,12 @@ class Triangulation(object):
             polygon_collection.set(facecolor=highlight_polygons_color)
             axes.add_collection(polygon_collection)
         if show_polygon_indices:
+            polygon_coordinates = [
+                np.array(
+                    list(map(lambda x: self.circumcenters[x], polygon))
+                )
+                for polygon in self.contained_polygons
+            ]
             barycenters = np.array(list(map(
                 lambda x: np.mean(x, axis=0),
                 polygon_coordinates
