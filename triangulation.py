@@ -10,6 +10,58 @@ from region import read_node, read_ele, read_pde, Region
 
 
 @numba.njit
+def angle_compiled(vector_1, vector_2):
+    """Find the angle between two vectors"""
+    dot = np.dot(vector_1, vector_2)
+    norm1 = np.linalg.norm(vector_1)
+    norm2 = np.linalg.norm(vector_2)
+    hold = dot / (norm1 * norm2)
+    if hold >= 1:
+        hold = 1
+    elif hold <= -1:
+        hold = -1
+    angle = np.arccos(hold)
+    return angle
+
+
+# # Test
+# angle_compiled(
+#     np.array([1.0, 0.0]),
+#     np.array([0.0, 1.0])
+# )
+# angle_compiled(
+#     np.array([1.0, 0.0]),
+#     np.array([1.0, 1.0])
+# )
+
+
+@numba.njit
+def winding_number_compiled(x, y, path, coordinates):
+    """Find the winding number of the path (indices in the given list of coordinates) with respect to the point (x, y)"""
+    n_vertices = len(path)
+    winding_number = 0
+    angle = 0
+    sign = 0
+
+    for i in range(n_vertices):
+        head_1 = coordinates[path[i]]
+        head_2 = coordinates[path[(i + 1) % n_vertices]]  # TODO: check if this is correct
+        vector_1 = head_1 - np.array([x, y])
+        vector_2 = head_2 - np.array([x, y])
+        angle = angle_compiled(vector_1, vector_2)
+
+        if point_to_right_of_line_compiled(x, y, head_1[0], head_1[1], head_2[0], head_2[1]):
+            sign = -1
+        else:
+            sign = 1
+
+        winding_number += sign * angle
+
+    return winding_number / (2 * np.pi)
+
+
+
+@numba.njit
 def line_height_intersect(point_1, point_2, value_1, value_2, height):
     t = (height - value_1) / (value_2 - value_1)
     return t * (point_2 - point_1) + point_1
@@ -495,6 +547,61 @@ class Triangulation(object):
             elif edge_pde_values[i, 0] < h and edge_pde_values[i, 1] >= h:
                 intersecting_edges.append(tuple(np.flip(self.triangulation_edges[i])))
         return intersecting_edges
+
+    @staticmethod
+    def pad_polygons_to_matrix(polygons):
+        """Pad a list of polygons with zeros to make a matrix of the same size
+
+        Parameters
+        ----------
+        polygons : list of lists
+
+        Returns
+        -------
+        padded_polygons : np.array of shape (n_polygons, max_polygon_length)
+        """
+
+        max_polygon_length = max([len(polygon) for polygon in polygons])
+        n_polygons = len(polygons)
+        padded_polygons = np.full((n_polygons, max_polygon_length), fill_value=-1, dtype=np.int32)
+
+        for i, polygon in enumerate(polygons):
+            padded_polygons[i, :len(polygon)] = polygon
+
+        return padded_polygons
+
+    @numba.jit
+    def to_right_of_edge_lookup_polygons_compiled(padded_polygonization):
+        """
+        Creates a lookup table for which polygons are to the right of a given edge
+
+        Contains rows with the following information:
+        [edge[0], edge[1], polygon_index]
+
+        """
+        n_polygons = len(padded_polygonization)
+        max_polygon_length = len(padded_polygonization[0])
+        table = np.zeros((max_polygon_length * n_polygons + 1, 3), dtype=np.int64)
+
+        counter = 0
+        actual_polygon_length = 0
+        for i in range(n_polygons):
+            for j in range(max_polygon_length - 1, -1, -1):
+                if padded_polygonization[i][j] != -1:
+                    actual_polygon_length = j + 1  # +1 because j is zero indexed
+                    break
+            for j in range(actual_polygon_length - 1):
+                counter += 1
+                table[counter][0] = padded_polygonization[i][j+1]
+                table[counter][1] = padded_polygonization[i][j]
+                table[counter][2] = i
+            counter += 1
+            table[counter][0] = padded_polygonization[i][0]
+            table[counter][1] = padded_polygonization[i][actual_polygon_length - 1]
+            table[counter][2] = i
+
+        table[0][0] = counter - 1
+        return table[1:]
 
     @staticmethod
     def read(file_name):

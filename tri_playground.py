@@ -359,110 +359,15 @@ import networkx as nx
 
 NUM_TRIANGLES = 200
 USE_WOLFRAM_SOLVER = True
+base_cell = 178
 
 file_stem = "concentric_annulus"
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 
-
-@numba.njit
-def angle_compiled(vector_1, vector_2):
-    """Find the angle between two vectors"""
-    dot = np.dot(vector_1, vector_2)
-    norm1 = np.linalg.norm(vector_1)
-    norm2 = np.linalg.norm(vector_2)
-    hold = dot / (norm1 * norm2)
-    if hold >= 1:
-        hold = 1
-    elif hold <= -1:
-        hold = -1
-    angle = np.arccos(hold)
-    return angle
-
-
-# # Test
-# angle_compiled(
-#     np.array([1.0, 0.0]),
-#     np.array([0.0, 1.0])
-# )
-# angle_compiled(
-#     np.array([1.0, 0.0]),
-#     np.array([1.0, 1.0])
-# )
-
-
-@numba.njit
-def winding_number_compiled(x, y, path, coordinates):
-    """Find the winding number of the path (indices in the given list of coordinates) with respect to the point (x, y)"""
-    n_vertices = len(path)
-    winding_number = 0
-    angle = 0
-    sign = 0
-
-    for i in range(n_vertices):
-        head_1 = coordinates[path[i]]
-        head_2 = coordinates[path[(i + 1) % n_vertices]]  # TODO: check if this is correct
-        vector_1 = head_1 - np.array([x, y])
-        vector_2 = head_2 - np.array([x, y])
-        angle = angle_compiled(vector_1, vector_2)
-
-        if point_to_right_of_line_compiled(x, y, head_1[0], head_1[1], head_2[0], head_2[1]):
-            sign = -1
-        else:
-            sign = 1
-
-        winding_number += sign * angle
-
-    return winding_number / (2 * np.pi)
-
-
-def get_base_cell(tri, omega_0):
-    for i, cell in enumerate(tri.contained_polygons):
-        if omega_0 in cell:
-            return i
-    return -1
-
-
-point_in_hole = tri.region.points_in_holes[0]
 hole_x, hole_y = tri.region.points_in_holes[0]
-# omega_0_x, omega_0_y = 1.0, 0.0
-omega_0 = 338
-omega_0_x, omega_0_y = tri.circumcenters[omega_0]
-base_cell = get_base_cell(tri, omega_0)
 
-# tri.show_voronoi_tesselation(
-#     'voronoi.png',
-#     show_vertex_indices=True,
-#     # highlight_vertices=[omega_0],
-#     highlight_polygons=[base_cell]
-# )
-# plt.scatter(
-#     [hole_x],
-#     [hole_y],
-#     c=[[1, 0, 0]]
-# )
-# plt.show()
-
-
-# base_point = tri.vertices[base_cell]
-# tri.show_voronoi_tesselation(
-#     'voronoi.png',
-#     show_vertex_indices=True,
-#     # highlight_vertices=[omega_0],
-#     highlight_polygons=[base_cell]
-# )
-# plt.scatter(
-#     [base_point[0]],
-#     [base_point[1]],
-#     c=[[0, 1, 1]],
-# )
-# plt.scatter(
-#     [hole_x],
-#     [hole_y],
-#     c=[[1, 0, 0]]
-# )
-# plt.show()
-
+# Define base_point to use along with the poitn_in_hole to define the ray to determine the slit
 base_point = tri.vertices[tri.contained_to_original_index[base_cell]]
 for cell in tri.voronoi_tesselation:
     for vertex in cell:
@@ -559,7 +464,6 @@ contained_topology = [contained_topology_all[i] for i in tri.contained_to_origin
 
 
 # Create cell path from base_cell to boundary_1
-base_cell = 178
 poly = base_cell
 poly_path_outward = []
 while poly != -1:
@@ -592,10 +496,37 @@ poly_path_inward = poly_path_inward[1:]
 poly_path_inward.reverse()
 cell_path = poly_path_inward + poly_path_outward
 
-# Create poly edge path to right of line
+# # Create poly edge path to right of line
+# connected_component = []
+# perpendicular_edges = []
+# for cell_path_index, cell in enumerate(cell_path):
+#     flag = False
+#     edges = tri.make_polygon_edges(tri.contained_polygons[cell])
+#     num_edges = len(edges)
+#     edge_index = -1
+#     while True:
+#         edge_index = (edge_index + 1) % num_edges  # Next edge
+#         edge = edges[edge_index]
+#         if flag:
+#             if (not segment_intersects_line_negative(
+#                 tri.circumcenters[edge[0]],
+#                 tri.circumcenters[edge[1]]
+#             )):
+#                 if (contained_topology[cell][edge_index] != -1):  # Might remove this depending on which path is needed
+#                     connected_component.append(edge)
+#                     perpendicular_edges.append((cell, contained_topology[cell][edge_index]))
+#             else:
+#                 break
+#         if segment_intersects_line_positive(
+#             tri.circumcenters[edge[0]],
+#             tri.circumcenters[edge[1]]
+#         ):
+#             flag = True
+
+# Create poly edge path to left of line
 connected_component = []
 perpendicular_edges = []
-for cell_path_index, cell in enumerate(cell_path):
+for cell_path_index, cell in enumerate(reversed(cell_path)):
     flag = False
     edges = tri.make_polygon_edges(tri.contained_polygons[cell])
     num_edges = len(edges)
@@ -604,7 +535,7 @@ for cell_path_index, cell in enumerate(cell_path):
         edge_index = (edge_index + 1) % num_edges  # Next edge
         edge = edges[edge_index]
         if flag:
-            if (not segment_intersects_line_negative(
+            if (not segment_intersects_line_positive(
                 tri.circumcenters[edge[0]],
                 tri.circumcenters[edge[1]]
             )):
@@ -613,11 +544,29 @@ for cell_path_index, cell in enumerate(cell_path):
                     perpendicular_edges.append((cell, contained_topology[cell][edge_index]))
             else:
                 break
-        if segment_intersects_line_positive(
+        if segment_intersects_line_negative(
             tri.circumcenters[edge[0]],
             tri.circumcenters[edge[1]]
         ):
             flag = True
+
+
+# Edges to weight
+edges_to_weight = []
+for cell_path_index, cell in enumerate(reversed(cell_path)):
+    edges = tri.make_polygon_edges(tri.contained_polygons[cell])
+    for edge in edges:
+        if segment_intersects_line(tri.circumcenters[edge[0]], tri.circumcenters[edge[1]]):
+            edges_to_weight.append(edge)
+edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), edges_to_weight)))
+
+
+# tri.show_voronoi_tesselation(
+#     'test.png',
+#     highlight_polygons=cell_path
+# )
+# plt.show()
+
 
 # Create contained_edges
 triangulation_edges_reindexed = tri.original_to_contained_index[tri.triangulation_edges]
@@ -640,6 +589,8 @@ for edge in triangulation_edges_reindexed:
 # TODO: rotate to avoid having the negative x-axis near the annulus slit
 slit_path = [edge[0] for edge in connected_component]
 slit_path.append(connected_component[-1][1])
+# Connected component goes from outer boundary to inner boundary. Reverse after making slit
+slit_path = list(reversed(slit_path))
 angles = np.array([
     np.arctan2(
         tri.circumcenters[vertex][1] - hole_x,
@@ -649,10 +600,61 @@ angles = np.array([
 ])
 omega_0 = slit_path[np.argmin(angles)]
 
-edges_to_weight_with_inf = []
-for edge in tri.voronoi_edges:
-    if (edge[0] in slit_path) or (edge[1] in slit_path):
-        edges_to_weight_with_inf.append(edge)
+
+def add_voronoi_edges_to_axes(edge_list, axes, color):
+    lines = [
+        [
+            tuple(tri.circumcenters[edge[0]]),
+            tuple(tri.circumcenters[edge[1]])
+        ] for edge in edge_list
+    ]
+    colors = np.tile(color, (len(edge_list), 1))
+    line_collection = mc.LineCollection(lines, linewidths=2, colors=colors)
+    axes.add_collection(line_collection)
+
+
+tri.show_voronoi_tesselation(
+    'test.png',
+    show_polygon_indices=False,
+    show_vertex_indices=False,
+    show_edges=True
+)
+axes = plt.gca()
+add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
+plt.scatter(
+    tri.circumcenters[omega_0][0],
+    tri.circumcenters[omega_0][1],
+    s=25,
+    color=[1, 0, 0]
+)
+hole_point = np.array([hole_x, hole_y])
+line_segment_end = 2 * (base_point - hole_point) + hole_point
+lines = [
+    [
+        tuple(line_segment_end),
+        tuple(hole_point)
+    ]
+]
+line_collection = mc.LineCollection(lines, linewidths=2)
+line_collection.set(color=[1, 0, 0])
+axes.add_collection(line_collection)
+edges_to_weight_coordinates = [
+    [
+        tuple(tri.circumcenters[edge[0]]),
+        tuple(tri.circumcenters[edge[1]])
+    ]
+    for edge in edges_to_weight
+]
+edges_to_weight_collection = mc.LineCollection(edges_to_weight_coordinates, linewidths=2)
+edges_to_weight_collection.set(color=[247/255, 165/255, 131/255])
+axes.add_collection(edges_to_weight_collection)
+plt.show()
+
+# DEPRECATED
+# edges_to_weight_with_inf = []
+# for edge in tri.voronoi_edges:
+#     if (edge[0] in slit_path) or (edge[1] in slit_path):
+#         edges_to_weight_with_inf.append(edge)
 
 
 # Create graph of circumcenters (Lambda[0])
@@ -660,27 +662,27 @@ lambda_graph = nx.Graph()
 lambda_graph.add_nodes_from(range(len(tri.circumcenters)))
 lambda_graph.add_edges_from(tri.voronoi_edges)
 nx.set_edge_attributes(lambda_graph, values=1, name='weight')
-for edge in edges_to_weight_with_inf:
+for edge in edges_to_weight:
     lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
-shortest_paths = nx.single_source_dijkstra(lambda_graph, base_cell, target=None, cutoff=None, weight='weight')[1]
+shortest_paths = nx.single_source_dijkstra(lambda_graph, omega_0, target=None, cutoff=None, weight='weight')[1]
 
-# Show the graph of circumcenters with edge weights
-tri.show_voronoi_tesselation(
-    'voronoi.png',
-    show_vertex_indices=True,
-    show_polygon_indices=False,
-    show_edges=True,
-    highlight_polygons=cell_path
-)
-pos = {i: tri.circumcenters[i] for i in range(len(tri.circumcenters))}
-nx.draw(lambda_graph, pos, node_size=10)
-plt.axis([-2.0, 2.0, -2.0, 2.0])
-labels = nx.get_edge_attributes(lambda_graph, 'weight')
-nx.draw_networkx_edge_labels(lambda_graph, pos, edge_labels=labels)
-plt.show()
+# # Show the graph of circumcenters with edge weights
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=True,
+#     show_polygon_indices=False,
+#     show_edges=True,
+#     highlight_polygons=cell_path
+# )
+# pos = {i: tri.circumcenters[i] for i in range(len(tri.circumcenters))}
+# nx.draw(lambda_graph, pos, node_size=10)
+# plt.axis([-2.0, 2.0, -2.0, 2.0])
+# labels = nx.get_edge_attributes(lambda_graph, 'weight')
+# nx.draw_networkx_edge_labels(lambda_graph, pos, edge_labels=labels)
+# plt.show()
 
-tri.edge_to_right_of_triangle_dict
 
+# DEPRECATED
 # # Show the graph of cells with edge weights
 # tri.show_voronoi_tesselation(
 #     'voronoi.png',
@@ -706,16 +708,94 @@ tri.edge_to_right_of_triangle_dict
 # plt.show()
 
 
-# Show shortest paths for a particular cell
-cell = 15
+# Find the perpendicular edges to the lambda path
+def build_path_edges(vertices):
+    edges = []
+    for i in range(len(vertices) - 1):
+        edge = [
+            vertices[i],
+            vertices[i + 1]
+        ]
+        edges.append(edge)
+    return edges
+
+
+# Show shortest paths for a particular circumcenter
+omega = 338
 tri.show_voronoi_tesselation(
     'voronoi.png',
-    show_vertex_indices=False,
-    show_polygon_indices=True,
+    show_vertex_indices=True,
+    show_polygon_indices=False,
     show_edges=True,
-    highlight_polygons=shortest_paths[cell]
+    highlight_vertices=shortest_paths[omega]
 )
+axes = plt.gca()
+add_voronoi_edges_to_axes(build_path_edges(shortest_paths[omega]), axes, color=[0, 1, 1])
 plt.show()
 
 
-# Compute the flux along the shortest paths
+# # Make poly_to_right_of_edge dict
+# poly_to_right_of_edge = {}
+# for i, poly in enumerate(tri.contained_polygons):
+#     edges = tri.make_polygon_edges(poly)
+#     for edge in edges:
+#         poly_to_right_of_edge[tuple(edge)] = i
+
+# Make mapping from edges on the cells to the perpendicular edges in triangulation
+@numba.njit
+def position(x, array):
+    for i in range(len(array)):
+        if x == array[i]:
+            return i
+    return -1
+
+
+def get_perpendicular_edge(edge):
+    """Think of the omega path as being triangles instead. This finds which edge of the triangle
+    edge[0] is adjacent to triangle edge[1]"""
+    triangle_edges = tri.make_polygon_edges(tri.triangles[edge[0]])
+    edge_index = position(edge[1], tri.topology[edge[0]])
+    perpendicular_edge = triangle_edges[edge_index]
+    return perpendicular_edge
+
+
+num_contained_polygons = len(tri.contained_polygons)
+g_star_bar = np.zeros(tri.num_triangles, dtype=np.float64)
+for omega in range(tri.num_triangles):
+    edges = build_path_edges(shortest_paths[omega])
+    flux_contributing_edges = []
+    for edge in edges:
+        flux_contributing_edges.append(tuple(get_perpendicular_edge(edge)))
+    g_star_bar[omega] = flux_on_contributing_edges(flux_contributing_edges)
+
+# Interpolate the value of pde_solution to get its values on the omegas
+pde_on_omega_values = [np.mean(tri.pde_values[tri.triangles[i]]) for i in range(tri.num_triangles)]
+period_gsb = np.max(g_star_bar)  # TODO: allow the last edge so we get all the
+uniformization = np.exp(2 * np.pi / period_gsb * (pde_on_omega_values + 1j * g_star_bar))
+plt.scatter(
+    np.real(uniformization),
+    np.imag(uniformization),
+    s=500
+)
+plt.gca().set_aspect('equal')
+plt.show()
+
+# flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
+# for i in range(num_contained_polygons):
+#     index = tri.contained_to_original_index[i]
+#     flux_color_array[index] = g_star_bar[i]
+
+tri.show_voronoi_tesselation(
+    'test.png',
+    show_vertex_indices=True
+)
+plt.scatter(
+    tri.circumcenters[:, 0],
+    tri.circumcenters[:, 1],
+    c=g_star_bar,
+    s=500
+)
+plt.show()
+
+for i in np.sort(g_star_bar):
+    print(f'{i:0.4f}')
