@@ -362,7 +362,7 @@ NUM_TRIANGLES = 200
 USE_WOLFRAM_SOLVER = True
 base_cell = 178
 
-file_stem = "concentric_annulus"
+file_stem = "non_concentric_annulus"
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 
@@ -614,41 +614,41 @@ def add_voronoi_edges_to_axes(edge_list, axes, color):
     axes.add_collection(line_collection)
 
 
-tri.show_voronoi_tesselation(
-    'test.png',
-    show_polygon_indices=False,
-    show_vertex_indices=False,
-    show_edges=True
-)
-axes = plt.gca()
-add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
-plt.scatter(
-    tri.circumcenters[omega_0][0],
-    tri.circumcenters[omega_0][1],
-    s=25,
-    color=[1, 0, 0]
-)
-hole_point = np.array([hole_x, hole_y])
-line_segment_end = 2 * (base_point - hole_point) + hole_point
-lines = [
-    [
-        tuple(line_segment_end),
-        tuple(hole_point)
-    ]
-]
-line_collection = mc.LineCollection(lines, linewidths=2)
-line_collection.set(color=[1, 0, 0])
-axes.add_collection(line_collection)
-edges_to_weight_coordinates = [
-    [
-        tuple(tri.circumcenters[edge[0]]),
-        tuple(tri.circumcenters[edge[1]])
-    ]
-    for edge in edges_to_weight
-]
-edges_to_weight_collection = mc.LineCollection(edges_to_weight_coordinates, linewidths=2)
-edges_to_weight_collection.set(color=[247/255, 165/255, 131/255])
-axes.add_collection(edges_to_weight_collection)
+# tri.show_voronoi_tesselation(
+#     'test.png',
+#     show_polygon_indices=False,
+#     show_vertex_indices=False,
+#     show_edges=True
+# )
+# axes = plt.gca()
+# add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
+# plt.scatter(
+#     tri.circumcenters[omega_0][0],
+#     tri.circumcenters[omega_0][1],
+#     s=25,
+#     color=[1, 0, 0]
+# )
+# hole_point = np.array([hole_x, hole_y])
+# line_segment_end = 2 * (base_point - hole_point) + hole_point
+# lines = [
+#     [
+#         tuple(line_segment_end),
+#         tuple(hole_point)
+#     ]
+# ]
+# line_collection = mc.LineCollection(lines, linewidths=2)
+# line_collection.set(color=[1, 0, 0])
+# axes.add_collection(line_collection)
+# edges_to_weight_coordinates = [
+#     [
+#         tuple(tri.circumcenters[edge[0]]),
+#         tuple(tri.circumcenters[edge[1]])
+#     ]
+#     for edge in edges_to_weight
+# ]
+# edges_to_weight_collection = mc.LineCollection(edges_to_weight_coordinates, linewidths=2)
+# edges_to_weight_collection.set(color=[247/255, 165/255, 131/255])
+# axes.add_collection(edges_to_weight_collection)
 # plt.show()
 
 # DEPRECATED
@@ -773,38 +773,38 @@ for omega in range(tri.num_triangles):
 pde_on_omega_values = [np.mean(tri.pde_values[tri.triangles[i]]) for i in range(tri.num_triangles)]
 period_gsb = np.max(g_star_bar)  # TODO: allow the last edge so we get all the
 uniformization = np.exp(2 * np.pi / period_gsb * (pde_on_omega_values + 1j * g_star_bar))
-# plt.scatter(
-#     np.real(uniformization),
-#     np.imag(uniformization),
-#     s=500
-# )
-# plt.gca().set_aspect('equal')
-# plt.show()
+plt.scatter(
+    np.real(uniformization),
+    np.imag(uniformization),
+    s=500
+)
+plt.gca().set_aspect('equal')
+plt.show()
 
-# flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
-# for i in range(num_contained_polygons):
-#     index = tri.contained_to_original_index[i]
-#     flux_color_array[index] = g_star_bar[i]
+flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
+for i in range(num_contained_polygons):
+    index = tri.contained_to_original_index[i]
+    flux_color_array[index] = g_star_bar[i]
 
-# tri.show_voronoi_tesselation(
-#     'test.png',
-#     show_vertex_indices=True
-# )
-# plt.scatter(
-#     tri.circumcenters[:, 0],
-#     tri.circumcenters[:, 1],
-#     c=g_star_bar,
-#     s=500
-# )
-# plt.show()
-# for i in np.sort(g_star_bar):
-#     print(f'{i:0.4f}')
+tri.show_voronoi_tesselation(
+    'test.png',
+    show_vertex_indices=True
+)
+plt.scatter(
+    tri.circumcenters[:, 0],
+    tri.circumcenters[:, 1],
+    c=g_star_bar,
+    s=500
+)
+plt.show()
+for i in np.sort(g_star_bar):
+    print(f'{i:0.4f}')
 
 
 # Level curves for gsb
 g_star_bar_interpolated_interior = np.array([np.mean(g_star_bar[poly]) for poly in tri.contained_polygons])
 min_, max_ = np.min(g_star_bar_interpolated_interior), np.max(g_star_bar_interpolated_interior)
-heights = np.linspace(min_, max_, num=50)
+heights = np.linspace(min_, max_, num=100)
 
 # tri.show_voronoi_tesselation(
 #     'test.png',
@@ -853,3 +853,28 @@ tri.show(
 axes = plt.gca()
 axes.add_collection(line_collection)
 plt.show()
+
+
+tri.show(
+    'test.png',
+    show_edges=True,
+    show_triangles=False
+)
+tri.show_voronoi_tesselation(
+    'test.png',
+    show_edges=True,
+    show_polygons=False,
+    fig=plt.gcf(),
+    axes=plt.gca()
+)
+plt.show()
+
+fig, axes = plt.subplots()
+tri.show(
+    show_level_curves=True,
+    fig=fig,
+    axes=axes
+)
+axes.add_collection(line_collection)
+plt.show()
+

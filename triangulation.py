@@ -681,7 +681,7 @@ class Triangulation(object):
 
     def show(
         self,
-        file_name,
+        file_name='tmp.png',
         show_vertices=False,
         show_edges=False,
         show_triangles=True,
@@ -695,6 +695,8 @@ class Triangulation(object):
         face_color=[153/255, 204/255, 255/255],
         num_level_curves=25,
         line_width=1,
+        fig=None,
+        axes=None,
         **kwargs
     ):
         """Show an image of the triangulation"""
@@ -710,7 +712,8 @@ class Triangulation(object):
         graded_level_curve_color_map = cm.lajolla
         singular_level_curve_color_map = cm.tokyo
 
-        fig, axes = plt.subplots()
+        if fig is None and axes is None:
+            fig, axes = plt.subplots()
         if show_vertices:
             axes.scatter(self.vertices[:, 0], self.vertices[:, 1])
         if show_edges:
@@ -799,7 +802,7 @@ class Triangulation(object):
 
     def show_voronoi_tesselation(
         self,
-        file_name,
+        file_name='tmp.png',
         show_vertex_indices=False,
         show_polygon_indices=False,
         show_vertices=False,
@@ -811,11 +814,14 @@ class Triangulation(object):
         highlight_polygons=[],
         highlight_vertices_color=[0, 1, 1],
         highlight_edges_color=[1, 1, 0],
-        highlight_polygons_color=[247/255, 165/255, 131/255]
+        highlight_polygons_color=[247/255, 165/255, 131/255],
+        fig=None,
+        axes=None,
+        **kwargs
     ):
         """Show the voronoi tesselation"""
-        fig, axes = plt.subplots()
-
+        if fig is None and axes is None:
+            fig, axes = plt.subplots()
         if show_vertices:
             axes.scatter(self.circumcenters[:, 0], self.circumcenters[:, 1])
         if highlight_vertices:
