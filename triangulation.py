@@ -4,7 +4,7 @@ import numpy as np
 import numba
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
-from cmcrameri import cm
+#from cmcrameri import cm
 from pathlib import Path
 from region import read_node, read_ele, read_pde, Region
 

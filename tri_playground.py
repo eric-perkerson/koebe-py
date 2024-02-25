@@ -3,13 +3,19 @@ from triangulation import Triangulation
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from cmcrameri import cm
+#from cmcrameri import cm
 import subprocess
 from region import Region
 import pyvista
 
 
-file_stem = "3_holes_along_line"
+file_stem = "test"
+
+
+subprocess.run([
+        'python',
+        'draw_region.py'
+    ])
 
 #file_stem = 'No_3_fold_sym'
 #file_stem = '3_fold_sym'

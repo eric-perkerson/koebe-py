@@ -6,6 +6,7 @@ from tkinter import messagebox
 from pathlib import Path
 import warnings
 import unicodedata
+import subprocess
 
 from region import Region
 
@@ -144,6 +145,7 @@ def draw_region(poly_file='test'):
 
     components = [[]]
     last_deleted = []
+    gridLines = []
 
     gui = tk.Tk() # initialized Tk
     gui['bg'] = BG_COLOR # sets the background color to that grey
@@ -208,6 +210,55 @@ def draw_region(poly_file='test'):
                     )
         return
     
+    def deleteLines():
+        for line in gridLines:
+            canvas.delete(line)
+        return
+    
+    def gridSet():
+        if (grid.get() == "FreeForm"):
+            deleteLines()
+            print("FreeForm")
+        elif (grid.get() == "Square"):
+            deleteLines()
+            for x in range(30):
+                gridLines.append(canvas.create_line(50 * x, 0, 50 * x, 770))
+            for y in range(17):
+                gridLines.append(canvas.create_line(0, 50 * y, 1466, 50 * y))
+        elif (grid.get() == "Triangle"):
+            deleteLines()
+            for x in range(30):
+                gridLines.append(canvas.create_line(50 * x, 0, (50 * x) + 385, 770))
+                gridLines.append(canvas.create_line(50 * x, 0, (50 * x) - 385, 770))
+            for y in range(17):
+                gridLines.append(canvas.create_line(0, 50 * y, 1466, 50 * y))
+            for y in range(8):
+                gridLines.append(canvas.create_line(0, 100 * y, (770 - 100 * y) / 2, 770))
+                gridLines.append(canvas.create_line(1500, 100 * y, 1500 - ((770 - 100 * y) / 2), 770))
+        else:
+            print("How")
+        return
+    
+    def triangulate():
+        response = messagebox.askyesnocancel( # prompts the user to save
+            "Triangulate", "Are you sure you would like to triangulate?"
+        )
+        if response is None:
+            pass
+        elif response:
+            print('Saving as ' + str(poly_path))
+            region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
+            with open(poly_path, 'w', encoding='utf-8') as file:
+                region.write(file) # writes the region to the polyfile
+                subprocess.run([
+                    'julia',
+                    'triangulate_via_julia.jl',
+                    poly_file,
+                    poly_file,
+                    str(int(num.get()))
+                ])
+        
+    
     imgUndo = Image.open("draw_region_assets/UNDO.png")
     resized_imageUndo = imgUndo.resize((int(canvas_height/7), int(canvas_height/7)), Image.Resampling.LANCZOS)
     new_imgUndo = ImageTk.PhotoImage(resized_imageUndo, master=gui)
@@ -222,11 +273,37 @@ def draw_region(poly_file='test'):
     undo_button = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgUndo, command=undo)
     undo_button.grid(column=0, row=0)
     
-    button1 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
-    button1.grid(column=1, row=0)
+    gridSelect = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_height/7))
+    gridSelect.columnconfigure(0, weight=1)
+    gridSelect.rowconfigure(0, weight=1)
+    gridSelect.grid(column=1, row=0)
     
-    button2 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
-    button2.grid(column=2, row=0)
+    grid=tk.StringVar()
+    noGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/28), variable=grid, value='FreeForm', text="FreeForm Grid", state="active", command=gridSet)
+    noGrid.grid(column=0, row=0)
+    
+    squareGrid = tk.Radiobutton(gridSelect,  width=int(canvas_height/28), variable=grid, value="Square", text="Square Grid", state="normal", command=gridSet)
+    squareGrid.grid(column=0, row=1)
+    
+    triangleGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/28), variable=grid, value="Triangle", text="Triangle Grid", state="normal", command=gridSet)
+    triangleGrid.grid(column=0, row=2)
+    
+    grid.set("FreeForm")
+    
+    triangulationControls = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_height/7))
+    triangulationControls.grid(column=2, row=0)
+    
+    num=tk.StringVar()
+    num.set(750)
+    
+    triLabel = tk.Label(triangulationControls, height=int(canvas_height/700), width=int(canvas_height/30), text="Enter the minimum number of triangles desired")
+    triLabel.grid(column=0, row=0)
+    
+    numOfTri = tk.Entry(triangulationControls, width=int(canvas_height/30), textvariable=num)
+    numOfTri.grid(column=0, row=1)
+    
+    triangulateButton = tk.Button(triangulationControls, height=int(canvas_height/500), width=int(canvas_height/35), text="Triangulate", command=triangulate)
+    triangulateButton.grid(column=0, row=2)
     
     button3 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
     button3.grid(column=3, row=0)
@@ -240,7 +317,7 @@ def draw_region(poly_file='test'):
     redo_button = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgRedo, command=redo)
     redo_button.grid(column=6, row=0)
     
-    # For now I have a bunch of pointless buttons I will implement later
+    # For now I have a bunch of pointless buttons I will implement if needed
     
 
     canvas = tk.Canvas(gui, width=canvas_width, height=4/5 * canvas_height, bg=BG_COLOR) # puts a canvas into gui, having it fill the screen, and have that grey color
@@ -276,11 +353,30 @@ def draw_region(poly_file='test'):
             The size of the pins representing verticies
         """
         epsilon = 5
-        x_1, y_1 = (x - epsilon), (y - epsilon)
-        x_2, y_2 = (x + epsilon), (y + epsilon) # this and above create edges for the oval that will be set at that x and y
-        components[len(components) - 1].append([x, y]) # adds the coordinates to the components list at the current "color" basically
-        #print([x, y])
-        oTag = "Oval" + str(x) + str(y)
+        pointX = 0
+        pointY = 0
+        if (grid.get() == "FreeForm"):
+            pointX = x
+            pointY = y
+        elif (grid.get() == "Square"):
+            pointX = 100*round((x/100)*2)/2 # Simple rounding to the nearest multiple of 50
+            pointY = 100*round((y/100)*2)/2
+        elif (grid.get() == "Triangle"):
+            shearedX = x - y / 2 # change of basis
+            shearedY = y
+            roundedShearX = 100*round((shearedX/100)*2)/2
+            roundedShearY = 100*round((shearedY/100)*2)/2 # round in that basis
+            pointX = roundedShearX + roundedShearY / 2 # change the basis back
+            pointY = roundedShearY
+            print("Triangle")
+        else:
+            print("what")
+        
+        x_1, y_1 = (pointX - epsilon), (pointY - epsilon)
+        x_2, y_2 = (pointX + epsilon), (pointY + epsilon) # this and above create edges for the oval that will be set at that x and y
+        components[len(components) - 1].append([pointX, pointY]) # adds the coordinates to the components list at the current "color" basically
+        print([pointX, pointY])
+        oTag = "Oval" + str(pointX) + str(pointY)
         #print(oTag)
         oval = canvas.create_oval(
             x_1,
@@ -300,6 +396,7 @@ def draw_region(poly_file='test'):
                 fill=FILL_COLORS[len(components) - 1],
                 tag=tag
             ) # adds the polygon, with the flattoned list of verticies, the respective fill color, and the identifier
+    
     def paintE(event, epsilon=5): # I seperated paint from the function called when clicking to make paint more abstract in use
         """Adds verticies to the domain, and fills in the area between them if theres 3 or more.
 
