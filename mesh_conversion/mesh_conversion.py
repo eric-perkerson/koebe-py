@@ -256,12 +256,12 @@ if __name__ == '__main__':
 
     mesh = read_triangle(poly_file, ele_file, node_file)
 
-    print()
-    print(f"vertices: {mesh['vertices'].shape}")
-    print(f"segments: {mesh['segments'].shape}")
-    print(f"holes: {mesh['holes'].shape}")
-    print(f"triangles: {mesh['triangles'].shape}")
-    print()
+    #print()
+    #print(f"vertices: {mesh['vertices'].shape}")
+    #print(f"segments: {mesh['segments'].shape}")
+    #print(f"holes: {mesh['holes'].shape}")
+    #print(f"triangles: {mesh['triangles'].shape}")
+    #print()
 
     # create mesh
     output_name = poly_file[:-5]
