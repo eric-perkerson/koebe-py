@@ -4,12 +4,12 @@ import tkinter as tk
 from PIL import Image,ImageTk
 from tkinter import messagebox
 from pathlib import Path
+import numpy as np
 import warnings
 import unicodedata
 import subprocess
 
 from region import Region
-
 
 EXAMPLE_DIRECTORY = Path('regions')
 
@@ -239,24 +239,20 @@ def draw_region(poly_file='test'):
             print("How")
         return
     
-    def triangulate():
-        response = messagebox.askyesnocancel( # prompts the user to save
-            "Triangulate", "Are you sure you would like to triangulate?"
-        )
-        if response is None:
-            pass
-        elif response:
-            print('Saving as ' + str(poly_path))
-            region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
-            with open(poly_path, 'w', encoding='utf-8') as file:
-                region.write(file) # writes the region to the polyfile
-                subprocess.run([
-                    'julia',
-                    'triangulate_via_julia.jl',
-                    poly_file,
-                    poly_file,
-                    str(int(num.get()))
-                ])
+    def concentricPolygon():
+        xValue = int(canvas_width/2)
+        yValue = int(3*canvas_height/7)
+        for theta in range(0, int(edges.get())):
+            paint(int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get())))),
+                int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                )
+        components.append([])
+        for theta in range(0, int(edges.get())):
+            paint(int(xValue + int(polyRadiusTwo.get()) * np.cos(theta * (2*np.pi/int(edges.get())))),
+                int(yValue + int(polyRadiusTwo.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                )
+        return 
+    
         
     
     imgUndo = Image.open("draw_region_assets/UNDO.png")
@@ -278,35 +274,42 @@ def draw_region(poly_file='test'):
     gridSelect.rowconfigure(0, weight=1)
     gridSelect.grid(column=1, row=0)
     
-    grid=tk.StringVar()
-    noGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/28), variable=grid, value='FreeForm', text="FreeForm Grid", state="active", command=gridSet)
+    grid = tk.StringVar()
+    noGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/42), variable=grid, value='FreeForm', text="FreeForm Grid", state="active", command=gridSet)
     noGrid.grid(column=0, row=0)
     
-    squareGrid = tk.Radiobutton(gridSelect,  width=int(canvas_height/28), variable=grid, value="Square", text="Square Grid", state="normal", command=gridSet)
+    squareGrid = tk.Radiobutton(gridSelect,  width=int(canvas_height/42), variable=grid, value="Square", text="Square Grid", state="normal", command=gridSet)
     squareGrid.grid(column=0, row=1)
     
-    triangleGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/28), variable=grid, value="Triangle", text="Triangle Grid", state="normal", command=gridSet)
+    triangleGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/42), variable=grid, value="Triangle", text="Triangle Grid", state="normal", command=gridSet)
     triangleGrid.grid(column=0, row=2)
+    # these are the selections for grid
     
     grid.set("FreeForm")
-    
-    triangulationControls = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_height/7))
-    triangulationControls.grid(column=2, row=0)
-    
-    num=tk.StringVar()
-    num.set(750)
-    
-    triLabel = tk.Label(triangulationControls, height=int(canvas_height/700), width=int(canvas_height/30), text="Enter the minimum number of triangles desired")
-    triLabel.grid(column=0, row=0)
-    
-    numOfTri = tk.Entry(triangulationControls, width=int(canvas_height/30), textvariable=num)
-    numOfTri.grid(column=0, row=1)
-    
-    triangulateButton = tk.Button(triangulationControls, height=int(canvas_height/500), width=int(canvas_height/35), text="Triangulate", command=triangulate)
-    triangulateButton.grid(column=0, row=2)
-    
-    button3 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
-    button3.grid(column=3, row=0)
+
+    polygonBuilder = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_height/7))
+    polygonBuilder.columnconfigure(0, weight=1)
+    polygonBuilder.rowconfigure(0, weight=1)
+    polygonBuilder.grid(column=2, row=0)
+
+    edges = tk.StringVar()
+    polyRadiusOne = tk.StringVar()
+    polyRadiusTwo = tk.StringVar()
+    edgeLabel = tk.Label(polygonBuilder, width=int(canvas_height/56), text="Number of Edges")
+    edgeLabel.grid(column=0, row=0)
+    edgeEntry = tk.Entry(polygonBuilder, width=int(canvas_height/56), textvariable=edges)
+    edgeEntry.grid(column=1, row=0)
+    radiusOneLabel = tk.Label(polygonBuilder, width=int(canvas_height/56), text="Radius One")
+    radiusOneLabel.grid(column=0, row=1)
+    radiusOneEntry = tk.Entry(polygonBuilder, width=int(canvas_height/56), textvariable=polyRadiusOne)
+    radiusOneEntry.grid(column=1, row=1)
+    radiusTwoLabel = tk.Label(polygonBuilder, width=int(canvas_height/56), text="Radius Two")
+    radiusTwoLabel.grid(column=0, row=2)
+    radiusTwoEntry = tk.Entry(polygonBuilder, width=int(canvas_height/56), textvariable=polyRadiusTwo)
+    radiusTwoEntry.grid(column=1, row=2)
+
+    createPolygon = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/64), text="Insert Polygon", command=concentricPolygon)
+    createPolygon.grid(column=3, row=0)
     
     button4 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
     button4.grid(column=4, row=0)
