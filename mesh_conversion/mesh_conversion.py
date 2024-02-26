@@ -71,6 +71,7 @@ def read_triangle(poly_file, ele_file, node_file=None):
     for line in vertex_lines:
         values = [float(x) for x in line] # read as tuple in case of boundary markers
         vertices.append(values[1:]) # ignore label
+    #print(vertices)
     output['vertices'] = np.array(vertices)
 
     # store segments
@@ -106,7 +107,10 @@ def read_triangle(poly_file, ele_file, node_file=None):
             values[1] -= 1  # subtract 1 to get 0-based indexing
             values[2] -= 1 # subtract 1 to get 0-based indexing
             values[3] -= 1  # subtract 1 to get 0-based indexing
+            if values[3] == 432:
+                print(line)
             triangles.append(values[1:]) # ignore label
+        #print(len(triangles))
         output['triangles'] = np.array(triangles)
     except Exception:
         raise Exception("no triangles given in ele-file")
@@ -141,6 +145,7 @@ def create_mesh(output_name, poly_dict):
 
     # add vertices
     points = []
+    #print(poly_dict['vertices'])
     for vertex in poly_dict['vertices']:
         x, y, z = vertex[0], vertex[1], 0
         points.append(gmsh.model.geo.addPoint(x, y, z))
@@ -160,6 +165,7 @@ def create_mesh(output_name, poly_dict):
     # add triangles
     triangles = []
     for triangle in poly_dict['triangles']:
+        print(triangle)
         l1 = gmsh.model.geo.addLine(points[triangle[0]], points[triangle[1]])
         l2 = gmsh.model.geo.addLine(points[triangle[1]], points[triangle[2]])
         l3 = gmsh.model.geo.addLine(points[triangle[2]], points[triangle[0]])

@@ -40,13 +40,17 @@ def add_edges_to_axes(edge_list, axes, color):
 NUM_TRIANGLES = 2000
 USE_WOLFRAM_SOLVER = True
 
-file_stem = "genus_2"
+file_stem = "test"
 path = Path(f'regions/{file_stem}/{file_stem}')
 
 #file_stem = 'No_3_fold_sym'
 #file_stem = '3_fold_sym'
 #file_stem = '3_fold_sym'
 
+#subprocess.run([
+#        'python',
+#        'draw_region.py'
+#    ])
 
 # tri = Triangulation.read(path)
 
@@ -115,13 +119,13 @@ path = Path(f'regions/{file_stem}/{file_stem}')
 # with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
 #     domain.write(f)
 
-# subprocess.run([
-#     'julia',
-#     'triangulate_via_julia.jl',
-#     file_stem,
-#     file_stem,
-#     str(NUM_TRIANGLES)
-# ])
+subprocess.run([
+    'julia',
+    'triangulate_via_julia.jl',
+    file_stem,
+    file_stem,
+    str(NUM_TRIANGLES)
+])
 
 # if USE_WOLFRAM_SOLVER:
 #     subprocess.run([
@@ -132,22 +136,22 @@ path = Path(f'regions/{file_stem}/{file_stem}')
 #     t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 #     t.write(f'regions/{file_stem}/{file_stem}.output.poly')
 
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/mesh_conversion.py',
-#         '-p',
-#         f'regions/{file_stem}/{file_stem}.output.poly',
-#         '-n',
-#         f'regions/{file_stem}/{file_stem}.node',
-#         '-e',
-#         f'regions/{file_stem}/{file_stem}.ele',
-#     ])
+subprocess.run([
+    'python',
+    'mesh_conversion/mesh_conversion.py',
+    '-p',
+    f'regions/{file_stem}/{file_stem}.output.poly',
+    '-n',
+    f'regions/{file_stem}/{file_stem}.node',
+    '-e',
+    f'regions/{file_stem}/{file_stem}.ele',
+])
 
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/fenicsx_solver.py',
-#         file_stem,
-#     ])
+subprocess.run([
+    'python',
+    'mesh_conversion/fenicsx_solver.py',
+    file_stem,
+])
 
 # tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 # singular_height_index = 0
@@ -362,7 +366,8 @@ NUM_TRIANGLES = 200
 USE_WOLFRAM_SOLVER = True
 base_cell = 178
 
-file_stem = "non_concentric_annulus"
+file_stem = 'test'
+#"non_concentric_annulus"
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 

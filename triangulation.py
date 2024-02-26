@@ -4,7 +4,7 @@ import numpy as np
 import numba
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
-#from cmcrameri import cm
+from cmcrameri import cm
 from pathlib import Path
 from region import read_node, read_ele, read_pde, Region
 
@@ -400,6 +400,7 @@ class Triangulation(object):
         vertex_topology = []
         for vertex_index in range(self.num_vertices):
             neighbors_ordered = self.vertex_neighbors_ordered(vertex_index, vertex_topology_unordered)
+            #print(neighbors_ordered)
             vertex_topology.append(neighbors_ordered)
 
         return vertex_topology
@@ -519,6 +520,8 @@ class Triangulation(object):
     def find_singular_vertices(self):
         singular_vertices = []
         for vertex, neighbors in enumerate(self.vertex_topology):
+            #print(vertex)
+            print(neighbors)
             vertex_value = self.pde_values[vertex]
             sign_changes = 0
             sign_values = []  # Tracks whether neighbors are bigger or smaller than vertex_value
