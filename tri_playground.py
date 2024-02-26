@@ -7,7 +7,7 @@ from triangulation import (
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from cmcrameri import cm
+#from cmcrameri import cm
 import subprocess
 from region import Region
 import pyvista
