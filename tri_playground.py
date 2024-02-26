@@ -133,8 +133,8 @@ subprocess.run([
 #         'solve_pde.wls'
 #     ])
 # else:
-#     t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-#     t.write(f'regions/{file_stem}/{file_stem}.output.poly')
+t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+t.write(f'regions/{file_stem}/{file_stem}.output.poly')
 
 subprocess.run([
     'python',
