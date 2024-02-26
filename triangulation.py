@@ -691,8 +691,9 @@ class Triangulation(object):
         show_singular_level_curves=False,
         highlight_vertices=[],
         highlight_edges=[],
-        highlight_polygons=[],
+        highlight_triangles=[],
         face_color=[153/255, 204/255, 255/255],
+        highlight_triangles_color=[247/255, 165/255, 131/255],
         num_level_curves=25,
         line_width=1,
         fig=None,
@@ -743,6 +744,18 @@ class Triangulation(object):
             )
             poly_collection.set(facecolor=face_color)
             axes.add_collection(poly_collection)
+        if highlight_triangles:
+            triangle_coordinates = [
+                np.array(
+                    list(map(lambda x: self.vertices[x], self.triangles[triangle]))
+                )
+                for triangle in highlight_triangles
+            ]
+            triangle_collection = mc.PolyCollection(
+                triangle_coordinates
+            )
+            triangle_collection.set(facecolor=highlight_triangles_color)
+            axes.add_collection(triangle_collection)
         if show_triangle_indices:
             barycenters = np.array(list(map(
                 lambda x: np.mean(x, axis=0),

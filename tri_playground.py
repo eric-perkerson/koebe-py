@@ -562,11 +562,11 @@ for cell_path_index, cell in enumerate(reversed(cell_path)):
 edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), edges_to_weight)))
 
 
-tri.show_voronoi_tesselation(
-    'test.png',
-    highlight_polygons=cell_path
-)
-plt.show()
+# tri.show_voronoi_tesselation(
+#     'test.png',
+#     highlight_polygons=cell_path
+# )
+# plt.show()
 
 
 # Create contained_edges
@@ -614,42 +614,42 @@ def add_voronoi_edges_to_axes(edge_list, axes, color):
     axes.add_collection(line_collection)
 
 
-tri.show_voronoi_tesselation(
-    'test.png',
-    show_polygon_indices=False,
-    show_vertex_indices=True,
-    show_edges=True
-)
-axes = plt.gca()
-add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
-plt.scatter(
-    tri.circumcenters[omega_0][0],
-    tri.circumcenters[omega_0][1],
-    s=25,
-    color=[1, 0, 0]
-)
-hole_point = np.array([hole_x, hole_y])
-line_segment_end = 2 * (base_point - hole_point) + hole_point
-lines = [
-    [
-        tuple(line_segment_end),
-        tuple(hole_point)
-    ]
-]
-line_collection = mc.LineCollection(lines, linewidths=2)
-line_collection.set(color=[1, 0, 0])
-axes.add_collection(line_collection)
-edges_to_weight_coordinates = [
-    [
-        tuple(tri.circumcenters[edge[0]]),
-        tuple(tri.circumcenters[edge[1]])
-    ]
-    for edge in edges_to_weight
-]
-edges_to_weight_collection = mc.LineCollection(edges_to_weight_coordinates, linewidths=2)
-edges_to_weight_collection.set(color=[247/255, 165/255, 131/255])
-axes.add_collection(edges_to_weight_collection)
-plt.show()
+# tri.show_voronoi_tesselation(
+#     'test.png',
+#     show_polygon_indices=False,
+#     show_vertex_indices=True,
+#     show_edges=True
+# )
+# axes = plt.gca()
+# add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
+# plt.scatter(
+#     tri.circumcenters[omega_0][0],
+#     tri.circumcenters[omega_0][1],
+#     s=25,
+#     color=[1, 0, 0]
+# )
+# hole_point = np.array([hole_x, hole_y])
+# line_segment_end = 2 * (base_point - hole_point) + hole_point
+# lines = [
+#     [
+#         tuple(line_segment_end),
+#         tuple(hole_point)
+#     ]
+# ]
+# line_collection = mc.LineCollection(lines, linewidths=2)
+# line_collection.set(color=[1, 0, 0])
+# axes.add_collection(line_collection)
+# edges_to_weight_coordinates = [
+#     [
+#         tuple(tri.circumcenters[edge[0]]),
+#         tuple(tri.circumcenters[edge[1]])
+#     ]
+#     for edge in edges_to_weight
+# ]
+# edges_to_weight_collection = mc.LineCollection(edges_to_weight_coordinates, linewidths=2)
+# edges_to_weight_collection.set(color=[247/255, 165/255, 131/255])
+# axes.add_collection(edges_to_weight_collection)
+# plt.show()
 
 # DEPRECATED
 # edges_to_weight_with_inf = []
@@ -758,62 +758,63 @@ for omega in range(tri.num_triangles):
     g_star_bar[omega] = flux_on_contributing_edges(flux_contributing_edges)
 
 
-# Show shortest paths for a particular circumcenter
-omega = 172
-fig, axes = plt.subplots()
-tri.show_voronoi_tesselation(
-    'voronoi.png',
-    show_vertex_indices=False,
-    show_polygon_indices=False,
-    show_edges=True,
-    highlight_vertices=shortest_paths[omega],
-    show_polygons=False,
-    fig=fig,
-    axes=axes
-)
-# axes = plt.gca()
-add_voronoi_edges_to_axes(build_path_edges(shortest_paths[omega]), axes, color=[1, 0, 0])
-tri.show(
-    show_vertex_indices=False,
-    show_triangle_indices=False,
-    show_edges=True,
-    show_triangles=False,
-    fig=fig,
-    axes=axes,
-)
-add_edges_to_axes(perpendicular_edges_dict[omega], axes, [0, 1, 0])
-plt.show()
+# # Show shortest paths for a particular circumcenter
+# omega = 172
+# fig, axes = plt.subplots()
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=False,
+#     show_polygon_indices=False,
+#     show_edges=True,
+#     highlight_vertices=shortest_paths[omega],
+#     show_polygons=False,
+#     fig=fig,
+#     axes=axes
+# )
+# # axes = plt.gca()
+# add_voronoi_edges_to_axes(build_path_edges(shortest_paths[omega]), axes, color=[1, 0, 0])
+# tri.show(
+#     show_vertex_indices=False,
+#     show_triangle_indices=False,
+#     show_edges=True,
+#     show_triangles=False,
+#     fig=fig,
+#     axes=axes,
+# )
+# add_edges_to_axes(perpendicular_edges_dict[omega], axes, [0, 1, 0])
+# plt.show()
 
 
 # Interpolate the value of pde_solution to get its values on the omegas
 pde_on_omega_values = [np.mean(tri.pde_values[tri.triangles[i]]) for i in range(tri.num_triangles)]
 period_gsb = np.max(g_star_bar)  # TODO: allow the last edge so we get all the
 uniformization = np.exp(2 * np.pi / period_gsb * (pde_on_omega_values + 1j * g_star_bar))
-plt.scatter(
-    np.real(uniformization),
-    np.imag(uniformization),
-    s=500
-)
-plt.gca().set_aspect('equal')
-plt.show()
 
-flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
-for i in range(num_contained_polygons):
-    index = tri.contained_to_original_index[i]
-    flux_color_array[index] = g_star_bar[i]
+# plt.scatter(
+#     np.real(uniformization),
+#     np.imag(uniformization),
+#     s=500
+# )
+# plt.gca().set_aspect('equal')
+# plt.show()
 
-tri.show_voronoi_tesselation(
-    'test.png',
-    show_vertex_indices=True
-)
-plt.scatter(
-    tri.circumcenters[:, 0],
-    tri.circumcenters[:, 1],
-    c=g_star_bar,
-    s=500
-)
-plt.colorbar()
-plt.show()
+# flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
+# for i in range(num_contained_polygons):
+#     index = tri.contained_to_original_index[i]
+#     flux_color_array[index] = g_star_bar[i]
+
+# tri.show_voronoi_tesselation(
+#     'test.png',
+#     show_vertex_indices=True
+# )
+# plt.scatter(
+#     tri.circumcenters[:, 0],
+#     tri.circumcenters[:, 1],
+#     c=g_star_bar,
+#     s=500
+# )
+# plt.colorbar()
+# plt.show()
 
 
 
@@ -842,9 +843,36 @@ def flatten_list_of_lists(list_of_lists):
 
 contained_triangle_indicator = np.all(tri.vertex_boundary_markers[tri.triangles] == 0, axis=1)
 contained_triangles = np.where(contained_triangle_indicator)[0]
+slit_cell_vertices = set(flatten_list_of_lists([tri.contained_polygons[cell] for cell in cell_path]))
+
+fig, axes = plt.subplots()
+tri.show(
+    show_edges=True,
+    show_triangles=False,
+    fig=fig,
+    axes=axes
+)
+tri.show_voronoi_tesselation(
+    show_vertex_indices=True,
+    show_polygons=False,
+    highlight_polygons=cell_path,
+    highlight_vertices=list(slit_cell_vertices),
+    fig=fig,
+    axes=axes
+)
+plt.show()
+
+contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
+
+tri.show(
+    show_triangle_indices=True,
+    highlight_triangles=contained_triangle_minus_slit
+)
+plt.show()
+
 level_set = []
-for i in range(len(contained_triangles)):
-    triangle = tri.triangles[contained_triangles[i]]
+for i in range(len(contained_triangle_minus_slit)):
+    triangle = tri.triangles[contained_triangle_minus_slit[i]]
     level_set_triangle = tri_level_sets(
         tri.vertices[triangle],
         g_star_bar_interpolated_interior[tri.original_to_contained_index[triangle]],
@@ -865,7 +893,7 @@ lines = [
 line_collection = mc.LineCollection(lines, linewidths=1)
 line_collection.set(color=[1, 0, 0])
 tri.show(
-    'test.png'
+    highlight_triangles=contained_triangle_minus_slit
 )
 axes = plt.gca()
 axes.add_collection(line_collection)
@@ -917,8 +945,8 @@ conjugate_level_curve_colors = subsample_color_map(
 )
 for height_index, height in enumerate(heights):
     level_set = []
-    for i in range(len(contained_triangles)):
-        triangle = tri.triangles[contained_triangles[i]]
+    for i in range(len(contained_triangle_minus_slit)):
+        triangle = tri.triangles[contained_triangle_minus_slit[i]]
         level_set_triangle = tri_level_sets(
             tri.vertices[triangle],
             g_star_bar_interpolated_interior[tri.original_to_contained_index[triangle]],
