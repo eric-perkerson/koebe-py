@@ -87,7 +87,7 @@ def showResults():
     gui.rowconfigure(0, weight=1)
     canvas_width = gui.winfo_screenwidth() 
     canvas_height = gui.winfo_screenheight() # this and above set height and width variables that fill the screen
-    controls = tk.Frame(gui, width=canvas_width, height=canvas_height/5 , relief="ridge", bg=BG_COLOR)
+    controls = tk.Frame(gui, width=canvas_width, height=canvas_height/2 , relief="ridge", bg=BG_COLOR)
     controls.columnconfigure(0, weight=1)
     controls.rowconfigure(0, weight=1)
     controls.grid(column=0, row=0)
@@ -392,13 +392,14 @@ def showResults():
         heights = np.linspace(min_, max_, num=100) # creates an array of 100 evenely spaced numbers between the max and minimum flux for the contained polygons
 
         contained_triangle_indicator = np.all(tri.vertex_boundary_markers[tri.triangles] == 0, axis=1)
-        global contained_triangles, slit_cell_vertices
+        global slit_cell_vertices
+        global contained_triangles
         contained_triangles = np.where(contained_triangle_indicator)[0]
         slit_cell_vertices = set(flatten_list_of_lists([tri.contained_polygons[cell] for cell in cell_path]))
 
     fig, axes = plt.subplots()
     axes = plt.gca()
-    fig.set_figheight(4)
+    fig.set_figheight(3)
     fig.set_figwidth(4)
     canvas = FigureCanvasTkAgg(fig, master = gui)   
     print(canvas.get_width_height())
@@ -449,7 +450,6 @@ def showResults():
     global y_upperBound
     y_lowerBound, y_upperBound = axes.get_ybound()
     x_lowerBound, x_upperBound = axes.get_xbound()
-
 
 
     #contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
@@ -702,18 +702,12 @@ def showResults():
     #        paint((260/2.4) * barycenters[i, 0] + 410, -(255/2.4) * barycenters[i, 1] + 405)
     #    paint((260/2.4) * 2.4 + 410, -(255/2.4) * 2.4 + 405)
 
-    button1 = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/76), text="graph 1", command=lambda: showSlitPath())
-    button1.grid(column=0, row=0)
-    button2 = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/76), text="graph 2", command=lambda: what2())
-    button2.grid(column=1, row=0)
-    button3 = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/76), text="graph 3", command=lambda: what3())
-    button3.grid(column=2, row=0)
-    button4 = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/76), text="graph 4", command=lambda: what4())
-    button4.grid(column=3, row=0)
-    button5 = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/76), text="graph 5", command=lambda: what5())
-    button5.grid(column=4, row=0)
-    button6 = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/76), text="graph 5", command=lambda: printBounds())
-    button6.grid(column=5, row=0)
+    text = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.\n Press \" Compute Slit Path\" to calculate the intersecting cells")
+    text.grid(column=0, row=0)
+    button1 = tk.Button(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Compute Slit Path", command=lambda: showSlitPath())
+    button1.grid(column=0, row=1)
+    #button6 = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/76), text="bounds", command=lambda: printBounds())
+    #button6.grid(column=5, row=0)
     # creating the Tkinter canvas 
     # containing the Matplotlib figure 
   
