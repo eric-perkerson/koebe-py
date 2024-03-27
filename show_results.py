@@ -9,6 +9,7 @@ from triangulation import (
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backend_tools import ToolToggleBase
 from cmcrameri import cm
 from region import Region
 import pyvista
@@ -68,8 +69,14 @@ BDRY_COLORS = [
     RAND_15
 ]
 
-class show_results:
+class MyDrawingTool(ToolToggleBase):
 
+    def __init__(self):
+        self.fig = self.kwargs.pop('fig')
+        super().__init__()
+
+
+class show_results:
 
     def __init__(self):
         if len(argv) > 1:
@@ -81,20 +88,49 @@ class show_results:
         self.tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 
         self.gui, self.controls, self.canvas_width, self.canvas_height = self.basicGui()
-        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar = self.basicTkinter()
+        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder = self.basicTkinter()
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
-        
+        self.show_vertices_tri = tk.BooleanVar()
+        self.show_edges_tri=tk.BooleanVar()
+        self.show_triangles_tri=tk.BooleanVar()
+        self.show_vertex_indices_tri=tk.BooleanVar()
+        self.show_triangle_indices_tri=tk.BooleanVar()
+        self.show_level_curves_tri=tk.BooleanVar()
+        self.show_singular_level_curves_tri=tk.BooleanVar()
+        self.highlight_vertices_tri=True
+        self.highlight_edges_tri=True
+        self.highlight_triangles_tri=True
+        self.face_color_tri=True
+        self.highlight_triangles_color_tri=True
+        self.num_level_curves_tri=True
+        self.line_width_tri=True
+        self.show_vertex_indices_vor=tk.BooleanVar()
+        self.show_polygon_indices_vor=tk.BooleanVar()
+        self.show_vertices_vor=tk.BooleanVar()
+        self.show_edges_vor=tk.BooleanVar()
+        self.show_polygons_vor=tk.BooleanVar()
+        self.show_region_vor=tk.BooleanVar()
+        self.highlight_vertices_vor=True
+        self.highlight_edges_vor=True
+        self.highlight_polygons_vor=True
+        self.highlight_edges_color_vor=True
+        self.highlight_vertices_color_vor=True
+        self.highlight_polygons_color_vor=True
 
+        
     def basicGui(self):
         gui = tk.Tk() # initialized Tk
+        gui.state('zoomed')
         gui['bg'] = BG_COLOR # sets the background color to that grey
         gui.title("Manipulate data") 
         gui.columnconfigure(0, weight=1)
         gui.rowconfigure(0, weight=1)
-        canvas_width = gui.winfo_screenwidth() 
-        canvas_height = gui.winfo_screenheight() # this and above set height and width variables that fill the screen
-        controls = tk.Frame(gui, width=canvas_width, height=canvas_height/2 , relief="ridge", bg=BG_COLOR)
+        print(gui.winfo_height(), gui.winfo_width())
+        canvas_width = gui.winfo_width() 
+        canvas_height = gui.winfo_height() # this and above set height and width variables that fill the screen
+        print(canvas_height, canvas_width)
+        controls = tk.Frame(gui, width=canvas_width, height=canvas_height/2, relief="ridge", bg=BLUE)
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
         controls.grid(column=0, row=0)
@@ -104,21 +140,28 @@ class show_results:
         button1.grid(column=0, row=1)
         return gui, controls, canvas_width, canvas_height
     
+    def dummy():
+        print("Hello")
+    
     def basicTkinter(self):
         fig, axes = plt.subplots()
         axes = plt.gca()
         fig.set_figheight(3)
         fig.set_figwidth(4)
-        graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge", bg=BG_COLOR)
+        graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         graphHolder.grid(column=0, row=1)
         canvas = FigureCanvasTkAgg(fig, master = graphHolder)   
         print(canvas.get_width_height())
         toolbar = NavigationToolbar2Tk(canvas, graphHolder)
+        print(toolbar.toolitems)
         toolbar.update()
         fig.canvas.callbacks.connect('button_press_event', self.callback)
-        return fig, axes, graphHolder, canvas, toolbar
+        return fig, axes, graphHolder, canvas, toolbar, graphHolder
     
     def callback(self,event):
+        if (self.fig.canvas.toolbar.__getstate__()['mode'] != ''):
+            print(self.fig.canvas.toolbar.__getstate__()['mode'])
+            return
         x = event.xdata
         y = event.ydata
         global flags
@@ -135,8 +178,6 @@ class show_results:
                 self.pointInHole = [x, y]
                 plt.plot(x,y, 'bo', markersize = 2)
                 plt.draw()
-
-        
 
         if (not stopFlag):
             if (flags):
@@ -313,18 +354,16 @@ class show_results:
         #removes first element in path (base cell)
         poly_path_inward.reverse()
         # reverses the list
-        global cell_path
-        cell_path = poly_path_inward + poly_path_outward
+        self.cell_path = poly_path_inward + poly_path_outward
         # combines the list
         # What I think is happening here is finding the blue section of the graph, it adds the path of cells that the line intersects from hole to outer boundary
-        slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in cell_path]))
+        slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
 
         # Create poly edge path on the left of line
-        global connected_component
-        connected_component = []
+        self.connected_component = []
         perpendicular_edges = []
         #this loops through every cell in the cell path
-        for cell_path_index, cell in enumerate(reversed(cell_path)):
+        for cell_path_index, cell in enumerate(reversed(self.cell_path)):
             flag = False
             edges = self.tri.make_polygon_edges(self.tri.contained_polygons[cell]) # creates a list of edges that make up the cell
             num_edges = len(edges)
@@ -338,7 +377,7 @@ class show_results:
                         self.tri.circumcenters[edge[1]]
                     )):
                         if (contained_topology[cell][edge_index] != -1):  # This most likely checks to make sure the edge is not on the outside of the figure
-                            connected_component.append(edge) # add the edge as a connected component
+                            self.connected_component.append(edge) # add the edge as a connected component
                             perpendicular_edges.append((cell, contained_topology[cell][edge_index])) # This adds a tuplet with the original cell, and the vertex of that cells current index, not sure what for, its never used
                     else:
                         break # this is the only way to break the while loop, it happens if a previous edge has a tail to the right, and we've now gotten to an edge that has a head to the right of the line
@@ -350,14 +389,13 @@ class show_results:
         # This creates a path of EDGES, currently we had a path of cellsx
         
         # Edges to weight
-        global edges_to_weight
-        edges_to_weight = []
-        for cell_path_index, cell in enumerate(reversed(cell_path)): # again loops over the path of cells
+        self.edges_to_weight = []
+        for cell_path_index, cell in enumerate(reversed(self.cell_path)): # again loops over the path of cells
             edges = self.tri.make_polygon_edges(self.tri.contained_polygons[cell]) # again retrives a list of all edges in that cell
             for edge in edges: # loops over each edge
                 if self.segment_intersects_line(self.tri.circumcenters[edge[0]], self.tri.circumcenters[edge[1]]): # if the segment in the cell path intersects the line
-                    edges_to_weight.append(edge) # adds every edge that intersects the line
-        edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
+                    self.edges_to_weight.append(edge) # adds every edge that intersects the line
+        self.edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), self.edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
 
         # Create contained_edges
         triangulation_edges_reindexed = self.tri.original_to_contained_index[self.tri.triangulation_edges]
@@ -378,7 +416,7 @@ class show_results:
             show_polygons=True,
             show_polygon_indices=True,
             show_edges=True,
-            highlight_polygons=cell_path,
+            highlight_polygons=self.cell_path,
             highlight_vertices=list(slit_cell_vertices),
             fig=self.fig,
             axes=self.axes
@@ -388,8 +426,8 @@ class show_results:
     def jargon(self):
         # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
         # the circumcenter of the base_cell
-        slit_path = [edge[0] for edge in connected_component] # the slit path is the sequence of edges from inside to out
-        slit_path.append(connected_component[-1][1]) # adds the final edge
+        slit_path = [edge[0] for edge in self.connected_component] # the slit path is the sequence of edges from inside to out
+        slit_path.append(self.connected_component[-1][1]) # adds the final edge
         # Connected component goes from outer boundary to inner boundary. Reverse after making slit
         slit_path = list(reversed(slit_path))
         angles = np.array([ # builds an array of angles between the circumcenter and line
@@ -405,7 +443,7 @@ class show_results:
         lambda_graph.add_nodes_from(range(len(self.tri.circumcenters))) # adds all circumcenters, not really maintaining structure just adding a node for each
         lambda_graph.add_edges_from(self.tri.voronoi_edges) # adds all edges connecting these nodes
         nx.set_edge_attributes(lambda_graph, values=1, name='weight') # sets all edges to have a value of 1
-        for edge in edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
+        for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
             lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
         shortest_paths = nx.single_source_dijkstra(lambda_graph, omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
 
@@ -439,7 +477,7 @@ class show_results:
         global slit_cell_vertices
         global contained_triangles
         contained_triangles = np.where(contained_triangle_indicator)[0]
-        slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in cell_path]))
+        slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
         global contained_triangle_minus_slit
         contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
 
@@ -601,23 +639,109 @@ class show_results:
         ])
         distanceToBary = np.sqrt(distanceToBary)
         return np.argmin(distanceToBary)
-        
-    def printBounds(self):
-        print(x_upperBound, x_lowerBound, y_lowerBound, y_upperBound)
-        print("And the points:")
-        print(self.pointInHole, self.base_point)
+    
+    def show(self):
+        self.fig.clear()
+        self.axes.clear()
+        self.fig, self.axes = plt.subplots()
+        self.axes = plt.gca()
+        self.fig.set_figheight(3)
+        self.fig.set_figwidth(4)
+        self.graphHolder.destroy()
+        self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
+        self.graphHolder.grid(column=0, row=1)
+        self.canvas = FigureCanvasTkAgg(self.fig, master = self.graphHolder)   
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self.graphHolder)
+        self.toolbar.update()
+        print(self.graphHolder.children)
+        self.matCanvas = self.canvas.get_tk_widget()
+        self.matCanvas.pack()
+
+        self.tri.show(
+            show_vertices=self.show_vertices_tri.get(),
+            show_edges=self.show_edges_tri.get(),
+            show_triangles=self.show_triangles_tri.get(),
+            show_vertex_indices=self.show_vertex_indices_tri.get(),
+            show_triangle_indices=self.show_triangle_indices_tri.get(),
+            show_level_curves=self.show_level_curves_tri.get(),
+            #show_singular_level_curves=self.show_singular_level_curves_tri,
+            #highlight_vertices=self.highlight_vertices_tri,
+            #highlight_edges=self.highlight_edges_tri,
+            #highlight_triangles=self.highlight_triangles_tri,
+            #face_color=self.face_color_tri,
+            #highlight_triangles_color=self.highlight_triangles_color_tri,
+            #num_level_curves=self.num_level_curves_tri,
+            #line_width=self.line_width_tri,
+            fig=self.fig,
+            axes=self.axes
+        )
+        self.tri.show_voronoi_tesselation(
+            show_vertex_indices=self.show_vertex_indices_vor.get(),
+            show_polygon_indices=self.show_polygon_indices_vor.get(),
+            show_vertices=self.show_vertices_vor.get(),
+            show_edges=self.show_edges_vor.get(),
+            show_polygons=self.show_polygons_vor.get(),
+            show_region=self.show_region_vor.get(),
+            #highlight_vertices=self.highlight_vertices_vor,
+            #highlight_edges=self.highlight_edges_vor,
+            #highlight_polygons=self.highlight_polygons_vor,
+            #highlight_edges_color=self.highlight_edges_color_vor,
+            #highlight_vertices_color=self.highlight_vertices_color_vor,
+            #highlight_polygons_color=self.highlight_polygons_color_vor,
+            fig=self.fig,
+            axes=self.axes
+        )
+        self.canvas.draw()
+
+    def showSlit(self):
+        slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
+        self.tri.show_voronoi_tesselation(
+            highlight_polygons=self.cell_path,
+            highlight_vertices=list(slit_cell_vertices),
+            fig=self.fig,
+            axes=self.axes
+        )
+        self.canvas.draw()
 
     def showSlitPath(self):
         self.showSlitPathCalculate()
         self.controls.grid_remove()
-        controls2 = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height/2 , relief="ridge", bg=BG_COLOR)
+        controls2 = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
         controls2.columnconfigure(0, weight=1)
         controls2.rowconfigure(0, weight=1)
         controls2.grid(column=0, row=0)
-        text = tk.Label(controls2, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Nothing Yet")
-        text.grid(column=0, row=0)
-        button3 = tk.Button(controls2, height=int(self.canvas_height/224), width=int(self.canvas_height/14), relief="ridge", text="Nothing Yet")
-        button3.grid(column=0, row=1)
+
+        checkButtonTri1 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
+        checkButtonTri1.grid(column=0, row=0)
+        checkButtonTri2 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
+        checkButtonTri2.grid(column=1, row=0)
+        checkButtonTri3 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
+        checkButtonTri3.grid(column=2, row=0)
+        checkButtonTri4 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
+        checkButtonTri4.grid(column=3, row=0)
+        checkButtonTri5 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
+        checkButtonTri5.grid(column=4, row=0)
+        checkButtonTri6 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
+        checkButtonTri6.grid(column=5, row=0)
+        checkButtonTri7 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
+        checkButtonTri7.grid(column=6, row=0)
+        checkButtonVor1 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
+        checkButtonVor1.grid(column=0, row=1)
+        checkButtonVor2 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
+        checkButtonVor2.grid(column=1, row=1)
+        checkButtonVor3 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
+        checkButtonVor3.grid(column=2, row=1)
+        checkButtonVor4 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
+        checkButtonVor4.grid(column=3, row=1)
+        checkButtonVor5 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
+        checkButtonVor5.grid(column=4, row=1)
+        checkButtonVor6 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
+        checkButtonVor6.grid(column=5, row=1)
+        drawButton = tk.Button(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
+        drawButton.grid(column=6, row=1)
+        slitButton = tk.Button(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", command = self.showSlit)
+        slitButton.grid(column=0, row=2)
+
         self.controls = controls2
         
 if __name__ == "__main__":
