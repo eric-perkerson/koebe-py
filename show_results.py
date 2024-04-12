@@ -9,7 +9,7 @@ from triangulation import (
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backend_tools import ToolToggleBase
+from matplotlib.backend_tools import ToolToggleBase, ToolBase
 from cmcrameri import cm
 from region import Region
 import pyvista
@@ -20,6 +20,7 @@ import tkinter as tk
 from sys import argv
 from matplotlib.figure import Figure 
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+from matplotlib.backend_bases import NavigationToolbar2
 
 BG_COLOR = '#2e2e2e'
 WHITE = '#d6d6d6'
@@ -69,13 +70,6 @@ BDRY_COLORS = [
     RAND_15
 ]
 
-class MyDrawingTool(ToolToggleBase):
-
-    def __init__(self):
-        self.fig = self.kwargs.pop('fig')
-        super().__init__()
-
-
 class show_results:
 
     def __init__(self):
@@ -88,7 +82,7 @@ class show_results:
         self.tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 
         self.gui, self.controls, self.canvas_width, self.canvas_height = self.basicGui()
-        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder = self.basicTkinter()
+        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
         self.show_vertices_tri = tk.BooleanVar()
@@ -151,12 +145,10 @@ class show_results:
         graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         graphHolder.grid(column=0, row=1)
         canvas = FigureCanvasTkAgg(fig, master = graphHolder)   
-        print(canvas.get_width_height())
         toolbar = NavigationToolbar2Tk(canvas, graphHolder)
-        print(toolbar.toolitems)
         toolbar.update()
-        fig.canvas.callbacks.connect('button_press_event', self.callback)
-        return fig, axes, graphHolder, canvas, toolbar, graphHolder
+        callbackName = fig.canvas.callbacks.connect('button_press_event', self.callback)
+        return fig, axes, graphHolder, canvas, toolbar, graphHolder, callbackName
     
     def callback(self,event):
         if (self.fig.canvas.toolbar.__getstate__()['mode'] != ''):
@@ -414,7 +406,7 @@ class show_results:
         self.tri.show_voronoi_tesselation(
             show_vertex_indices=False,
             show_polygons=True,
-            show_polygon_indices=True,
+            show_polygon_indices=False,
             show_edges=True,
             highlight_polygons=self.cell_path,
             highlight_vertices=list(slit_cell_vertices),
@@ -637,7 +629,6 @@ class show_results:
             (bary[0] - x)**2 + (bary[1] - y)**2
             for bary in barycenters
         ])
-        distanceToBary = np.sqrt(distanceToBary)
         return np.argmin(distanceToBary)
     
     def show(self):
@@ -653,7 +644,7 @@ class show_results:
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.graphHolder)   
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.graphHolder)
         self.toolbar.update()
-        print(self.graphHolder.children)
+        #print(self.graphHolder.children)
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
 
@@ -703,46 +694,97 @@ class show_results:
         )
         self.canvas.draw()
 
+    def mainMenu(self):
+        self.controls.grid_remove()
+        mainMenu = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
+        mainMenu.columnconfigure(0, weight=1)
+        mainMenu.rowconfigure(0, weight=1)
+        mainMenu.grid(column=0, row=0)
+
+        graphButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Graph Display Options", command = self.graphConfig)
+        graphButton.grid(column=0, row=0)
+
+        fluxButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Edit Flux", command = self.fluxConfig)
+        fluxButton.grid(column=0, row=1)
+
+        self.controls = mainMenu
+
     def showSlitPath(self):
         self.showSlitPathCalculate()
+        self.mainMenu()
+
+    def nearestEdge(self, x, y):
+        distanceToMidPoints = np.array([ # builds an array of angles between the circumcenter and line
+            ((((self.tri.circumcenters[edge[0]][0] + self.tri.circumcenters[edge[1]][0]) * .5) - x)**2 +
+            (((self.tri.circumcenters[edge[0]][1] + self.tri.circumcenters[edge[1]][1]) * .5) - y)**2)
+            for edge in self.tri.voronoi_edges
+        ])
+
+        index = np.argmin(distanceToMidPoints)
+
+        plt.plot(x,y, 'bo', markersize = 2)
+        plt.plot(self.tri.circumcenters[self.tri.voronoi_edges[index][0]][0], self.tri.circumcenters[self.tri.voronoi_edges[index][0]][1], 'bo', markersize = 2)
+        plt.plot(self.tri.circumcenters[self.tri.voronoi_edges[index][1]][0], self.tri.circumcenters[self.tri.voronoi_edges[index][1]][1], 'bo', markersize = 2)
+        plt.draw()
+
+    def fluxFinder(self, event):
+        #edge_coordinates = [
+        #        np.array(
+        #            list(map(lambda x: self.tri.voronoi_edges[x], polygon))
+        #        )
+        #    ]
+        x = event.xdata
+        y = event.ydata        
+        self.nearestEdge(x, y)
+
+    def fluxConfig(self):
         self.controls.grid_remove()
-        controls2 = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
-        controls2.columnconfigure(0, weight=1)
-        controls2.rowconfigure(0, weight=1)
-        controls2.grid(column=0, row=0)
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
 
-        checkButtonTri1 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
+
+    
+    def graphConfig(self):
+        self.controls.grid_remove()
+        graphConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
+        graphConfigs.columnconfigure(0, weight=1)
+        graphConfigs.rowconfigure(0, weight=1)
+        graphConfigs.grid(column=0, row=0)
+
+        checkButtonTri1 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
         checkButtonTri1.grid(column=0, row=0)
-        checkButtonTri2 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
+        checkButtonTri2 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
         checkButtonTri2.grid(column=1, row=0)
-        checkButtonTri3 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
+        checkButtonTri3 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
         checkButtonTri3.grid(column=2, row=0)
-        checkButtonTri4 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
+        checkButtonTri4 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
         checkButtonTri4.grid(column=3, row=0)
-        checkButtonTri5 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
+        checkButtonTri5 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
         checkButtonTri5.grid(column=4, row=0)
-        checkButtonTri6 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
+        checkButtonTri6 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
         checkButtonTri6.grid(column=5, row=0)
-        checkButtonTri7 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
+        checkButtonTri7 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
         checkButtonTri7.grid(column=6, row=0)
-        checkButtonVor1 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
+        checkButtonVor1 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
         checkButtonVor1.grid(column=0, row=1)
-        checkButtonVor2 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
+        checkButtonVor2 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
         checkButtonVor2.grid(column=1, row=1)
-        checkButtonVor3 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
+        checkButtonVor3 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
         checkButtonVor3.grid(column=2, row=1)
-        checkButtonVor4 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
+        checkButtonVor4 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
         checkButtonVor4.grid(column=3, row=1)
-        checkButtonVor5 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
+        checkButtonVor5 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
         checkButtonVor5.grid(column=4, row=1)
-        checkButtonVor6 = tk.Checkbutton(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
+        checkButtonVor6 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
         checkButtonVor6.grid(column=5, row=1)
-        drawButton = tk.Button(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
+        drawButton = tk.Button(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
         drawButton.grid(column=6, row=1)
-        slitButton = tk.Button(controls2, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", command = self.showSlit)
+        slitButton = tk.Button(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", command = self.showSlit)
         slitButton.grid(column=0, row=2)
+        backButton = tk.Button(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = self.mainMenu)
+        backButton.grid(column=0, row=3)
 
-        self.controls = controls2
+        self.controls = graphConfigs
         
 if __name__ == "__main__":
     a = show_results()
