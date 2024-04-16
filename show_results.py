@@ -120,10 +120,10 @@ class show_results:
         gui.title("Manipulate data") 
         gui.columnconfigure(0, weight=1)
         gui.rowconfigure(0, weight=1)
-        print(gui.winfo_height(), gui.winfo_width())
+        #print(gui.winfo_height(), gui.winfo_width())
         canvas_width = gui.winfo_width() 
         canvas_height = gui.winfo_height() # this and above set height and width variables that fill the screen
-        print(canvas_height, canvas_width)
+        #print(canvas_height, canvas_width)
         controls = tk.Frame(gui, width=canvas_width, height=canvas_height/2, relief="ridge", bg=BLUE)
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
@@ -151,20 +151,20 @@ class show_results:
         return fig, axes, graphHolder, canvas, toolbar, graphHolder, callbackName
     
     def callback(self,event):
-        if (self.fig.canvas.toolbar.__getstate__()['mode'] != ''):
-            print(self.fig.canvas.toolbar.__getstate__()['mode'])
+        if (self.fig.canvas.toolbar.mode != ''):
+            print(self.fig.canvas.toolbar.mode)
             return
         x = event.xdata
         y = event.ydata
         global flags
         global stopFlag
-        print(x,y)
+        #print(x,y)
         if (not stopFlag):
             if (flags):
                 self.base_cell = self.determinePolygon(x, y)
-                print(self.base_cell)
+                #print(self.base_cell)
                 self.base_point = self.tri.vertices[self.tri.contained_to_original_index[self.base_cell]]
-                print(self.base_point)
+                #print(self.base_point)
 
             else:
                 self.pointInHole = [x, y]
@@ -176,7 +176,7 @@ class show_results:
                 plt.plot([self.base_point[0],self.pointInHole[0]],[self.base_point[1],self.pointInHole[1]],'bo-', markersize = 2, linewidth = 1)
                 plt.draw()
                 stopFlag = True
-                print("yippee!")
+                #print("yippee!")
 
         flags = True
 
@@ -397,6 +397,28 @@ class show_results:
                 contained_edges.append(list(edge))
         # I think this just creates a list of all edges that don't have a vertex on a boundary
 
+                # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
+        # the circumcenter of the base_cell
+        slit_path = [edge[0] for edge in self.connected_component] # the slit path is the sequence of edges from inside to out
+        slit_path.append(self.connected_component[-1][1]) # adds the final edge
+        # Connected component goes from outer boundary to inner boundary. Reverse after making slit
+        slit_path = list(reversed(slit_path))
+        angles = np.array([ # builds an array of angles between the circumcenter and line
+            np.arctan2(
+                self.tri.circumcenters[vertex][1] - self.pointInHole[0],
+                self.tri.circumcenters[vertex][0] - self.pointInHole[1]
+            )
+            for vertex in slit_path
+        ])
+        self.omega_0 = slit_path[np.argmin(angles)] # makes omega_0 the minimum of this
+        # Create graph of circumcenters (Lambda[0])
+        self.lambda_graph = nx.Graph() # creates empty graph
+        self.lambda_graph.add_nodes_from(range(len(self.tri.circumcenters))) # adds all circumcenters, not really maintaining structure just adding a node for each
+        self.lambda_graph.add_edges_from(self.tri.voronoi_edges) # adds all edges connecting these nodes
+        nx.set_edge_attributes(self.lambda_graph, values=1, name='weight') # sets all edges to have a value of 1
+        for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
+            self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
+
         self.tri.show(
             show_edges=False,
             show_triangles=False,
@@ -415,36 +437,17 @@ class show_results:
         )
         self.canvas.draw()
 
-    def jargon(self):
-        # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
-        # the circumcenter of the base_cell
-        slit_path = [edge[0] for edge in self.connected_component] # the slit path is the sequence of edges from inside to out
-        slit_path.append(self.connected_component[-1][1]) # adds the final edge
-        # Connected component goes from outer boundary to inner boundary. Reverse after making slit
-        slit_path = list(reversed(slit_path))
-        angles = np.array([ # builds an array of angles between the circumcenter and line
-            np.arctan2(
-                self.tri.circumcenters[vertex][1] - self.pointInHole[0],
-                self.tri.circumcenters[vertex][0] - self.pointInHole[1]
-            )
-            for vertex in slit_path
-        ])
-        omega_0 = slit_path[np.argmin(angles)] # makes omega_0 the minimum of this
-        # Create graph of circumcenters (Lambda[0])
-        lambda_graph = nx.Graph() # creates empty graph
-        lambda_graph.add_nodes_from(range(len(self.tri.circumcenters))) # adds all circumcenters, not really maintaining structure just adding a node for each
-        lambda_graph.add_edges_from(self.tri.voronoi_edges) # adds all edges connecting these nodes
-        nx.set_edge_attributes(lambda_graph, values=1, name='weight') # sets all edges to have a value of 1
-        for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
-            lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
-        shortest_paths = nx.single_source_dijkstra(lambda_graph, omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
+    def updateLambdaGraph(self):
+        self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
 
+    def jargon(self):
+        print()
         global num_contained_polygons
         num_contained_polygons = len(self.tri.contained_polygons)
         g_star_bar = np.zeros(self.tri.num_triangles, dtype=np.float64) # creates a vector for each triangle
         perpendicular_edges_dict = {}
         for omega in range(self.tri.num_triangles): # Loops over each triangle
-            edges = self.build_path_edges(shortest_paths[omega]) # Takes in a list of verticies (circumcenters) connecting omega_0 to the node, and builds an edge path
+            edges = self.build_path_edges(self.shortest_paths[omega]) # Takes in a list of verticies (circumcenters) connecting omega_0 to the node, and builds an edge path
             flux_contributing_edges = []
             for edge in edges:
                 flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge))) # This creates a sequence of verticies (triangle verticies) connecting omega_0 to the desired end vertex
@@ -485,7 +488,7 @@ class show_results:
         axes.add_collection(line_collection)
 
     # Find the perpendicular edges to the lambda path
-    def build_path_edges(vertices): # specifically this takes in a list of verticies, and creates a list of edges connecting the verticies in order that they are stored
+    def build_path_edges(self, vertices): # specifically this takes in a list of verticies, and creates a list of edges connecting the verticies in order that they are stored
         edges = []
         for i in range(len(vertices) - 1):
             edge = [
@@ -615,6 +618,7 @@ class show_results:
         self.canvas.draw()      
 
     def determinePolygon(self, x, y):
+        # Finds the cell closest to the click
         polygon_coordinates = [
                 np.array(
                     list(map(lambda x: self.tri.circumcenters[x], polygon))
@@ -625,13 +629,14 @@ class show_results:
             lambda x: np.mean(x, axis=0),
             polygon_coordinates
         )))
-        distanceToBary = np.array([ # builds an array of angles between the circumcenter and line
+        distanceToBary = np.array([ # builds an array of distances between barycenters and click
             (bary[0] - x)**2 + (bary[1] - y)**2
             for bary in barycenters
         ])
         return np.argmin(distanceToBary)
     
     def show(self):
+        # refreshes graph with updated information
         self.fig.clear()
         self.axes.clear()
         self.fig, self.axes = plt.subplots()
@@ -685,6 +690,7 @@ class show_results:
         self.canvas.draw()
 
     def showSlit(self):
+        # highlights the slit
         slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
         self.tri.show_voronoi_tesselation(
             highlight_polygons=self.cell_path,
@@ -696,6 +702,7 @@ class show_results:
 
     def mainMenu(self):
         self.controls.grid_remove()
+        # adds buttons to various modes, currently just graph edit and edit flux
         mainMenu = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
         mainMenu.columnconfigure(0, weight=1)
         mainMenu.rowconfigure(0, weight=1)
@@ -707,50 +714,118 @@ class show_results:
         fluxButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Edit Flux", command = self.fluxConfig)
         fluxButton.grid(column=0, row=1)
 
+        pathButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Paths", command = self.pathFinder)
+        pathButton.grid(column=0, row=2)
+
         self.controls = mainMenu
 
     def showSlitPath(self):
+        # displays slit path and takes to the main menu
         self.showSlitPathCalculate()
         self.mainMenu()
 
     def nearestEdge(self, x, y):
-        distanceToMidPoints = np.array([ # builds an array of angles between the circumcenter and line
+        distanceToMidPoints = np.array([ # builds an array of distance between click and edge midpoints
             ((((self.tri.circumcenters[edge[0]][0] + self.tri.circumcenters[edge[1]][0]) * .5) - x)**2 +
             (((self.tri.circumcenters[edge[0]][1] + self.tri.circumcenters[edge[1]][1]) * .5) - y)**2)
             for edge in self.tri.voronoi_edges
         ])
 
+        # finds the smallest distance
         index = np.argmin(distanceToMidPoints)
 
+        # Debug mode stuff that I will remove later/use to highlight and remove
         plt.plot(x,y, 'bo', markersize = 2)
         plt.plot(self.tri.circumcenters[self.tri.voronoi_edges[index][0]][0], self.tri.circumcenters[self.tri.voronoi_edges[index][0]][1], 'bo', markersize = 2)
         plt.plot(self.tri.circumcenters[self.tri.voronoi_edges[index][1]][0], self.tri.circumcenters[self.tri.voronoi_edges[index][1]][1], 'bo', markersize = 2)
         plt.draw()
+        return index
+
+    def validateText(self, input, index):
+        # lets text come through if its in a valid format
+        if input.count(".") > 1:
+            return False
+        if len(input) <= int(index):
+            return True
+        if input[int(index)].isdigit():
+            return True
+        elif input[int(index)] == '.':
+            return True
+        
+        return False
+    
+    def editFluxGraph(self):
+        if self.editor.children['!entry'] is None:
+            return
+        if self.editor.children['!entry'].get() is not '':
+            print('a', self.editor.children['!entry'].get(), 'b')
+            # edits edge flux in lambda graph
+            self.lambda_graph.edges[self.tri.voronoi_edges[self.selectedIndex][0], self.tri.voronoi_edges[self.selectedIndex][1]]['weight'] = float(self.editor.children['!entry'].get())
+            # removes popup, and connects call back back to the edge finder, renables back button
+            self.editor.destroy()
+            self.editor = None
+            self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
+            self.controls.children['!button']['state'] = 'normal'
 
     def fluxFinder(self, event):
-        #edge_coordinates = [
-        #        np.array(
-        #            list(map(lambda x: self.tri.voronoi_edges[x], polygon))
-        #        )
-        #    ]
+        self.updateLambdaGraph()
         x = event.xdata
         y = event.ydata        
-        self.nearestEdge(x, y)
+        # finds index of the edge closest to the mouse click
+        self.selectedIndex = self.nearestEdge(x, y)
+
+        # adds a entry and button to input user data to the flux graph, and places them at a point in the middle of the graph
+        self.editor = tk.Frame(self.gui, height = int(self.canvas_height/50), width=int(self.canvas_height/50))
+        fluxValue = tk.StringVar()
+        reg = self.gui.register(self.validateText)
+        # TODO: I need to add a way for it to display the current flux at that edge
+        #a, b, currentFlux = self.lambda_graph.edges.data('weight')[self.selectedIndex]
+        currentFlux = self.lambda_graph.edges[self.tri.voronoi_edges[self.selectedIndex][0], self.tri.voronoi_edges[self.selectedIndex][1]]['weight']
+        fluxValue.set(str(currentFlux))
+        fluxInput = tk.Entry(self.editor, width=int(self.canvas_height/50), bg=BG_COLOR, validate='key', validatecommand= (reg, '%P', '%i'), textvariable = fluxValue)
+        fluxInput.grid(column=0, row=0)
+        sendButton = tk.Button(self.editor, height=1, width=1, bg=BG_COLOR, command= self.editFluxGraph)
+        sendButton.grid(column=1, row=0)
+        self.editor.place(x=int(self.canvas_width / 2), y=int(self.canvas_height/2))
+        # disables back button until data is entered
+        self.controls.children['!button']['state'] = 'disabled'
+        # disables clicking entirely
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+
+    def disconnectAndReturn(self):
+        # disconnects weird callbacks and returns to main menu
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
+        self.mainMenu()
 
     def fluxConfig(self):
+        # removes old controls to add new scene
         self.controls.grid_remove()
+        fluxConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
+        fluxConfigs.columnconfigure(0, weight=1)
+        fluxConfigs.rowconfigure(0, weight=1)
+        fluxConfigs.grid(column=0, row=0)
+        # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
+        # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
+        # adds instructions and a return button to the main menu
+        instructions = tk.Label(fluxConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Click on an edge to edit it's flux. Press enter to set value.")
+        instructions.grid(column=0, row=0)
+        backButton = tk.Button(fluxConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = self.disconnectAndReturn)
+        backButton.grid(column=0, row=1)
 
+        self.controls = fluxConfigs
 
-    
     def graphConfig(self):
+        # removes the old controls and adds a new scene
         self.controls.grid_remove()
         graphConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
         graphConfigs.columnconfigure(0, weight=1)
         graphConfigs.rowconfigure(0, weight=1)
         graphConfigs.grid(column=0, row=0)
 
+        # Adds a series of on/off buttons to turn on and off aspects of the graph
         checkButtonTri1 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
         checkButtonTri1.grid(column=0, row=0)
         checkButtonTri2 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
@@ -785,6 +860,58 @@ class show_results:
         backButton.grid(column=0, row=3)
 
         self.controls = graphConfigs
+
+    def pathSelector(self, event):
+        print("hello?")
+        self.show()
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
+        x = event.xdata
+        y = event.ydata
+
+        distanceToVerticies = np.array([ # builds an array of distance between click and edge midpoints
+            ((vertex[0] - x)**2 +
+            (vertex[1] - y)**2)
+            for vertex in self.tri.circumcenters
+        ])
+
+        omega = distanceToVerticies.argmin()
+        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[omega]), self.axes, color=[1, 0, 0])
+        #self.tri.show(
+        #    show_edges=False,
+        #    show_triangles=False,
+        #    fig=self.fig,
+        #    axes=self.axes
+        #)
+        #self.tri.show_voronoi_tesselation(
+        #    show_vertex_indices=False,
+        #    show_polygons=True,
+        #    show_polygon_indices=False,
+        #    show_edges=True,
+        #    highlight_polygons=self.cell_path,
+        #    highlight_vertices=list(slit_cell_vertices),
+        #    fig=self.fig,
+        #    axes=self.axes
+        #)
+        self.canvas.draw()
+
+    def pathFinder(self):
+        self.updateLambdaGraph()
+        self.controls.grid_remove()
+        pathConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
+        pathConfigs.columnconfigure(0, weight=1)
+        pathConfigs.rowconfigure(0, weight=1)
+        pathConfigs.grid(column=0, row=0)
+
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+        # and adds a new click that finds nearest edge in the voronai graph
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
+
+        instructions = tk.Label(pathConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Click on a cell to display the omega path to that cell.")
+        instructions.grid(column=0, row=0)
+        backButton = tk.Button(pathConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = self.disconnectAndReturn)
+        backButton.grid(column=0, row=1)
+        
+        self.controls = pathConfigs
         
 if __name__ == "__main__":
     a = show_results()
