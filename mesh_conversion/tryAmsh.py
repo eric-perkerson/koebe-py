@@ -155,7 +155,7 @@ grid = pyvista.UnstructuredGrid(topology, cell_types, x)
 ## We can now use the pyvista.Plotter to visualize the mesh. We visualize it 
 ## by showing it in 2D and warped in 3D.
 ## need to use the magic %matplotlib if using Jupyter and/or Ipython!
-
+%matplotlib
 plotter = pyvista.Plotter()
 plotter.add_mesh(grid, show_edges=True)
 plotter.view_xy()
@@ -219,7 +219,7 @@ with XDMFFile(mesh.comm, "output.xdmf", "w") as xdmf:
 
 
 
-# print(min(mesh.geometry.x[:,0]), max(mesh.geometry.x[:,0]))
+#print(min(mesh.geometry.x[:,0]), max(mesh.geometry.x[:,0]))
 
 # print(min(mesh.geometry.x[:,1]),max(mesh.geometry.x[:,1]))
 #print(uh.x.array.real)

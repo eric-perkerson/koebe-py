@@ -189,7 +189,7 @@ ax1.set_title("tri plot of the triangulation")
 
 ax2 =fig.add_subplot(gs[0,1:])
 levels =[0.33051698]
-ax2.tricontour(triangulation, z_coord, levels=levels)
+#ax2.tricontour(triangulation, z_coord, levels=levels)
 ax2.tricontour(triangulation, z_coord, 100)
 ax2.set_title("contours of the triangulation with respect to the solution") 
 
@@ -253,7 +253,7 @@ print(values[200:205], type(values[1]))
 topology, cell_types, x = create_vtk_mesh(mesh, mesh.topology.dim)
 grid = pyvista.UnstructuredGrid(topology, cell_types, x)
 
-
+%matplotlib
 ## need to use the magic %matplotlib if using Jupyter and/or Ipython!
 plotter = pyvista.Plotter()
 plotter.add_mesh(grid, show_edges=True)
