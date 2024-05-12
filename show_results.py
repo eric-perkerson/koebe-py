@@ -137,10 +137,8 @@ class show_results:
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
         controls.grid(column=0, row=0)
-        text = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.\n Press \" Compute Slit Path\" to calculate the intersecting cells")
+        text = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.")
         text.grid(column=0, row=0)
-        button1 = tk.Button(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Compute Slit Path", command=lambda: self.showSlitPath())
-        button1.grid(column=0, row=1)
         return gui, controls, canvas_width, canvas_height
     
     def dummy():
@@ -148,8 +146,9 @@ class show_results:
     
     def basicTkinter(self):
         fig, axes = plt.subplots()
-        fig.set_figheight(3.5)
-        fig.set_figwidth(8)
+        print(self.canvas_width)
+        fig.set_figheight(self.canvas_width/490)
+        fig.set_figwidth(3.5)
         graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         graphHolder.grid(column=0, row=1)
         canvas = FigureCanvasTkAgg(fig, master = graphHolder)   
@@ -164,13 +163,11 @@ class show_results:
             return
         x = event.xdata
         y = event.ydata
-        #print(x,y)
+        print(x,y)
         if (not self.stopFlag):
             if (self.flags):
                 self.base_cell = self.determinePolygon(x, y)
-                #print(self.base_cell)
                 self.base_point = self.tri.vertices[self.tri.contained_to_original_index[self.base_cell]]
-                #print(self.base_point)
 
             else:
                 self.pointInHole = [x, y]
@@ -182,7 +179,7 @@ class show_results:
                 plt.plot([self.base_point[0],self.pointInHole[0]],[self.base_point[1],self.pointInHole[1]],'bo-', markersize = 2, linewidth = 1)
                 plt.draw()
                 self.stopFlag = True
-                #print("yippee!")
+                self.showSlitPath()
 
         self.flags = True
 
@@ -285,7 +282,6 @@ class show_results:
             ] for cell in self.tri.vertex_topology
         ]
         # seems to add all indicies shared between otc and cto into lists, contained in a big dictionary. Each small list is for each cell
-        global contained_topology
         contained_topology = [contained_topology_all[i] for i in self.tri.contained_to_original_index]
         # then he adds all of these that are contained in cells in the cto list to form his contained_topology
         # harboring a guess, this is probably all indicies of cells inside the figure wrapped up in neat packages for each cell.
@@ -400,16 +396,22 @@ class show_results:
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
         self.tri.show(
-            show_edges=False,
-            show_triangles=False,
+            show_vertices=self.show_vertices_tri.get(),
+            show_edges=self.show_edges_tri.get(),
+            show_triangles=self.show_triangles_tri.get(),
+            show_vertex_indices=self.show_vertex_indices_tri.get(),
+            show_triangle_indices=self.show_triangle_indices_tri.get(),
+            show_level_curves=self.show_level_curves_tri.get(),
             fig=self.fig,
             axes=self.axes
         )
         self.tri.show_voronoi_tesselation(
-            show_vertex_indices=False,
-            show_polygons=True,
-            show_polygon_indices=False,
-            show_edges=True,
+            show_vertex_indices=self.show_vertex_indices_vor.get(),
+            show_polygon_indices=self.show_polygon_indices_vor.get(),
+            show_vertices=self.show_vertices_vor.get(),
+            show_edges=self.show_edges_vor.get(),
+            show_polygons=self.show_polygons_vor.get(),
+            show_region=self.show_region_vor.get(),
             highlight_polygons=self.cell_path,
             highlight_vertices=list(slit_cell_vertices),
             fig=self.fig,
@@ -417,26 +419,21 @@ class show_results:
         )
         self.canvas.draw()
 
+    def redraw(self):
+        self.createNewConfigFrame(self.mainMenu, "Click a point inside the hole, then click a point outside the graph to choose the line.")
+        self.flags = False
+        self.stopFlag = False
+        self.show()
+
     def updateLambdaGraph(self):
         self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
 
     def showUniformization(self):
-        self.controls.grid_remove()
-        uniformConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
-        uniformConfigs.columnconfigure(0, weight=1)
-        uniformConfigs.rowconfigure(0, weight=1)
-        uniformConfigs.grid(column=0, row=0)
+        self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Filler, probably click buttons to see the approximations of the annulus")
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
-        # adds instructions and a return button to the main menu
-        instructions = tk.Label(uniformConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Filler, probably click buttons to see the approximations of the annulus")
-        instructions.grid(column=0, row=0)
-        backButton = tk.Button(uniformConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = self.disconnectAndReturnAndShow)
-        backButton.grid(column=0, row=1)
-
-        self.controls = uniformConfigs
 
 
         self.updateLambdaGraph()
@@ -468,10 +465,6 @@ class show_results:
         contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
 
         # refreshes graph with updated information
-        #self.fig.clear()
-        #self.axes.clear()
-        #if self.ax2 is not None:
-        #    self.ax2.clear()
         self.fig, (self.axes, self.ax2) = plt.subplots(1,2, sharex=True, sharey=True)
         self.fig.set_figheight(3.5)
         self.fig.set_figwidth(8)
@@ -481,7 +474,6 @@ class show_results:
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.graphHolder)   
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.graphHolder)
         self.toolbar.update()
-        #print(self.graphHolder.children)
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
 
@@ -493,7 +485,7 @@ class show_results:
             show_triangle_indices=self.show_triangle_indices_tri.get(),
             show_level_curves=self.show_level_curves_tri.get(),
             #show_singular_level_curves=self.show_singular_level_curves_tri,
-            #highlight_vertices=self.highlight_vertices_tri,
+            highlight_vertices=None,
             #highlight_edges=self.highlight_edges_tri,
             #highlight_triangles=self.highlight_triangles_tri,
             #face_color=self.face_color_tri,
@@ -521,34 +513,34 @@ class show_results:
         )
 
         self.ax2.scatter(
-            np.real(uniformization),
-            np.imag(uniformization),
-            s=200,
+            1 * np.real(uniformization),
+            1 * np.imag(uniformization),
+            s=50,
             linewidths = .1
         ) #Plots image of uniformization map
         self.ax2.set_aspect('equal')
 
 
-        flux_color_array = np.zeros(self.tri.num_triangles, dtype=np.float64)
-        for i in range(num_contained_polygons):
-            index = self.tri.contained_to_original_index[i]
-            flux_color_array[index] = g_star_bar[i]
+        # flux_color_array = np.zeros(self.tri.num_triangles, dtype=np.float64)
+        # for i in range(num_contained_polygons):
+        #     index = self.tri.contained_to_original_index[i]
+        #     flux_color_array[index] = g_star_bar[i]
 
-        self.tri.show_voronoi_tesselation(
-            'test.png',
-            show_vertex_indices=False,
-            fig=self.fig,
-            axes=self.ax2
+        # self.tri.show_voronoi_tesselation(
+        #     'test.png',
+        #     show_vertex_indices=False,
+        #     fig=self.fig,
+        #     axes=self.ax2
 
-        )
-        self.ax2.scatter(
-            self.tri.circumcenters[:, 0],
-            self.tri.circumcenters[:, 1],
-            c=g_star_bar,
-            s=200,
-            linewidths = .1
-        )
-        self.ax2.axis('off')
+        # )
+        # self.ax2.scatter(
+        #     self.tri.circumcenters[:, 0],
+        #     self.tri.circumcenters[:, 1],
+        #     c=g_star_bar,
+        #     s=200,
+        #     linewidths = .1
+        # )
+        self.ax2.axis('on')
 
         self.canvas.draw()
 
@@ -615,7 +607,7 @@ class show_results:
         #self.axes.clear()
         self.fig, self.axes = plt.subplots()
         self.fig.set_figheight(3.5)
-        self.fig.set_figwidth(8)
+        self.fig.set_figwidth(3.5)
         self.graphHolder.destroy()
         self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         self.graphHolder.grid(column=0, row=1)
@@ -626,6 +618,7 @@ class show_results:
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
 
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         self.tri.show(
             show_vertices=self.show_vertices_tri.get(),
             show_edges=self.show_edges_tri.get(),
@@ -681,17 +674,22 @@ class show_results:
         mainMenu.rowconfigure(0, weight=1)
         mainMenu.grid(column=0, row=0)
 
-        graphButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Graph Display Options", command = self.graphConfig)
+        graphButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Graph Display Options", command = self.graphConfig)
         graphButton.grid(column=0, row=0)
 
-        fluxButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Edit Flux", command = self.fluxConfig)
-        fluxButton.grid(column=0, row=1)
+        fluxButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Edit Flux", command = self.fluxConfig)
+        fluxButton.grid(column=1, row=0)
 
-        pathButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Paths", command = self.pathFinder)
-        pathButton.grid(column=0, row=2)
+        pathButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Paths", command = self.pathFinder)
+        pathButton.grid(column=2, row=0)
 
-        uniformButton = tk.Button(mainMenu, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Uniformization", command = self.showUniformization)
-        uniformButton.grid(column=0, row=3)
+        uniformButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Uniformization", command = self.showUniformization)
+        uniformButton.grid(column=3, row=0)
+
+        redrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Choose another slit path", command = self.redraw)
+        redrawButton.grid(column=4, row=0)
+
+
 
         self.controls = mainMenu
 
@@ -754,8 +752,6 @@ class show_results:
         self.editor = tk.Frame(self.gui, height = int(self.canvas_height/50), width=int(self.canvas_height/50))
         fluxValue = tk.StringVar()
         reg = self.gui.register(self.validateText)
-        # TODO: I need to add a way for it to display the current flux at that edge
-        #a, b, currentFlux = self.lambda_graph.edges.data('weight')[self.selectedIndex]
         currentFlux = self.lambda_graph.edges[self.tri.voronoi_edges[self.selectedIndex][0], self.tri.voronoi_edges[self.selectedIndex][1]]['weight']
         fluxValue.set(str(currentFlux))
         fluxInput = tk.Entry(self.editor, width=int(self.canvas_height/50), bg=BG_COLOR, validate='key', validatecommand= (reg, '%P', '%i'), textvariable = fluxValue)
@@ -779,67 +775,66 @@ class show_results:
         self.disconnectAndReturn()
 
     def fluxConfig(self):
-        # removes old controls to add new scene
-        self.controls.grid_remove()
-        fluxConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
-        fluxConfigs.columnconfigure(0, weight=1)
-        fluxConfigs.rowconfigure(0, weight=1)
-        fluxConfigs.grid(column=0, row=0)
+        # removes old controls and adds new scene
+        self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Click on an edge to edit it's flux. Press enter to set value.")
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
-        # adds instructions and a return button to the main menu
-        instructions = tk.Label(fluxConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Click on an edge to edit it's flux. Press enter to set value.")
-        instructions.grid(column=0, row=0)
-        backButton = tk.Button(fluxConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = self.disconnectAndReturn)
-        backButton.grid(column=0, row=1)
 
-        self.controls = fluxConfigs
+    def createNewConfigFrame(self, commandB, textL):
+        self.controls.grid_remove()
+        configs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
+        configs.columnconfigure(0, weight=1)
+        configs.rowconfigure(0, weight=1)
+        configs.grid(column=0, row=0)
+        i = 0
+        if textL is not None:
+            instructions = tk.Label(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text=textL)
+            instructions.grid(column=0, row=0)
+            i = 1
+        if commandB is not None:
+            backButton = tk.Button(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = commandB)
+            backButton.grid(column=0, row=i)
+        return configs
 
     def graphConfig(self):
         # removes the old controls and adds a new scene
-        self.controls.grid_remove()
-        graphConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
-        graphConfigs.columnconfigure(0, weight=1)
-        graphConfigs.rowconfigure(0, weight=1)
-        graphConfigs.grid(column=0, row=0)
+        self.controls = self.createNewConfigFrame(None, None)
 
         # Adds a series of on/off buttons to turn on and off aspects of the graph
-        checkButtonTri1 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
+        checkButtonTri1 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
         checkButtonTri1.grid(column=0, row=0)
-        checkButtonTri2 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
+        checkButtonTri2 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
         checkButtonTri2.grid(column=1, row=0)
-        checkButtonTri3 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
+        checkButtonTri3 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
         checkButtonTri3.grid(column=2, row=0)
-        checkButtonTri4 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
+        checkButtonTri4 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
         checkButtonTri4.grid(column=3, row=0)
-        checkButtonTri5 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
+        checkButtonTri5 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
         checkButtonTri5.grid(column=4, row=0)
-        checkButtonTri6 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
+        checkButtonTri6 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
         checkButtonTri6.grid(column=5, row=0)
-        checkButtonTri7 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
+        checkButtonTri7 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
         checkButtonTri7.grid(column=6, row=0)
-        checkButtonVor1 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
+        checkButtonVor1 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
         checkButtonVor1.grid(column=0, row=1)
-        checkButtonVor2 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
+        checkButtonVor2 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
         checkButtonVor2.grid(column=1, row=1)
-        checkButtonVor3 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
+        checkButtonVor3 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
         checkButtonVor3.grid(column=2, row=1)
-        checkButtonVor4 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
+        checkButtonVor4 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
         checkButtonVor4.grid(column=3, row=1)
-        checkButtonVor5 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
+        checkButtonVor5 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
         checkButtonVor5.grid(column=4, row=1)
-        checkButtonVor6 = tk.Checkbutton(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
+        checkButtonVor6 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
         checkButtonVor6.grid(column=5, row=1)
-        drawButton = tk.Button(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
         drawButton.grid(column=6, row=1)
-        slitButton = tk.Button(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", command = self.showSlit)
+        slitButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", command = self.showSlit)
         slitButton.grid(column=0, row=2)
-        backButton = tk.Button(graphConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = self.mainMenu)
-        backButton.grid(column=0, row=3)
-
-        self.controls = graphConfigs
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu)
+        backButton.grid(column=1, row=2)
 
     # actual controller for displaying paths, sets what happens when you click
     def pathSelector(self, event):
@@ -861,24 +856,19 @@ class show_results:
     # changes mode to display paths
     def pathFinder(self):
         self.updateLambdaGraph()
-        self.controls.grid_remove()
-        pathConfigs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
-        pathConfigs.columnconfigure(0, weight=1)
-        pathConfigs.rowconfigure(0, weight=1)
-        pathConfigs.grid(column=0, row=0)
-
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Click on a vertex to see the path from omega0 to that vertex.")
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
 
-        instructions = tk.Label(pathConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Click on a cell to display the omega path to that cell.")
-        instructions.grid(column=0, row=0)
-        backButton = tk.Button(pathConfigs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = self.disconnectAndReturn)
-        backButton.grid(column=0, row=1)
-        
-        self.controls = pathConfigs
-
-
+    def showIntermediate(self):
+        #TODO 
+        # Create ability to switch between graphs, either an animation or arrow buttons
+        # Will be in uniformization graph
+        # The directory will hold around 10 intermediate values where the center collapses down to a point
+        # The chain will be load new graph in -> re calculate slit path (I'll probably have a method that re plots it? I need to ask Saar and eric about this
+        # As the voronoi cells will change) -> plot 
+        return
 
 
     # Probably pointless graphs
