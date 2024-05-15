@@ -9,7 +9,8 @@ import pyvista
 
 
 #file_stem = "3_holes_along_line"
-file_stem = "non_concentric_annulus"
+#file_stem = "non_concentric_annulus"
+file_stem = "non_concentric_annulus_nonconvex"
 
 #file_stem = 'No_3_fold_sym'
 #file_stem = '3_fold_sym'
