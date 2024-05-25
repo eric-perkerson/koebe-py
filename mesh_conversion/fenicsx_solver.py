@@ -1,9 +1,10 @@
 import sys
+
 import numpy as np
 from dolfinx.fem import (
     Constant,
     dirichletbc,
-    FunctionSpace,
+    functionspace,
     locate_dofs_topological
 )
 from dolfinx.fem.petsc import LinearProblem
@@ -113,12 +114,15 @@ with XDMFFile(MPI.COMM_WORLD, f"regions/{file_stem}/mt.xdmf", "r") as xdmf:
 #################################################################
 
 # The function space
-V = FunctionSpace(mesh, ("CG", 1))
+V = functionspace(mesh, ("CG", 1))
 
 # The following will print the coordinates of vertices with degree of freedom
 # print(V.tabulate_dof_coordinates())
 
 # Define the boundaries and boundary conditions
+mesh.topology.create_connectivity(mesh.topology.dim-1, 2)
+
+
 left_facets_1 = ft.find(1)
 left_dofs_1 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_1)
 bcs_1 = dirichletbc(ScalarType(1), left_dofs_1, V)
@@ -287,3 +291,4 @@ with open(f'regions/{file_stem}/{file_stem}.pde', 'w') as output_file:
 #     plotter2.show()
 # else:
 #     figure = plotter.screenshot("fundamentals_mesh.png")
+print("it got passed")

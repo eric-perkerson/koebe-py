@@ -74,14 +74,16 @@ class show_results:
 
     def __init__(self):
         if len(argv) > 1:
-            file_stem = argv[1]
+            self.og_file_stem = argv[1]
         else:
-            file_stem = "concentric_annulus"
-
-        path = Path(f'regions/{file_stem}/{file_stem}')
-        self.tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+            self.og_file_stem = "test_example_5"
+            #"concentric_annulus"
+        self.fileNo = 0
+        #path = Path(f'regions/{self.og_file_stem}/{self.og_file_stem}')
+        self.tri = Triangulation.read(f'regions/{self.og_file_stem}/{self.og_file_stem}.poly')
         self.flags = False
         self.stopFlag = False
+        self.showFlag = True
         self.gui, self.controls, self.canvas_width, self.canvas_height = self.basicGui()
         self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.ax2 = None
@@ -114,9 +116,9 @@ class show_results:
         self.show_polygons_vor.set(True)
         self.show_region_vor=tk.BooleanVar()
         self.show_region_vor.set(True)
-        self.highlight_vertices_vor=True
+        self.highlight_vertices_vor=None
         self.highlight_edges_vor=True
-        self.highlight_polygons_vor=True
+        self.highlight_polygons_vor=None
         self.highlight_edges_color_vor=True
         self.highlight_vertices_color_vor=True
         self.highlight_polygons_color_vor=True
@@ -146,8 +148,8 @@ class show_results:
     
     def basicTkinter(self):
         fig, axes = plt.subplots()
-        print(self.canvas_width)
-        fig.set_figheight(self.canvas_width/490)
+        #print(self.canvas_width)
+        fig.set_figheight(3.5)
         fig.set_figwidth(3.5)
         graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         graphHolder.grid(column=0, row=1)
@@ -157,13 +159,16 @@ class show_results:
         callbackName = fig.canvas.callbacks.connect('button_press_event', self.callback)
         return fig, axes, graphHolder, canvas, toolbar, graphHolder, callbackName
     
+    
     def callback(self,event):
         if (self.fig.canvas.toolbar.mode != ''):
-            print(self.fig.canvas.toolbar.mode)
+            #print(self.fig.canvas.toolbar.mode)
             return
         x = event.xdata
         y = event.ydata
-        print(x,y)
+        self.plotPoint(x,y)
+
+    def plotPoint(self, x, y):
         if (not self.stopFlag):
             if (self.flags):
                 self.base_cell = self.determinePolygon(x, y)
@@ -179,7 +184,9 @@ class show_results:
                 plt.plot([self.base_point[0],self.pointInHole[0]],[self.base_point[1],self.pointInHole[1]],'bo-', markersize = 2, linewidth = 1)
                 plt.draw()
                 self.stopFlag = True
-                self.showSlitPath()
+                if self.showFlag == True:
+                    self.showSlitPath()
+                    self.showFlag = False
 
         self.flags = True
 
@@ -271,7 +278,7 @@ class show_results:
     def flatten_list_of_lists(list_of_lists): # takes 
         return [item for sublist in list_of_lists for item in sublist]
 
-    def showSlitPathCalculate(self):
+    def slitPathCalculate(self):
         # Create the contained topology
         contained_topology_all = [
             [
@@ -366,11 +373,11 @@ class show_results:
         self.edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), self.edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
 
         # Create contained_edges
-        triangulation_edges_reindexed = self.tri.original_to_contained_index[self.tri.triangulation_edges]
-        contained_edges = []
-        for edge in triangulation_edges_reindexed:
-            if -1 not in edge:
-                contained_edges.append(list(edge))
+        # triangulation_edges_reindexed = self.tri.original_to_contained_index[self.tri.triangulation_edges]
+        # contained_edges = []
+        # for edge in triangulation_edges_reindexed:
+        #     if -1 not in edge:
+        #         contained_edges.append(list(edge))
         # I think this just creates a list of all edges that don't have a vertex on a boundary
 
                 # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
@@ -395,48 +402,60 @@ class show_results:
         for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
-        self.tri.show(
-            show_vertices=self.show_vertices_tri.get(),
-            show_edges=self.show_edges_tri.get(),
-            show_triangles=self.show_triangles_tri.get(),
-            show_vertex_indices=self.show_vertex_indices_tri.get(),
-            show_triangle_indices=self.show_triangle_indices_tri.get(),
-            show_level_curves=self.show_level_curves_tri.get(),
-            fig=self.fig,
-            axes=self.axes
-        )
-        self.tri.show_voronoi_tesselation(
-            show_vertex_indices=self.show_vertex_indices_vor.get(),
-            show_polygon_indices=self.show_polygon_indices_vor.get(),
-            show_vertices=self.show_vertices_vor.get(),
-            show_edges=self.show_edges_vor.get(),
-            show_polygons=self.show_polygons_vor.get(),
-            show_region=self.show_region_vor.get(),
-            highlight_polygons=self.cell_path,
-            highlight_vertices=list(slit_cell_vertices),
-            fig=self.fig,
-            axes=self.axes
-        )
-        self.canvas.draw()
+
+        #self.show()
+        #self.showSlit()
+
+        # self.tri.show(
+        #     show_vertices=self.show_vertices_tri.get(),
+        #     show_edges=self.show_edges_tri.get(),
+        #     show_triangles=self.show_triangles_tri.get(),
+        #     show_vertex_indices=self.show_vertex_indices_tri.get(),
+        #     show_triangle_indices=self.show_triangle_indices_tri.get(),
+        #     show_level_curves=self.show_level_curves_tri.get(),
+        #     fig=self.fig,
+        #     axes=self.axes
+        # )
+        # self.tri.show_voronoi_tesselation(
+        #     show_vertex_indices=self.show_vertex_indices_vor.get(),
+        #     show_polygon_indices=self.show_polygon_indices_vor.get(),
+        #     show_vertices=self.show_vertices_vor.get(),
+        #     show_edges=self.show_edges_vor.get(),
+        #     show_polygons=self.show_polygons_vor.get(),
+        #     show_region=self.show_region_vor.get(),
+        #     highlight_polygons=self.cell_path,
+        #     highlight_vertices=list(slit_cell_vertices),
+        #     fig=self.fig,
+        #     axes=self.axes
+        # )
+        # self.canvas.draw()
 
     def redraw(self):
         self.createNewConfigFrame(self.mainMenu, "Click a point inside the hole, then click a point outside the graph to choose the line.")
         self.flags = False
         self.stopFlag = False
+        self.showFlag = True
         self.show()
 
     def updateLambdaGraph(self):
         self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
 
-    def showUniformization(self):
+    def uniformizationPage(self):
         self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Filler, probably click buttons to see the approximations of the annulus")
+        approxButton = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See Approximations", command = self.showIntermediate)
+        approxButton.grid(column=0, row=2)
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
-
-
         self.updateLambdaGraph()
+        uniformization = self.calculateUniformization()
+        self.showUniformization(uniformization)
+        self.ax2.axis('on')
+
+        self.canvas.draw()
+
+    def calculateUniformization(self):
         num_contained_polygons = len(self.tri.contained_polygons)
         g_star_bar = np.zeros(self.tri.num_triangles, dtype=np.float64) # creates a vector for each triangle
         perpendicular_edges_dict = {}
@@ -463,7 +482,9 @@ class show_results:
         contained_triangles = np.where(contained_triangle_indicator)[0]
         slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
         contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
+        return uniformization
 
+    def showUniformization(self, uniformization):
         # refreshes graph with updated information
         self.fig, (self.axes, self.ax2) = plt.subplots(1,2, sharex=True, sharey=True)
         self.fig.set_figheight(3.5)
@@ -511,7 +532,6 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
-
         self.ax2.scatter(
             1 * np.real(uniformization),
             1 * np.imag(uniformization),
@@ -519,30 +539,6 @@ class show_results:
             linewidths = .1
         ) #Plots image of uniformization map
         self.ax2.set_aspect('equal')
-
-
-        # flux_color_array = np.zeros(self.tri.num_triangles, dtype=np.float64)
-        # for i in range(num_contained_polygons):
-        #     index = self.tri.contained_to_original_index[i]
-        #     flux_color_array[index] = g_star_bar[i]
-
-        # self.tri.show_voronoi_tesselation(
-        #     'test.png',
-        #     show_vertex_indices=False,
-        #     fig=self.fig,
-        #     axes=self.ax2
-
-        # )
-        # self.ax2.scatter(
-        #     self.tri.circumcenters[:, 0],
-        #     self.tri.circumcenters[:, 1],
-        #     c=g_star_bar,
-        #     s=200,
-        #     linewidths = .1
-        # )
-        self.ax2.axis('on')
-
-        self.canvas.draw()
 
     def add_voronoi_edges_to_axes(self, edge_list, axes, color): # I think this is exactly what it is called
         lines = [
@@ -683,7 +679,7 @@ class show_results:
         pathButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Paths", command = self.pathFinder)
         pathButton.grid(column=2, row=0)
 
-        uniformButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Uniformization", command = self.showUniformization)
+        uniformButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Uniformization and Approximations", command = self.uniformizationPage)
         uniformButton.grid(column=3, row=0)
 
         redrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Choose another slit path", command = self.redraw)
@@ -695,7 +691,9 @@ class show_results:
 
     def showSlitPath(self):
         # displays slit path and takes to the main menu
-        self.showSlitPathCalculate()
+        self.slitPathCalculate()
+        self.show()
+        self.showSlit()
         self.mainMenu()
 
     def nearestEdge(self, x, y):
@@ -732,7 +730,7 @@ class show_results:
         if self.editor.children['!entry'] is None:
             return
         if self.editor.children['!entry'].get() != '':
-            print('a', self.editor.children['!entry'].get(), 'b')
+            #print('a', self.editor.children['!entry'].get(), 'b')
             # edits edge flux in lambda graph
             self.lambda_graph.edges[self.tri.voronoi_edges[self.selectedIndex][0], self.tri.voronoi_edges[self.selectedIndex][1]]['weight'] = float(self.editor.children['!entry'].get())
             # removes popup, and connects call back back to the edge finder, renables back button
@@ -861,6 +859,40 @@ class show_results:
         # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
 
+    def nextGraph(self):
+        self.fileNo += 1
+        if self.fileNo == 0:
+            file_stem = self.og_file_stem
+        else:
+            file_stem = self.og_file_stem + str(self.fileNo)
+        file_stem = 'non_concentric_annulus'
+        self.tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+        self.flags = False
+        self.stopFlag = False
+        self.plotPoint(0, 0)
+        self.plotPoint(10, 0)
+        self.slitPathCalculate()
+        self.updateLambdaGraph()
+        uniformization = self.calculateUniformization()
+        self.showUniformization(uniformization)
+    
+    def prevGraph(self):
+        self.fileNo -= 1
+        if self.fileNo == 0:
+            file_stem = self.og_file_stem
+        else:
+            file_stem = self.og_file_stem + str(self.fileNo)
+        file_stem = 'concentric_annulus'
+        self.tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+        self.flags = False
+        self.stopFlag = False
+        self.plotPoint(0, 0)
+        self.plotPoint(10, 0)
+        self.slitPathCalculate()
+        self.updateLambdaGraph()
+        uniformization = self.calculateUniformization()
+        self.showUniformization(uniformization)
+    
     def showIntermediate(self):
         #TODO 
         # Create ability to switch between graphs, either an animation or arrow buttons
@@ -868,7 +900,27 @@ class show_results:
         # The directory will hold around 10 intermediate values where the center collapses down to a point
         # The chain will be load new graph in -> re calculate slit path (I'll probably have a method that re plots it? I need to ask Saar and eric about this
         # As the voronoi cells will change) -> plot 
-        return
+
+        self.flags = False
+        self.stopFlag = False
+        self.plotPoint(0, 0)
+        self.plotPoint(10, 0)
+        self.updateLambdaGraph()
+        uniformization = self.calculateUniformization()
+        self.showUniformization(uniformization)
+
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Click buttons to switch between approximations.")
+        buttonHolder = tk.Frame(self.controls, width=self.canvas_width, height=self.canvas_height)
+        buttonHolder.columnconfigure(0, weight=1)
+        buttonHolder.rowconfigure(0, weight=1)
+        buttonHolder.grid(column=0, row=2)
+        nextButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Next Graph", command = self.nextGraph)
+        nextButton.grid(column=0, row=0)
+        previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph)
+        previousButton.grid(column=1, row=0)
+
+
+
 
 
     # Probably pointless graphs
