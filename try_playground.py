@@ -9,18 +9,22 @@ from region import Region
 #import pyvista
 
 
-# to run the code with no coordinates, but with a file_stem,
+#  To run the code with no coordinates, but with a file_stem,
 #  the folder with the same name must
 # contain a file named file_stem.poly
 #file_stem = '3_fold_sym'
 
-file_stem = 'No_3_fold_sym'  
+#file_stem = 'No_3_fold_sym'  
 
 #file_stem = "3_holes_along_line"
 #file_stem = "non_concentric_annulus"
 #file_stem = "non_concentric_annulus_nonconvex"
 
 #file_stem = "complete_3_fold_sym"
+
+#file_stem = 'No_3_fold_sym' Last one I tries with success
+
+file_stem = "test_example_5" 
 
 ####  The following part, till the next line of comments,
 ####  works directly with coordinates given as below.
@@ -119,8 +123,6 @@ tri.show(
     line_width=0.75
        )
 plt.show()
-
-
 
 
 #### From older version
