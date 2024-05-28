@@ -6,7 +6,7 @@ from cmcrameri import cm
 import subprocess
 from region import Region
 #from region import Region
-#import pyvista
+import pyvista
 
 
 #  To run the code with no coordinates, but with a file_stem,
@@ -22,12 +22,55 @@ from region import Region
 
 #file_stem = "complete_3_fold_sym"
 
-#file_stem = 'No_3_fold_sym' Last one I tries with success
+#file_stem = 'No_3_fold_sym' 
 
-file_stem = "test_example_5" 
+#file_stem = "test_example_5"
+
+#file_stem = "test3" Last one I tried with success
+
+file_stem = "No_3_fold_sym_at_all"
 
 ####  The following part, till the next line of comments,
 ####  works directly with coordinates given as below.
+
+
+domain = Region.region_from_components(
+   [
+    [(2.0, 0.0),
+    (1.0000000000000002, 1.7320508075688772),
+    (-0.9999999999999996, 1.7320508075688776),
+    (-2.0, 0),
+    (-1.0000000000000009, -1.7320508075688767),
+    (1.0, -1.7320508075688772)
+    ],
+    [(1.0, 2.4492935982947065e-17),
+    (1.0999999999999999, 0.17320508075688773),
+    (1.3, 0.17320508075688776),
+    (1.4, 0.0),
+    (1.3, -0.1732050807568877),
+    (1.1, -0.1732050807568878)
+    ],
+    [(-1.2086554390135442, 0.45922011883810776),
+    (-1.1586554390135442, 0.5458226592165516),
+    (-1.058655439013544, 0.5458226592165516),
+    (-1.008655439013544, 0.45922011883810776),
+    (-1.058655439013544, 0.3726175784596639),
+    (-1.1586554390135442, 0.37261757845966387)
+    ],
+    [(-0.2774790660436858, -0.9749279121818235),
+    (-0.027479066043685857, -0.5419152102896043),
+    (0.47252093395631417, -0.5419152102896043),
+    (0.7225209339563142, -0.9749279121818236),
+    (0.47252093395631434, -1.407940614074043),
+    (-0.027479066043685496, -1.4079406140740431)
+    ]
+   ]
+)
+
+
+
+
+
 
 # domain = Region.region_from_components(
 #     [
@@ -65,8 +108,10 @@ file_stem = "test_example_5"
 #         ]
 #     ]
 # )
-# with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
-#     domain.write(f)
+
+
+with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
+    domain.write(f)
 
 #############################################################
 #############################################################
@@ -101,6 +146,9 @@ subprocess.run([
     file_stem,
 ])
 
+##################################
+#why not read .output.poly?
+#################################
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
 
 print(tri.singular_heights)
