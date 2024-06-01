@@ -11,7 +11,7 @@ import subprocess
 
 from region import Region
 
-EXAMPLE_DIRECTORY = Path('regions')
+EXAMPLE_DIRECTORY = Path('regions/vertex')
 
 # Define colors
 BG_COLOR = '#2e2e2e'
@@ -93,7 +93,7 @@ def is_number(string):
     return False
 
 
-def get_unused_file_name(poly_file):
+def get_unused_file_name(poly_file, poly_root):
     """Takes the poly_file name and if it already in use, generates an unused file name of the form
     `poly_file` + '_' + `i` where `i` is a number.
 
@@ -108,7 +108,7 @@ def get_unused_file_name(poly_file):
         A new poly file name that is not currently used
     """
     suffix = 1
-    path = EXAMPLE_DIRECTORY / poly_file
+    path = Path('regions') / poly_root / poly_file
     already_exists = path.with_suffix('.poly').exists() # boolean for if theres already a file with that name
     while path.with_suffix('.poly').exists(): # loops until a new file is created
         parts = path.stem.split('_')
@@ -118,7 +118,7 @@ def get_unused_file_name(poly_file):
             poly_file = first_part + '_' + str(suffix)
         else:
             poly_file += '_' + str(suffix)
-        path = EXAMPLE_DIRECTORY / poly_file
+        path = Path('regions') / poly_root / poly_file
         suffix += 1
 
     if already_exists:
@@ -126,7 +126,7 @@ def get_unused_file_name(poly_file):
     return poly_file
 
 
-def draw_region(poly_file='test'):
+def draw_region(poly_file='vertex14', poly_root='vertex'):
     """Launches a GUI used to draw a polygonal region with polygonal holes. Writes the result to
     `poly_file`.
 
@@ -136,11 +136,13 @@ def draw_region(poly_file='test'):
         The name of the poly file to generate, by default 'test'
     """
     
-    poly_file = get_unused_file_name(poly_file)
-    example_directory = EXAMPLE_DIRECTORY / poly_file
-    if not example_directory.is_dir():
-        example_directory.mkdir(parents=True, exist_ok=True)
-    poly_path = (example_directory / poly_file).with_suffix('.poly')
+    #poly_file = get_unused_file_name(poly_file, poly_root)
+    example_directory = (Path('regions') / poly_root) / poly_file
+    print(example_directory)
+    if not (Path('regions') / poly_root).is_dir():
+        (Path('regions') / poly_root).mkdir(parents=True, exist_ok=True)
+    poly_path = example_directory.with_suffix('.poly')
+    print(poly_path)
     # The above sets up the file to be written too.
 
     components = [[]]
@@ -458,9 +460,42 @@ def draw_region(poly_file='test'):
 
     return poly_file
 
+def draw_region_back(fileRoot, fileName, sideNum, inRad, outRad, x=None, y=None):
+    """Draws and saves a polygon without manual clicking
+
+        Parameters
+        ----------
+        fileRoot : name of file overall for that shape
+        fileName : name of specific file for that specific shape's state
+        sideNum : number of sides for the shape
+        inRad : radius of the hole/inside radius
+        outRad : radius of the annulus/outside radius
+        x : x value of where the hole is placed inside the shape
+        y : y value of where the hole is placed inside the shape
+        """
+    components = [[]]
+    for theta in range(0, int(sideNum)):
+        components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
+                                                int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+    components.append([])
+    for theta in range(0, int(sideNum)):
+        components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
+                                                int(int(inRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+
+    print('Saving as ' + fileRoot + '/' + fileName)
+    region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
+    example_directory = Path('regions/' + fileRoot) / fileName
+    if not example_directory.is_dir():
+        example_directory.mkdir(parents=True, exist_ok=True)
+    poly_path = (example_directory / fileName).with_suffix('.poly')
+    with open(poly_path, 'w', encoding='utf-8') as file:
+        region.write(file) # writes the region to the polyfile
+
+    return
 
 if __name__ == "__main__":
     if len(argv) > 1:
-        draw_region(argv[1])
+        draw_region(argv[1], argv[2])
     else:
         draw_region()
+    #draw_region_back('vertex', 'vertex13', 13, 75, 200)

@@ -2,25 +2,18 @@ from region import Region
 from triangulation import (
     Triangulation,
     point_to_right_of_line_compiled,
-    polygon_oriented_counterclockwise,
-    segment_intersects_segment,
-    tri_level_sets
 )
-from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backend_tools import ToolToggleBase, ToolBase
-from cmcrameri import cm
-from region import Region
-import pyvista
 from matplotlib import collections as mc
 import numba
 import networkx as nx
 import tkinter as tk
 from sys import argv
-from matplotlib.figure import Figure 
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
-from matplotlib.backend_bases import NavigationToolbar2
+import draw_region
+import subprocess
+import os
 
 BG_COLOR = '#2e2e2e'
 WHITE = '#d6d6d6'
@@ -70,17 +63,19 @@ BDRY_COLORS = [
     RAND_15
 ]
 
+NUM_TRIANGLES = 2000
+
 class show_results:
 
     def __init__(self):
         if len(argv) > 1:
             self.og_file_stem = argv[1]
         else:
-            self.og_file_stem = "test_example_5"
-            #"concentric_annulus"
-        self.fileNo = 0
-        #path = Path(f'regions/{self.og_file_stem}/{self.og_file_stem}')
-        self.tri = Triangulation.read(f'regions/{self.og_file_stem}/{self.og_file_stem}.poly')
+            self.file_root = "vertex"
+            self.og_file_stem = self.file_root + "4"
+        self.fileNo = 4
+        # TODO: I want to change this to selecting to import a premade shape, or using the drawer
+        self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
         self.flags = False
         self.stopFlag = False
         self.showFlag = True
@@ -439,6 +434,7 @@ class show_results:
 
     def updateLambdaGraph(self):
         self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
+        #print(self.shortest_paths[582])
 
     def uniformizationPage(self):
         self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Filler, probably click buttons to see the approximations of the annulus")
@@ -451,7 +447,8 @@ class show_results:
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
-        self.ax2.axis('on')
+        self.ax2.axis('off')
+        #self.axes.axis('on')
 
         self.canvas.draw()
 
@@ -460,6 +457,7 @@ class show_results:
         g_star_bar = np.zeros(self.tri.num_triangles, dtype=np.float64) # creates a vector for each triangle
         perpendicular_edges_dict = {}
         for omega in range(self.tri.num_triangles): # Loops over each triangle
+            #print(omega)
             edges = self.build_path_edges(self.shortest_paths[omega]) # Takes in a list of verticies (circumcenters) connecting omega_0 to the node, and builds an edge path
             flux_contributing_edges = []
             for edge in edges:
@@ -486,7 +484,7 @@ class show_results:
 
     def showUniformization(self, uniformization):
         # refreshes graph with updated information
-        self.fig, (self.axes, self.ax2) = plt.subplots(1,2, sharex=True, sharey=True)
+        self.fig, (self.axes, self.ax2) = plt.subplots(1,2, sharex=False, sharey=False)
         self.fig.set_figheight(3.5)
         self.fig.set_figwidth(8)
         self.graphHolder.destroy()
@@ -553,6 +551,7 @@ class show_results:
 
     # Find the perpendicular edges to the lambda path
     def build_path_edges(self, vertices): # specifically this takes in a list of verticies, and creates a list of edges connecting the verticies in order that they are stored
+        #print(vertices)
         edges = []
         for i in range(len(vertices) - 1):
             edge = [
@@ -684,6 +683,9 @@ class show_results:
 
         redrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Choose another slit path", command = self.redraw)
         redrawButton.grid(column=4, row=0)
+
+        newDrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.showDraw)
+        newDrawButton.grid(column=5, row=0)
 
 
 
@@ -860,34 +862,32 @@ class show_results:
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
 
     def nextGraph(self):
-        self.fileNo += 1
-        if self.fileNo == 0:
-            file_stem = self.og_file_stem
-        else:
-            file_stem = self.og_file_stem + str(self.fileNo)
-        file_stem = 'non_concentric_annulus'
-        self.tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+        if self.fileNo < 12:
+            self.fileNo += 1
+        file_stem = self.file_root + str(self.fileNo)
+        #file_stem = 'non_concentric_annulus'
+        self.tri = Triangulation.read(f'regions/{self.file_root}/{file_stem}/{file_stem}.poly')
         self.flags = False
         self.stopFlag = False
-        self.plotPoint(0, 0)
-        self.plotPoint(10, 0)
+        hole_x, hole_y = self.tri.region.points_in_holes[0]
+        self.plotPoint(hole_x, hole_y)
+        self.plotPoint(hole_x + 1000, hole_y)
         self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
     
     def prevGraph(self):
-        self.fileNo -= 1
-        if self.fileNo == 0:
-            file_stem = self.og_file_stem
-        else:
-            file_stem = self.og_file_stem + str(self.fileNo)
-        file_stem = 'concentric_annulus'
-        self.tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+        if self.fileNo > 3:
+            self.fileNo -= 1
+        file_stem = self.file_root + str(self.fileNo)
+        #file_stem = 'concentric_annulus'
+        self.tri = Triangulation.read(f'regions/{self.file_root}/{file_stem}/{file_stem}.poly')
         self.flags = False
         self.stopFlag = False
-        self.plotPoint(0, 0)
-        self.plotPoint(10, 0)
+        hole_x, hole_y = self.tri.region.points_in_holes[0]
+        self.plotPoint(hole_x, hole_y)
+        self.plotPoint(hole_x + 1000, hole_y)
         self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
@@ -903,8 +903,10 @@ class show_results:
 
         self.flags = False
         self.stopFlag = False
-        self.plotPoint(0, 0)
-        self.plotPoint(10, 0)
+        hole_x, hole_y = self.tri.region.points_in_holes[0]
+        self.plotPoint(hole_x, hole_y)
+        self.plotPoint(hole_x + 1000, hole_y)
+        self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
@@ -919,114 +921,109 @@ class show_results:
         previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph)
         previousButton.grid(column=1, row=0)
 
+    def showDraw(self):
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Select option, then click calcultate to generate a new figure")
+        configs = tk.Frame(self.controls, width=self.canvas_width, height=self.canvas_height)
+        configs.columnconfigure(0, weight=1)
+        configs.rowconfigure(0, weight=1)
+        configs.grid(column=0, row=2)
+        self.freeDraw = tk.BooleanVar()
+        self.freeDraw.set(False)
+        self.edgeNo = tk.StringVar()
+        self.outRad = tk.StringVar()
+        self.inRad = tk.StringVar()
+        self.fileRootNew = tk.StringVar()
+        self.fileNameNew = tk.StringVar()
+        edgeLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Edges")
+        edgeLabel.grid(column=0, row=0)
 
+        edgeEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.edgeNo)
+        edgeEntry.grid(column=1, row=0)
 
+        radiusOneLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius")
+        radiusOneLabel.grid(column=0, row=1)
 
+        radiusOneEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.outRad)
+        radiusOneEntry.grid(column=1, row=1)
 
-    # Probably pointless graphs
-    def what2(self):
-        self.tri.show(
-            show_triangle_indices=True,
-            highlight_triangles=contained_triangle_minus_slit
-        )
-        self.canvas.draw()
+        radiusTwoLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Inner Radius")
+        radiusTwoLabel.grid(column=0, row=2)
 
-    def what3(self):
-        level_set = []
-        for i in range(len(contained_triangle_minus_slit)):
-            triangle = self.tri.triangles[contained_triangle_minus_slit[i]]
-            level_set_triangle = tri_level_sets(
-                self.tri.vertices[triangle],
-                g_star_bar_interpolated_interior[self.tri.original_to_contained_index[triangle]],
-                heights
-            )
-            level_set.append(level_set_triangle)
+        radiusTwoEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.inRad)
+        radiusTwoEntry.grid(column=1, row=2)
 
-        level_set_flattened = self.flatten_list_of_lists(level_set)
-        level_set_filtered = [
-            line_segment for line_segment in level_set_flattened if len(line_segment) > 0
-        ]
-        lines = [
-            [
-                tuple(line_segment[0]),
-                tuple(line_segment[1])
-            ] for line_segment in level_set_filtered
-        ]
-        line_collection = mc.LineCollection(lines, linewidths=1)
-        line_collection.set(color=[1, 0, 0])
-        self.tri.show(
-            highlight_triangles=contained_triangle_minus_slit
-        )
-        axes = plt.gca()
-        axes.add_collection(line_collection)
-        self.canvas.draw() 
+        fileNameLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name")
+        fileNameLabel.grid(column=4, row=0)
 
-    def what4(self):
-        self.tri.show(
-            'test.png',
-            show_edges=True,
-            show_triangles=False
-        )
-        self.tri.show_voronoi_tesselation(
-            'test.png',
-            show_edges=True,
-            show_polygons=False,
-            fig=plt.gcf(),
-            axes=plt.gca()
-        )
-        self.canvas.draw() 
+        fileNameEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.fileNameNew)
+        fileNameEntry.grid(column=5, row=0)
 
-    def what5(self):
-        # Conjugate level curves with color
-        def subsample_color_map(colormap, num_samples, start_color=0, end_color=255, reverse=False):
-            sample_points_float = np.linspace(start_color, end_color, num_samples)
-            sample_points = np.floor(sample_points_float).astype(np.int64)
-            all_colors = colormap.colors
-            if reverse:
-                all_colors = np.flip(all_colors, axis=0)
-            return all_colors[sample_points]
+        fileRootLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
+        fileRootLabel.grid(column=4, row=1)
 
-        # graded_level_curve_color_map = cm.lajolla
-        conjugate_level_curve_color_map = cm.buda
-        conjugate_level_curve_colors = subsample_color_map(
-            conjugate_level_curve_color_map,
-            len(heights),
-            start_color=32,
-            end_color=223,
-            reverse=True
-        )
-        for height_index, height in enumerate(heights):
-            level_set = []
-            for i in range(len(contained_triangle_minus_slit)):
-                triangle = self.tri.triangles[contained_triangle_minus_slit[i]]
-                level_set_triangle = tri_level_sets(
-                    self.tri.vertices[triangle],
-                    g_star_bar_interpolated_interior[self.tri.original_to_contained_index[triangle]],
-                    [height]
-                )
-                level_set.append(level_set_triangle)
+        fileRootEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.fileRootNew)
+        fileRootEntry.grid(column=5, row=1)
 
-            level_set_flattened = self.flatten_list_of_lists(level_set)
-            level_set_filtered = [
-                line_segment for line_segment in level_set_flattened if len(line_segment) > 0
-            ]
-            lines = [
-                [
-                    tuple(line_segment[0]),
-                    tuple(line_segment[1])
-                ] for line_segment in level_set_filtered
-            ]
-            line_collection = mc.LineCollection(lines, linewidths=1)
-            line_collection.set(color=conjugate_level_curve_colors[height_index])
-            self.axes.add_collection(line_collection)
-        self.tri.show(
-            show_level_curves=True,
-            fig=self.fig,
-            axes=self.axes
-        )
-        self.axes.add_collection(line_collection)
-        self.canvas.draw()      
-        
+        freeDrawButton = tk.Checkbutton(configs, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Free Draw", variable=self.freeDraw)
+        freeDrawButton.grid(column=2, row=2)
+
+        calculateButton = tk.Button(configs, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Calculate", command = self.createNew)
+        calculateButton.grid(column=3, row=2)
+
+    def createNew(self):
+        # Will select between free drawing and concentric polygon, for now I'm just doing the latter
+        # TODO: add text entries to select filenames and edge numbers and all that, though this will be in a calling method I think
+        if self.freeDraw.get():
+            #draw_region.draw_region(self.fileNameNew.get(), self.fileRootNew.get())
+            subprocess.run([
+                'python',
+                'draw_region.py',
+                self.fileNameNew.get(),
+                self.fileRootNew.get()
+            ])
+        else:
+            draw_region.draw_region_back(self.fileRootNew.get(), self.fileNameNew.get(), int(self.edgeNo.get()), int(self.inRad.get()), int(self.outRad.get()))
+        print("drew region")
+        subprocess.run([
+            'julia',
+            'triangulate_via_julia.jl',
+            self.fileNameNew.get(),
+            self.fileRootNew.get(),
+            self.fileNameNew.get(),
+            str(NUM_TRIANGLES)
+        ])
+        print("triangulated region")
+        t = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.poly')
+        t.write(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.output.poly')
+        print("did the weird read and write thing")
+        subprocess.run([
+            'python',
+            'mesh_conversion/mesh_conversion.py',
+            '-p',
+            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.output.poly',
+            '-n',
+            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.node',
+            '-e',
+            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.ele',
+        ])
+        print("converted mesh")
+        subprocess.run([
+            'python',
+            'mesh_conversion/fenicsx_solver.py',
+            self.fileNameNew.get(),
+            self.fileRootNew.get()
+        ])
+        print("solved pde")
+        self.tri = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.poly')
+        self.show()
+        self.flags = False
+        self.stopFlag = False
+        hole_x, hole_y = self.tri.region.points_in_holes[0]
+        self.plotPoint(hole_x, hole_y)
+        self.plotPoint(hole_x + 1000, hole_y)
+        self.showSlitPath()
+        print("finished")
+
 if __name__ == "__main__":
     a = show_results()
     a.showResults()

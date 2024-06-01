@@ -521,7 +521,7 @@ class Triangulation(object):
         singular_vertices = []
         for vertex, neighbors in enumerate(self.vertex_topology):
             #print(vertex)
-            print(neighbors)
+            #print(neighbors)
             vertex_value = self.pde_values[vertex]
             sign_changes = 0
             sign_values = []  # Tracks whether neighbors are bigger or smaller than vertex_value
@@ -927,7 +927,6 @@ class Triangulation(object):
                     weight='bold',
                     zorder=6
                 )
-
         axes.autoscale()
         axes.margins(0.1)
         fig.savefig(file_name)
