@@ -68,22 +68,39 @@ NUM_TRIANGLES = 2000
 class show_results:
 
     def __init__(self):
-        if len(argv) > 1:
-            self.og_file_stem = argv[1]
-        else:
-            self.file_root = "vertex"
-            self.og_file_stem = self.file_root + "4"
-        self.fileNo = 4
+        self.gui = tk.Tk() # initialized Tk
+        self.gui.state('zoomed')
+        self.canvas_width = self.gui.winfo_width() 
+        self.canvas_height = self.gui.winfo_height()
+        self.controls = tk.Frame(self.gui, width=int(self.canvas_width/50), height=int(self.canvas_height/50))
+        self.controls.place(x=0,y=0)
+        self.enteredFileName = tk.StringVar()
+        self.enteredFileRoot = tk.StringVar()
+        tk.Label(self.controls, width=int(self.canvas_height/50), text="Enter the File Name").grid(column=0, row=0)
+        tk.Label(self.controls, width=int(self.canvas_height/50), text="Enter the file Root").grid(column=0, row=1)
+        tk.Entry(self.controls, width=int(self.canvas_height/50), textvariable=self.enteredFileName).grid(column=1, row=0)
+        tk.Entry(self.controls, width=int(self.canvas_height/50), textvariable=self.enteredFileRoot).grid(column=1, row=1)
+        tk.Button(self.controls, text="Load", width=int(self.canvas_height/50), command=self.afterPopup).grid(column=1, row=2)
+        # if len(argv) > 1:
+        #     self.og_file_stem = argv[1]
+        # else:
+        #     self.file_root = "vertex"
+        #     self.og_file_stem = self.file_root + "4"
+        # self.fileNo = 4
         # TODO: I want to change this to selecting to import a premade shape, or using the drawer
-        self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
+        #self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
         self.flags = False
         self.stopFlag = False
         self.showFlag = True
-        self.gui, self.controls, self.canvas_width, self.canvas_height = self.basicGui()
-        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
+        #self.gui, self.controls, self.canvas_width, self.canvas_height = self.basicGui()
+        #self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.ax2 = None
-        self.matCanvas = self.canvas.get_tk_widget()
-        self.matCanvas.pack()
+        #self.matCanvas = self.canvas.get_tk_widget()
+        self.flags = False
+        self.stopFlag = False
+        self.showFlag = True
+        self.ax2 = None
+        #self.matCanvas.pack()
         self.show_vertices_tri = tk.BooleanVar()
         self.show_edges_tri=tk.BooleanVar()
         self.show_edges_tri.set(False)
@@ -117,35 +134,51 @@ class show_results:
         self.highlight_edges_color_vor=True
         self.highlight_vertices_color_vor=True
         self.highlight_polygons_color_vor=True
+        print("hello")
 
-        
+    def afterPopup(self):
+        self.og_file_stem = self.enteredFileName.get()
+        self.file_root = self.enteredFileRoot.get()
+        self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
+        self.controls.grid_remove()
+        self.controls = self.basicGui()
+        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
+        self.matCanvas = self.canvas.get_tk_widget()
+        self.matCanvas.pack()
+        self.tri.show(
+            show_edges=False,
+            show_triangles=False,
+            fig=self.fig,
+            axes=self.axes
+        )
+        self.tri.show_voronoi_tesselation(
+            show_vertex_indices=False,
+            show_polygons=True,
+            show_edges= True,
+            fig=self.fig,
+            axes=self.axes
+        )
+        self.canvas.draw() 
+        print("hello")
+
     def basicGui(self):
-        gui = tk.Tk() # initialized Tk
-        gui.state('zoomed')
-        gui['bg'] = BG_COLOR # sets the background color to that grey
-        gui.title("Manipulate data") 
-        gui.columnconfigure(0, weight=1)
-        gui.rowconfigure(0, weight=1)
-        #print(gui.winfo_height(), gui.winfo_width())
-        canvas_width = gui.winfo_width() 
-        canvas_height = gui.winfo_height() # this and above set height and width variables that fill the screen
-        #print(canvas_height, canvas_width)
-        controls = tk.Frame(gui, width=canvas_width, height=canvas_height/2, relief="ridge", bg=BLUE)
+        self.gui.columnconfigure(0, weight=1)
+        self.gui.rowconfigure(0, weight=1)
+        controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height/2, relief="ridge", bg=BLUE)
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
         controls.grid(column=0, row=0)
-        text = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.")
+        text = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.")
         text.grid(column=0, row=0)
-        return gui, controls, canvas_width, canvas_height
+        return controls
     
     def dummy():
         print("Hello")
     
     def basicTkinter(self):
         fig, axes = plt.subplots()
-        #print(self.canvas_width)
-        fig.set_figheight(3.5)
-        fig.set_figwidth(3.5)
+        fig.set_figheight(6)
+        fig.set_figwidth(6)
         graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         graphHolder.grid(column=0, row=1)
         canvas = FigureCanvasTkAgg(fig, master = graphHolder)   
@@ -153,7 +186,6 @@ class show_results:
         toolbar.update()
         callbackName = fig.canvas.callbacks.connect('button_press_event', self.callback)
         return fig, axes, graphHolder, canvas, toolbar, graphHolder, callbackName
-    
     
     def callback(self,event):
         if (self.fig.canvas.toolbar.mode != ''):
@@ -186,21 +218,6 @@ class show_results:
         self.flags = True
 
     def showResults(self):
-
-        self.tri.show(
-            show_edges=False,
-            show_triangles=False,
-            fig=self.fig,
-            axes=self.axes
-        )
-        self.tri.show_voronoi_tesselation(
-            show_vertex_indices=False,
-            show_polygons=True,
-            show_edges= True,
-            fig=self.fig,
-            axes=self.axes
-        )
-        self.canvas.draw() 
         tk.mainloop()
 
         return 

@@ -610,6 +610,7 @@ class Triangulation(object):
     def read(file_name):
         """Read a triangulation object from files with the given path"""
         path = Path(file_name)
+        print(path)
         region = Region.read_poly(path.with_suffix('.poly'))
         vertices, vertex_boundary_markers = read_node(path.with_suffix('.node'))
         triangles = read_ele(path.with_suffix('.ele'))
