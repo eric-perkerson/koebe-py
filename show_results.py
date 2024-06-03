@@ -68,22 +68,22 @@ NUM_TRIANGLES = 2000
 class show_results:
 
     def __init__(self):
-        if len(argv) > 1:
-            self.og_file_stem = argv[1]
-        else:
-            self.file_root = "vertex"
-            self.og_file_stem = self.file_root + "4"
-        self.fileNo = 4
-        # TODO: I want to change this to selecting to import a premade shape, or using the drawer
-        self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
+        # if len(argv) > 1:
+        #     self.og_file_stem = argv[1]
+        # else:
+        #     self.file_root = "vertex"
+        #     self.og_file_stem = self.file_root + "4"
+        # self.fileNo = 4
+        # # TODO: I want to change this to selecting to import a premade shape, or using the drawer
+        # self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
         self.flags = False
         self.stopFlag = False
         self.showFlag = True
-        self.gui, self.controls, self.canvas_width, self.canvas_height = self.basicGui()
-        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
+        self.gui, self.controls, self.canvas_width, self.canvas_height, self.enteredFileRoot, self.enteredFileName = self.basicGui()
+        #self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.ax2 = None
-        self.matCanvas = self.canvas.get_tk_widget()
-        self.matCanvas.pack()
+        # self.matCanvas = self.canvas.get_tk_widget()
+        # self.matCanvas.pack()
         self.show_vertices_tri = tk.BooleanVar()
         self.show_edges_tri=tk.BooleanVar()
         self.show_edges_tri.set(False)
@@ -93,13 +93,13 @@ class show_results:
         self.show_triangle_indices_tri=tk.BooleanVar()
         self.show_level_curves_tri=tk.BooleanVar()
         self.show_singular_level_curves_tri=tk.BooleanVar()
-        self.highlight_vertices_tri=True
-        self.highlight_edges_tri=True
-        self.highlight_triangles_tri=True
-        self.face_color_tri=True
-        self.highlight_triangles_color_tri=True
-        self.num_level_curves_tri=True
-        self.line_width_tri=True
+        # self.highlight_vertices_tri=True
+        # self.highlight_edges_tri=True
+        # self.highlight_triangles_tri=True
+        # self.face_color_tri=True
+        # self.highlight_triangles_color_tri=True
+        # self.num_level_curves_tri=True
+        # self.line_width_tri=True
         self.show_vertex_indices_vor=tk.BooleanVar()
         self.show_vertex_indices_vor.set(False)
         self.show_polygon_indices_vor=tk.BooleanVar()
@@ -111,12 +111,15 @@ class show_results:
         self.show_polygons_vor.set(True)
         self.show_region_vor=tk.BooleanVar()
         self.show_region_vor.set(True)
-        self.highlight_vertices_vor=None
-        self.highlight_edges_vor=True
-        self.highlight_polygons_vor=None
-        self.highlight_edges_color_vor=True
-        self.highlight_vertices_color_vor=True
-        self.highlight_polygons_color_vor=True
+        # self.highlight_vertices_vor=None
+        # self.highlight_edges_vor=True
+        # self.highlight_polygons_vor=None
+        # self.highlight_edges_color_vor=True
+        # self.highlight_vertices_color_vor=True
+        # self.highlight_polygons_color_vor=True
+
+        self.showSlitBool = tk.BooleanVar()
+        self.showSlitBool.set(True)
 
         
     def basicGui(self):
@@ -130,22 +133,64 @@ class show_results:
         canvas_width = gui.winfo_width() 
         canvas_height = gui.winfo_height() # this and above set height and width variables that fill the screen
         #print(canvas_height, canvas_width)
-        controls = tk.Frame(gui, width=canvas_width, height=canvas_height/2, relief="ridge", bg=BLUE)
+        controls = tk.Frame(gui, width=canvas_width, height=canvas_height/2, relief="ridge", bg=BG_COLOR)
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
         controls.grid(column=0, row=0)
-        text = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.")
-        text.grid(column=0, row=0)
-        return gui, controls, canvas_width, canvas_height
+        rootText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file root, leave blank for none", bg=BG_COLOR)
+        rootText.grid(column=0, row=0)
+        fileRoot = tk.StringVar()
+        tk.Entry(controls, width=int(canvas_width/50), textvariable=fileRoot).grid(column=1, row=0)
+        nameText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file name", bg=BG_COLOR)
+        nameText.grid(column=0, row=1)
+        fileName = tk.StringVar()
+        tk.Entry(controls, width=int(canvas_width/50), textvariable=fileName).grid(column=1, row=1)
+        tk.Button(controls, height=1, width=int(canvas_width/50), command=self.loadFigure, text="Load").grid(column=0,row=2)
+        gui.protocol("WM_DELETE_WINDOW", exit)
+        return gui, controls, canvas_width, canvas_height, fileRoot, fileName
     
-    def dummy():
-        print("Hello")
+    def loadFigure(self):
+        self.controls.destroy()
+        self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height/40, relief="ridge", bg=BLUE)
+        self.controls.columnconfigure(0, weight=1)
+        self.controls.rowconfigure(0, weight=1)
+        self.controls.grid(column=0, row=0)
+        text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.")
+        text.grid(column=0, row=0)
+        self.file_root = self.enteredFileRoot.get()
+        self.og_file_stem = self.enteredFileName.get()
+        if self.file_root == '':
+            self.tri = Triangulation.read(f'regions/{self.og_file_stem}/{self.og_file_stem}.poly')
+            self.fileNo = None
+        else:
+            self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
+            self.fileNo = self.enteredFileName.get()[-1]
+        #self.og_file_stem = self.enteredFileName.get()
+        #self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
+        self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
+        self.matCanvas = self.canvas.get_tk_widget()
+        self.matCanvas.pack()
+        self.tri.show(
+            show_edges=False,
+            show_triangles=False,
+            fig=self.fig,
+            axes=self.axes
+        )
+        self.tri.show_voronoi_tesselation(
+            show_vertex_indices=False,
+            show_polygons=True,
+            show_edges= True,
+            fig=self.fig,
+            axes=self.axes
+        )
+        self.canvas.draw() 
+        return
     
     def basicTkinter(self):
         fig, axes = plt.subplots()
         #print(self.canvas_width)
-        fig.set_figheight(3.5)
-        fig.set_figwidth(3.5)
+        fig.set_figheight(6)
+        fig.set_figwidth(6)
         graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         graphHolder.grid(column=0, row=1)
         canvas = FigureCanvasTkAgg(fig, master = graphHolder)   
@@ -153,7 +198,6 @@ class show_results:
         toolbar.update()
         callbackName = fig.canvas.callbacks.connect('button_press_event', self.callback)
         return fig, axes, graphHolder, canvas, toolbar, graphHolder, callbackName
-    
     
     def callback(self,event):
         if (self.fig.canvas.toolbar.mode != ''):
@@ -168,7 +212,6 @@ class show_results:
             if (self.flags):
                 self.base_cell = self.determinePolygon(x, y)
                 self.base_point = self.tri.vertices[self.tri.contained_to_original_index[self.base_cell]]
-
             else:
                 self.pointInHole = [x, y]
                 plt.plot(x,y, 'bo', markersize = 2)
@@ -187,20 +230,20 @@ class show_results:
 
     def showResults(self):
 
-        self.tri.show(
-            show_edges=False,
-            show_triangles=False,
-            fig=self.fig,
-            axes=self.axes
-        )
-        self.tri.show_voronoi_tesselation(
-            show_vertex_indices=False,
-            show_polygons=True,
-            show_edges= True,
-            fig=self.fig,
-            axes=self.axes
-        )
-        self.canvas.draw() 
+        # self.tri.show(
+        #     show_edges=False,
+        #     show_triangles=False,
+        #     fig=self.fig,
+        #     axes=self.axes
+        # )
+        # self.tri.show_voronoi_tesselation(
+        #     show_vertex_indices=False,
+        #     show_polygons=True,
+        #     show_edges= True,
+        #     fig=self.fig,
+        #     axes=self.axes
+        # )
+        # self.canvas.draw() 
         tk.mainloop()
 
         return 
@@ -485,8 +528,8 @@ class show_results:
     def showUniformization(self, uniformization):
         # refreshes graph with updated information
         self.fig, (self.axes, self.ax2) = plt.subplots(1,2, sharex=False, sharey=False)
-        self.fig.set_figheight(3.5)
-        self.fig.set_figwidth(8)
+        self.fig.set_figheight(6)
+        self.fig.set_figwidth(13)
         self.graphHolder.destroy()
         self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         self.graphHolder.grid(column=0, row=1)
@@ -601,8 +644,8 @@ class show_results:
         #self.fig.clear()
         #self.axes.clear()
         self.fig, self.axes = plt.subplots()
-        self.fig.set_figheight(3.5)
-        self.fig.set_figwidth(3.5)
+        self.fig.set_figheight(6)
+        self.fig.set_figwidth(6)
         self.graphHolder.destroy()
         self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
         self.graphHolder.grid(column=0, row=1)
@@ -662,6 +705,9 @@ class show_results:
         self.canvas.draw()
 
     def mainMenu(self):
+        self.show()
+        if self.showSlitBool.get():
+            self.showSlit()
         self.controls.grid_remove()
         # adds buttons to various modes, currently just graph edit and edit flux
         mainMenu = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
@@ -742,6 +788,9 @@ class show_results:
             self.controls.children['!button']['state'] = 'normal'
 
     def fluxFinder(self, event):
+        if (self.fig.canvas.toolbar.mode != ''):
+            #print(self.fig.canvas.toolbar.mode)
+            return
         self.updateLambdaGraph()
         x = event.xdata
         y = event.ydata        
@@ -831,13 +880,16 @@ class show_results:
         checkButtonVor6.grid(column=5, row=1)
         drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
         drawButton.grid(column=6, row=1)
-        slitButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", command = self.showSlit)
+        slitButton = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", variable=self.showSlitBool)
         slitButton.grid(column=0, row=2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu)
         backButton.grid(column=1, row=2)
 
     # actual controller for displaying paths, sets what happens when you click
     def pathSelector(self, event):
+        if (self.fig.canvas.toolbar.mode != ''):
+            #print(self.fig.canvas.toolbar.mode)
+            return
         self.show()
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
         x = event.xdata
@@ -934,6 +986,7 @@ class show_results:
         self.inRad = tk.StringVar()
         self.fileRootNew = tk.StringVar()
         self.fileNameNew = tk.StringVar()
+        self.triCount = tk.StringVar()
         edgeLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Edges")
         edgeLabel.grid(column=0, row=0)
 
@@ -953,22 +1006,38 @@ class show_results:
         radiusTwoEntry.grid(column=1, row=2)
 
         fileNameLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name")
-        fileNameLabel.grid(column=4, row=0)
+        fileNameLabel.grid(column=4, row=1)
 
         fileNameEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.fileNameNew)
-        fileNameEntry.grid(column=5, row=0)
+        fileNameEntry.grid(column=5, row=1)
 
         fileRootLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
-        fileRootLabel.grid(column=4, row=1)
+        fileRootLabel.grid(column=4, row=0)
 
         fileRootEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.fileRootNew)
-        fileRootEntry.grid(column=5, row=1)
+        fileRootEntry.grid(column=5, row=0)
 
         freeDrawButton = tk.Checkbutton(configs, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Free Draw", variable=self.freeDraw)
         freeDrawButton.grid(column=2, row=2)
 
+        TriangleNumLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Triangles")
+        TriangleNumLabel.grid(column=2, row=0)
+
+        reg = self.gui.register(self.isNumber)
+        TriangleNumEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.triCount, validate='key', validatecommand= (reg, '%P', '%i'))
+        TriangleNumEntry.grid(column=3, row=0)
+
         calculateButton = tk.Button(configs, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Calculate", command = self.createNew)
         calculateButton.grid(column=3, row=2)
+
+    def isNumber(self, input, index):
+        # lets text come through if its in a valid format
+        # if len(input) <= int(index):
+        #     return True
+        if input[int(index)].isdigit():
+            return True
+        
+        return False
 
     def createNew(self):
         # Will select between free drawing and concentric polygon, for now I'm just doing the latter
@@ -990,21 +1059,21 @@ class show_results:
             self.fileNameNew.get(),
             self.fileRootNew.get(),
             self.fileNameNew.get(),
-            str(NUM_TRIANGLES)
+            self.triCount.get()
         ])
         print("triangulated region")
-        t = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.poly')
-        t.write(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.output.poly')
+        t = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.poly')
+        t.write(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.output.poly')
         print("did the weird read and write thing")
         subprocess.run([
             'python',
             'mesh_conversion/mesh_conversion.py',
             '-p',
-            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.output.poly',
+            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.output.poly',
             '-n',
-            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.node',
+            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.node',
             '-e',
-            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.ele',
+            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.ele',
         ])
         print("converted mesh")
         subprocess.run([
@@ -1014,7 +1083,7 @@ class show_results:
             self.fileRootNew.get()
         ])
         print("solved pde")
-        self.tri = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}.poly')
+        self.tri = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.poly')
         self.show()
         self.flags = False
         self.stopFlag = False

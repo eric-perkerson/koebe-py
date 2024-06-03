@@ -137,10 +137,10 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
     """
     
     #poly_file = get_unused_file_name(poly_file, poly_root)
-    example_directory = (Path('regions') / poly_root) / poly_file
+    example_directory = ((Path('regions') / poly_root) / poly_file) / poly_file
     print(example_directory)
-    if not (Path('regions') / poly_root).is_dir():
-        (Path('regions') / poly_root).mkdir(parents=True, exist_ok=True)
+    if not ((Path('regions') / poly_root) / poly_file).is_dir():
+        ((Path('regions') / poly_root) / poly_file).mkdir(parents=True, exist_ok=True)
     poly_path = example_directory.with_suffix('.poly')
     print(poly_path)
     # The above sets up the file to be written too.
@@ -166,7 +166,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
         """Undoes the last action taken by the user, repeatable.
         """
         if (len(components) != 1) or (len(components[len(components) - 1]) != 0): # only undo if there are points on the screen
-            print(len(components))
+            #print(len(components))
             if ((len(components[len(components) - 1]) == 0) and (len(components) >= 0)):
                 del components[len(components) - 1]
                 last_deleted.append([]) # If we delete the last vertex of a color, add a spacer so redo knows to go back to that color
@@ -195,7 +195,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
         """Redoes the last action taken by the user, repeatable.
         """
         if len(last_deleted) != 0: # only redo if there are points that have been deleted
-            print(last_deleted)
+            #print(last_deleted)
             if len(last_deleted[len(last_deleted) - 1]) == 0:
                 components.append([])
                 del last_deleted[len(last_deleted) - 1]
@@ -220,7 +220,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
     def gridSet():
         if (grid.get() == "FreeForm"):
             deleteLines()
-            print("FreeForm")
+            #print("FreeForm")
         elif (grid.get() == "Square"):
             deleteLines()
             for x in range(30):
@@ -373,14 +373,14 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
             roundedShearY = 100*round((shearedY/100)*2)/2 # round in that basis
             pointX = roundedShearX + roundedShearY / 2 # change the basis back
             pointY = roundedShearY
-            print("Triangle")
+            #print("Triangle")
         else:
             print("what")
         
         x_1, y_1 = (pointX - epsilon), (pointY - epsilon)
         x_2, y_2 = (pointX + epsilon), (pointY + epsilon) # this and above create edges for the oval that will be set at that x and y
         components[len(components) - 1].append([pointX, pointY]) # adds the coordinates to the components list at the current "color" basically
-        print([pointX, pointY])
+        #print([pointX, pointY])
         oTag = "Oval" + str(pointX) + str(pointY)
         #print(oTag)
         oval = canvas.create_oval(

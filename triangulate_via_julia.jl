@@ -27,7 +27,7 @@ else
 end
 
 file_name = input_file_name * ".poly"
-relative_input_file_path = joinpath(REGION_DIR, file_root, file_name)
+relative_input_file_path = joinpath(REGION_DIR, file_root, input_file_name, file_name)
 # coordinates, vertex_bdry_markers, edges, edge_bdry_markers = TriVor.read_poly_file(file)
 coordinates, triangles, boundary_markers = acute_triangulate(relative_input_file_path)
 T = TriVor.Triangulation(coordinates, triangles, boundary_markers)
@@ -48,7 +48,7 @@ d = calculate_d(num_triangles)
 T_new = refine_triangulation(T, d)
 num_triangles_new = size(T_new.triangles, 2)
 
-relative_output_file_path = joinpath(file_root, output_file_name)
+relative_output_file_path = joinpath(file_root, output_file_name, output_file_name)
 write_triangulation(joinpath(REGION_DIR, relative_output_file_path), T_new)
 print("Writing triangulation to $relative_output_file_path", "\n")
 print("Number of triangles: $num_triangles_new", "\n")
