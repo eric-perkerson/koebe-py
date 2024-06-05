@@ -14,6 +14,7 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationTool
 import draw_region
 import subprocess
 import os
+import math
 
 BG_COLOR = '#2e2e2e'
 WHITE = '#d6d6d6'
@@ -73,7 +74,7 @@ class show_results:
         # else:
         #     self.file_root = "vertex"
         #     self.og_file_stem = self.file_root + "4"
-        # self.fileNo = 4
+        self.fileNo = 100
         # # TODO: I want to change this to selecting to import a premade shape, or using the drawer
         # self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
         self.flags = False
@@ -161,10 +162,10 @@ class show_results:
         self.og_file_stem = self.enteredFileName.get()
         if self.file_root == '':
             self.tri = Triangulation.read(f'regions/{self.og_file_stem}/{self.og_file_stem}.poly')
-            self.fileNo = None
+            #self.fileNo = None
         else:
             self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
-            self.fileNo = self.enteredFileName.get()[-1]
+            #self.fileNo = self.enteredFileName.get()[-1]
         #self.og_file_stem = self.enteredFileName.get()
         #self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
         self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
@@ -477,7 +478,6 @@ class show_results:
 
     def updateLambdaGraph(self):
         self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
-        #print(self.shortest_paths[582])
 
     def uniformizationPage(self):
         self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Filler, probably click buttons to see the approximations of the annulus")
@@ -491,7 +491,6 @@ class show_results:
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
         self.ax2.axis('off')
-        #self.axes.axis('on')
 
         self.canvas.draw()
 
@@ -527,6 +526,7 @@ class show_results:
 
     def showUniformization(self, uniformization):
         # refreshes graph with updated information
+        plt.close("all")
         self.fig, (self.axes, self.ax2) = plt.subplots(1,2, sharex=False, sharey=False)
         self.fig.set_figheight(6)
         self.fig.set_figwidth(13)
@@ -538,6 +538,7 @@ class show_results:
         self.toolbar.update()
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
+
 
         self.tri.show(
             show_vertices=self.show_vertices_tri.get(),
@@ -639,7 +640,57 @@ class show_results:
         ])
         return np.argmin(distanceToBary)
     
+    def findMaxRadius(self, boundary):
+        array = np.full(len(self.tri.vertices), 0, dtype=object)
+        for i in range(len(self.tri.vertex_boundary_markers)):
+            #print(self.tri.vertex_boundary_markers[i])
+            if (self.tri.vertex_boundary_markers[i] == boundary):
+                array[i] = self.tri.vertices[i]
+        #print(array)
+        #print()
+        ys = np.full(len(self.tri.vertices), 0, dtype=object)
+        xs = np.full(len(self.tri.vertices), 0, dtype=object)
+        for i in range(len(self.tri.vertex_boundary_markers)):
+            if (self.tri.vertex_boundary_markers[i] == boundary):
+                xs[i] = array[i][0]
+                ys[i] = array[i][0]
+        #print(xs)
+        #print()
+        #print(ys)
+        rads = np.add(np.square(xs), np.square(ys))
+        #print(array[rads.argmax()])
+        return rads.argmax()
+    
+    def findMinRadius(self, boundary):
+        array = np.full(len(self.tri.vertices), 0, dtype=object)
+        for i in range(len(self.tri.vertex_boundary_markers)):
+            #print(self.tri.vertex_boundary_markers[i])
+            if (self.tri.vertex_boundary_markers[i] == boundary):
+                array[i] = self.tri.vertices[i]
+        #print(array)
+        #print()
+        ys = np.full(len(self.tri.vertices), 0, dtype=object)
+        xs = np.full(len(self.tri.vertices), 0, dtype=object)
+        for i in range(len(self.tri.vertex_boundary_markers)):
+            if (self.tri.vertex_boundary_markers[i] == boundary):
+                xs[i] = array[i][0]
+                ys[i] = array[i][0]
+        #print(xs)
+        #print()
+        #print(ys)
+        rads = np.add(np.square(xs), np.square(ys))
+        #print(array[rads.argmax()])
+        return rads.argmin()
+    
+    def findInputtedRadius(self):
+        vertex = self.tri.vertices[self.findMaxRadius(2)]
+        radiusIn = math.sqrt(vertex[0] ** 2 + vertex[1] ** 2)
+        vertex = self.tri.vertices[self.findMaxRadius(1)]
+        radiusOut = math.sqrt(vertex[0] ** 2 + vertex[1] ** 2)
+        return (radiusIn, radiusOut)
+    
     def show(self):
+        plt.close("all")
         # refreshes graph with updated information
         #self.fig.clear()
         #self.axes.clear()
@@ -655,6 +706,7 @@ class show_results:
         #print(self.graphHolder.children)
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
+
 
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         self.tri.show(
@@ -914,9 +966,13 @@ class show_results:
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
 
     def nextGraph(self):
-        if self.fileNo < 12:
-            self.fileNo += 1
+        if self.fileNo == 100:
+            return
+        self.fileNo += 5
         file_stem = self.file_root + str(self.fileNo)
+        # if self.fileNo < 12:
+        #     self.fileNo += 1
+        # file_stem = self.file_root + str(self.fileNo)
         #file_stem = 'non_concentric_annulus'
         self.tri = Triangulation.read(f'regions/{self.file_root}/{file_stem}/{file_stem}.poly')
         self.flags = False
@@ -930,8 +986,12 @@ class show_results:
         self.showUniformization(uniformization)
     
     def prevGraph(self):
-        if self.fileNo > 3:
-            self.fileNo -= 1
+        if self.fileNo == 5:
+            return
+        # if self.fileNo > 3:
+        #     self.fileNo -= 1
+        #file_stem = 
+        self.fileNo -= 5
         file_stem = self.file_root + str(self.fileNo)
         #file_stem = 'concentric_annulus'
         self.tri = Triangulation.read(f'regions/{self.file_root}/{file_stem}/{file_stem}.poly')
