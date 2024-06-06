@@ -66,25 +66,12 @@ BDRY_COLORS = [
 
 NUM_TRIANGLES = 2000
 
-class show_results:
+class GraphConfig(tk.Frame):
 
-    def __init__(self):
-        # if len(argv) > 1:
-        #     self.og_file_stem = argv[1]
-        # else:
-        #     self.file_root = "vertex"
-        #     self.og_file_stem = self.file_root + "4"
-        self.fileNo = 100
-        # # TODO: I want to change this to selecting to import a premade shape, or using the drawer
-        # self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
-        self.flags = False
-        self.stopFlag = False
-        self.showFlag = True
-        self.gui, self.controls, self.canvas_width, self.canvas_height, self.enteredFileRoot, self.enteredFileName = self.basicGui()
-        #self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
-        self.ax2 = None
-        # self.matCanvas = self.canvas.get_tk_widget()
-        # self.matCanvas.pack()
+    def __init__(self, width, height):
+        self.canvas_height = height
+        self.canvas_width = width
+
         self.show_vertices_tri = tk.BooleanVar()
         self.show_edges_tri=tk.BooleanVar()
         self.show_edges_tri.set(False)
@@ -94,13 +81,7 @@ class show_results:
         self.show_triangle_indices_tri=tk.BooleanVar()
         self.show_level_curves_tri=tk.BooleanVar()
         self.show_singular_level_curves_tri=tk.BooleanVar()
-        # self.highlight_vertices_tri=True
-        # self.highlight_edges_tri=True
-        # self.highlight_triangles_tri=True
-        # self.face_color_tri=True
-        # self.highlight_triangles_color_tri=True
-        # self.num_level_curves_tri=True
-        # self.line_width_tri=True
+
         self.show_vertex_indices_vor=tk.BooleanVar()
         self.show_vertex_indices_vor.set(False)
         self.show_polygon_indices_vor=tk.BooleanVar()
@@ -112,17 +93,157 @@ class show_results:
         self.show_polygons_vor.set(True)
         self.show_region_vor=tk.BooleanVar()
         self.show_region_vor.set(True)
-        # self.highlight_vertices_vor=None
-        # self.highlight_edges_vor=True
-        # self.highlight_polygons_vor=None
-        # self.highlight_edges_color_vor=True
-        # self.highlight_vertices_color_vor=True
-        # self.highlight_polygons_color_vor=True
 
         self.showSlitBool = tk.BooleanVar()
         self.showSlitBool.set(True)
 
+    def getConfigsVor(self):
+        """ vertex indices, polygon indices, vertex, edge, polygon, region"""
+        return self.show_vertex_indices_vor.get(), self.show_polygon_indices_vor.get(), self.show_vertices_vor.get(), self.show_edges_vor.get(), self.show_polygons_vor.get(), self.show_region_vor.get()
+
+    def getConfigsTri(self):
+        """ vertex, edges, triangles, vertex indices, triangle indices, level curves, singular level curves"""
+        return self.show_vertices_tri.get(), self.show_edges_tri.get(), self.show_triangles_tri.get(), self.show_vertex_indices_tri.get(), self.show_triangle_indices_tri.get(), self.show_level_curves_tri.get(), self.show_singular_level_curves_tri.get()
+    
+    def getSlit(self):
+        return self.showSlitBool.get()
+    
+    def getFrame(self, parent):
+        super().__init__(parent, width = self.canvas_width, height = self.canvas_height)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.grid(column=0, row=0)
+        checkButtonTri1 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
+        checkButtonTri1.grid(column=0, row=0)
+        checkButtonTri2 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
+        checkButtonTri2.grid(column=1, row=0)
+        checkButtonTri3 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
+        checkButtonTri3.grid(column=2, row=0)
+        checkButtonTri4 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
+        checkButtonTri4.grid(column=3, row=0)
+        checkButtonTri5 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
+        checkButtonTri5.grid(column=4, row=0)
+        checkButtonTri6 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
+        checkButtonTri6.grid(column=5, row=0)
+        checkButtonTri7 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
+        checkButtonTri7.grid(column=6, row=0)
+        checkButtonVor1 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
+        checkButtonVor1.grid(column=0, row=1)
+        checkButtonVor2 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
+        checkButtonVor2.grid(column=1, row=1)
+        checkButtonVor3 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
+        checkButtonVor3.grid(column=2, row=1)
+        checkButtonVor4 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
+        checkButtonVor4.grid(column=3, row=1)
+        checkButtonVor5 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
+        checkButtonVor5.grid(column=4, row=1)
+        checkButtonVor6 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
+        checkButtonVor6.grid(column=5, row=1)
+        # drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
+        # drawButton.grid(column=6, row=1)
+        slitButton = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Slit", variable=self.showSlitBool)
+        slitButton.grid(column=6, row=1)
+        # backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu)
+        # backButton.grid(column=1, row=2)
+        return self
+
+class DrawRegion(tk.Frame):
+    def __init__(self, parent, width, height):
+        super().__init__(parent, width = width, height = height)
+        self.canvas_width = width
+        self.canvas_height = height
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.freeDraw = tk.BooleanVar()
+        self.freeDraw.set(False)
+        self.edgeNo = tk.StringVar()
+        self.outRad = tk.StringVar()
+        self.inRad = tk.StringVar()
+        self.fileRoot = tk.StringVar()
+        self.fileName = tk.StringVar()
+        self.triCount = tk.StringVar()
+
+        instructLabel = tk.Label(self, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Select option, then click calcultate to generate a new figure")
+        instructLabel.grid(column=2, row=0, columnspan=3)
+
+        edgeLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Edges")
+        edgeLabel.grid(column=0, row=1)
+
+        edgeEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.edgeNo)
+        edgeEntry.grid(column=1, row=1)
+
+        radiusOneLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius")
+        radiusOneLabel.grid(column=0, row=2)
+
+        radiusOneEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.outRad)
+        radiusOneEntry.grid(column=1, row=2)
+
+        radiusTwoLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Inner Radius")
+        radiusTwoLabel.grid(column=0, row=3)
+
+        radiusTwoEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.inRad)
+        radiusTwoEntry.grid(column=1, row=3)
+
+        fileNameLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name")
+        fileNameLabel.grid(column=4, row=2)
+
+        fileNameEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileName)
+        fileNameEntry.grid(column=5, row=2)
+
+        fileRootLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
+        fileRootLabel.grid(column=4, row=1)
+
+        fileRootEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileRoot)
+        fileRootEntry.grid(column=5, row=1)
+
+        freeDrawButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Free Draw", variable=self.freeDraw)
+        freeDrawButton.grid(column=2, row=3)
+
+        TriangleNumLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Triangles")
+        TriangleNumLabel.grid(column=2, row=1)
+
+        reg = self.register(self.isNumber)
+        TriangleNumEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.triCount, validate='key', validatecommand= (reg, '%P', '%i'))
+        TriangleNumEntry.grid(column=3, row=1)
+
+    def isNumber(self, input, index):
+        # lets text come through if its in a valid format
+        # if len(input) <= int(index):
+        #     return True
+        if input[int(index)].isdigit():
+            return True
         
+        return False
+    
+    def getFreeDraw(self):
+        return self.freeDraw.get()
+    def getEdgeNo(self):
+        return self.edgeNo.get()
+    def getOutRad(self):
+        return self.outRad.get()
+    def getInRad(self):
+        return self.inRad.get()
+    def getFileRoot(self):
+        return self.fileRoot.get()
+    def getFileName(self):
+        return self.fileName.get()
+    def getTriCount(self):
+        return self.triCount.get()
+
+
+class show_results:
+
+    def __init__(self):
+        self.fileNo = 100
+        self.flags = False
+        self.stopFlag = False
+        self.showFlag = True
+        self.gui, self.controls, self.canvas_width, self.canvas_height, self.enteredFileRoot, self.enteredFileName = self.basicGui()
+        self.ax2 = None
+
+        self.graphConfigs = GraphConfig(width=self.canvas_width, height=self.canvas_height)
+    
     def basicGui(self):
         gui = tk.Tk() # initialized Tk
         gui.state('zoomed')
@@ -441,34 +562,6 @@ class show_results:
         for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
-
-        #self.show()
-        #self.showSlit()
-
-        # self.tri.show(
-        #     show_vertices=self.show_vertices_tri.get(),
-        #     show_edges=self.show_edges_tri.get(),
-        #     show_triangles=self.show_triangles_tri.get(),
-        #     show_vertex_indices=self.show_vertex_indices_tri.get(),
-        #     show_triangle_indices=self.show_triangle_indices_tri.get(),
-        #     show_level_curves=self.show_level_curves_tri.get(),
-        #     fig=self.fig,
-        #     axes=self.axes
-        # )
-        # self.tri.show_voronoi_tesselation(
-        #     show_vertex_indices=self.show_vertex_indices_vor.get(),
-        #     show_polygon_indices=self.show_polygon_indices_vor.get(),
-        #     show_vertices=self.show_vertices_vor.get(),
-        #     show_edges=self.show_edges_vor.get(),
-        #     show_polygons=self.show_polygons_vor.get(),
-        #     show_region=self.show_region_vor.get(),
-        #     highlight_polygons=self.cell_path,
-        #     highlight_vertices=list(slit_cell_vertices),
-        #     fig=self.fig,
-        #     axes=self.axes
-        # )
-        # self.canvas.draw()
-
     def redraw(self):
         self.createNewConfigFrame(self.mainMenu, "Click a point inside the hole, then click a point outside the graph to choose the line.")
         self.flags = False
@@ -539,14 +632,14 @@ class show_results:
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
 
-
+        vert, edge, triangle, vInd, tInd, level, singLevel = self.graphConfigs.getConfigsTri()
         self.tri.show(
-            show_vertices=self.show_vertices_tri.get(),
-            show_edges=self.show_edges_tri.get(),
-            show_triangles=self.show_triangles_tri.get(),
-            show_vertex_indices=self.show_vertex_indices_tri.get(),
-            show_triangle_indices=self.show_triangle_indices_tri.get(),
-            show_level_curves=self.show_level_curves_tri.get(),
+            show_vertices=vert,
+            show_edges=edge,
+            show_triangles=triangle,
+            show_vertex_indices=vInd,
+            show_triangle_indices=tInd,
+            show_level_curves=level,
             #show_singular_level_curves=self.show_singular_level_curves_tri,
             highlight_vertices=None,
             #highlight_edges=self.highlight_edges_tri,
@@ -558,13 +651,15 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
+        
+        vInd, pInd, vert, edge, poly, region = self.graphConfigs.getConfigsVor()
         self.tri.show_voronoi_tesselation(
-            show_vertex_indices=self.show_vertex_indices_vor.get(),
-            show_polygon_indices=self.show_polygon_indices_vor.get(),
-            show_vertices=self.show_vertices_vor.get(),
-            show_edges=self.show_edges_vor.get(),
-            show_polygons=self.show_polygons_vor.get(),
-            show_region=self.show_region_vor.get(),
+            show_vertex_indices=vInd,
+            show_polygon_indices=pInd,
+            show_vertices=vert,
+            show_edges=edge,
+            show_polygons=poly,
+            show_region=region,
             #highlight_vertices=self.highlight_vertices_vor,
             #highlight_edges=self.highlight_edges_vor,
             #highlight_polygons=self.highlight_polygons_vor,
@@ -731,24 +826,26 @@ class show_results:
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
 
-        print(self.tri.region.points_in_holes[0])
-        modRad = self.findAverageRad(True)
-        modRad /= self.findAverageRad(False)
-        print(self.findAverageRad(True))
-        print(self.findAverageRad(False))
-        modulus = (1 / (2 * np.pi)) * np.log10(modRad)
-        print(modulus)
+        # print(self.tri.region.points_in_holes[0])
+        # modRad = self.findAverageRad(True)
+        # modRad /= self.findAverageRad(False)
+        # print(self.findAverageRad(True))
+        # print(self.findAverageRad(False))
+        # modulus = (1 / (2 * np.pi)) * np.log10(modRad)
+        # print(modulus)
 
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
+        
+        vert, edge, triangle, vInd, tInd, level, singLevel = self.graphConfigs.getConfigsTri()
         self.tri.show(
-            show_vertices=self.show_vertices_tri.get(),
-            show_edges=self.show_edges_tri.get(),
-            show_triangles=self.show_triangles_tri.get(),
-            show_vertex_indices=self.show_vertex_indices_tri.get(),
-            show_triangle_indices=self.show_triangle_indices_tri.get(),
-            show_level_curves=self.show_level_curves_tri.get(),
+            show_vertices=vert,
+            show_edges=edge,
+            show_triangles=triangle,
+            show_vertex_indices=vInd,
+            show_triangle_indices=tInd,
+            show_level_curves=level,
             #show_singular_level_curves=self.show_singular_level_curves_tri,
-            #highlight_vertices=self.highlight_vertices_tri,
+            highlight_vertices=None,
             #highlight_edges=self.highlight_edges_tri,
             #highlight_triangles=self.highlight_triangles_tri,
             #face_color=self.face_color_tri,
@@ -758,13 +855,15 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
+        
+        vInd, pInd, vert, edge, poly, region = self.graphConfigs.getConfigsVor()
         self.tri.show_voronoi_tesselation(
-            show_vertex_indices=self.show_vertex_indices_vor.get(),
-            show_polygon_indices=self.show_polygon_indices_vor.get(),
-            show_vertices=self.show_vertices_vor.get(),
-            show_edges=self.show_edges_vor.get(),
-            show_polygons=self.show_polygons_vor.get(),
-            show_region=self.show_region_vor.get(),
+            show_vertex_indices=vInd,
+            show_polygon_indices=pInd,
+            show_vertices=vert,
+            show_edges=edge,
+            show_polygons=poly,
+            show_region=region,
             #highlight_vertices=self.highlight_vertices_vor,
             #highlight_edges=self.highlight_edges_vor,
             #highlight_polygons=self.highlight_polygons_vor,
@@ -789,7 +888,7 @@ class show_results:
 
     def mainMenu(self):
         self.show()
-        if self.showSlitBool.get():
+        if self.graphConfigs.getSlit():
             self.showSlit()
         self.controls.grid_remove()
         # adds buttons to various modes, currently just graph edit and edit flux
@@ -823,8 +922,6 @@ class show_results:
     def showSlitPath(self):
         # displays slit path and takes to the main menu
         self.slitPathCalculate()
-        self.show()
-        self.showSlit()
         self.mainMenu()
 
     def nearestEdge(self, x, y):
@@ -932,41 +1029,13 @@ class show_results:
 
     def graphConfig(self):
         # removes the old controls and adds a new scene
-        self.controls = self.createNewConfigFrame(None, None)
+        self.controls.grid_remove()
+        self.controls = self.graphConfigs.getFrame(parent = self.gui)
 
-        # Adds a series of on/off buttons to turn on and off aspects of the graph
-        checkButtonTri1 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
-        checkButtonTri1.grid(column=0, row=0)
-        checkButtonTri2 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
-        checkButtonTri2.grid(column=1, row=0)
-        checkButtonTri3 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
-        checkButtonTri3.grid(column=2, row=0)
-        checkButtonTri4 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
-        checkButtonTri4.grid(column=3, row=0)
-        checkButtonTri5 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
-        checkButtonTri5.grid(column=4, row=0)
-        checkButtonTri6 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
-        checkButtonTri6.grid(column=5, row=0)
-        checkButtonTri7 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
-        checkButtonTri7.grid(column=6, row=0)
-        checkButtonVor1 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
-        checkButtonVor1.grid(column=0, row=1)
-        checkButtonVor2 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
-        checkButtonVor2.grid(column=1, row=1)
-        checkButtonVor3 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
-        checkButtonVor3.grid(column=2, row=1)
-        checkButtonVor4 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
-        checkButtonVor4.grid(column=3, row=1)
-        checkButtonVor5 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
-        checkButtonVor5.grid(column=4, row=1)
-        checkButtonVor6 = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
-        checkButtonVor6.grid(column=5, row=1)
         drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
-        drawButton.grid(column=6, row=1)
-        slitButton = tk.Checkbutton(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Show Slit", variable=self.showSlitBool)
-        slitButton.grid(column=0, row=2)
+        drawButton.grid(column=6, row=2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu)
-        backButton.grid(column=1, row=2)
+        backButton.grid(column=0, row=2)
 
     # actual controller for displaying paths, sets what happens when you click
     def pathSelector(self, event):
@@ -1065,76 +1134,14 @@ class show_results:
         previousButton.grid(column=1, row=0)
 
     def showDraw(self):
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Select option, then click calcultate to generate a new figure")
-        configs = tk.Frame(self.controls, width=self.canvas_width, height=self.canvas_height)
-        configs.columnconfigure(0, weight=1)
-        configs.rowconfigure(0, weight=1)
-        configs.grid(column=0, row=2)
-        self.freeDraw = tk.BooleanVar()
-        self.freeDraw.set(False)
-        self.edgeNo = tk.StringVar()
-        self.outRad = tk.StringVar()
-        self.inRad = tk.StringVar()
-        self.fileRootNew = tk.StringVar()
-        self.fileNameNew = tk.StringVar()
-        self.triCount = tk.StringVar()
-        edgeLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Edges")
-        edgeLabel.grid(column=0, row=0)
-
-        edgeEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.edgeNo)
-        edgeEntry.grid(column=1, row=0)
-
-        radiusOneLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius")
-        radiusOneLabel.grid(column=0, row=1)
-
-        radiusOneEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.outRad)
-        radiusOneEntry.grid(column=1, row=1)
-
-        radiusTwoLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Inner Radius")
-        radiusTwoLabel.grid(column=0, row=2)
-
-        radiusTwoEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.inRad)
-        radiusTwoEntry.grid(column=1, row=2)
-
-        fileNameLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name")
-        fileNameLabel.grid(column=4, row=1)
-
-        fileNameEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.fileNameNew)
-        fileNameEntry.grid(column=5, row=1)
-
-        fileRootLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
-        fileRootLabel.grid(column=4, row=0)
-
-        fileRootEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.fileRootNew)
-        fileRootEntry.grid(column=5, row=0)
-
-        freeDrawButton = tk.Checkbutton(configs, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Free Draw", variable=self.freeDraw)
-        freeDrawButton.grid(column=2, row=2)
-
-        TriangleNumLabel = tk.Label(configs, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Triangles")
-        TriangleNumLabel.grid(column=2, row=0)
-
-        reg = self.gui.register(self.isNumber)
-        TriangleNumEntry = tk.Entry(configs, width=int(self.canvas_height/50), textvariable=self.triCount, validate='key', validatecommand= (reg, '%P', '%i'))
-        TriangleNumEntry.grid(column=3, row=0)
-
-        calculateButton = tk.Button(configs, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Calculate", command = self.createNew)
-        calculateButton.grid(column=3, row=2)
-
-    def isNumber(self, input, index):
-        # lets text come through if its in a valid format
-        # if len(input) <= int(index):
-        #     return True
-        if input[int(index)].isdigit():
-            return True
-        
-        return False
+        self.controls.grid_remove()
+        self.controls = DrawRegion(self.gui, self.canvas_width, self.canvas_height)
+        self.controls.grid(column=0, row=0)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Draw", command = self.createNew)
+        drawButton.grid(column=5, row=3)
 
     def createNew(self):
-        # Will select between free drawing and concentric polygon, for now I'm just doing the latter
-        # TODO: add text entries to select filenames and edge numbers and all that, though this will be in a calling method I think
         if self.freeDraw.get():
-            #draw_region.draw_region(self.fileNameNew.get(), self.fileRootNew.get())
             subprocess.run([
                 'python',
                 'draw_region.py',
