@@ -653,11 +653,11 @@ class show_results:
         for i in range(len(self.tri.vertex_boundary_markers)):
             if (self.tri.vertex_boundary_markers[i] == boundary):
                 xs[i] = array[i][0]
-                ys[i] = array[i][0]
+                ys[i] = array[i][1]
         #print(xs)
         #print()
         #print(ys)
-        rads = np.add(np.square(xs), np.square(ys))
+        rads = np.add(np.square(np.subtract(xs, self.tri.region.points_in_holes[0][0])), np.square(np.subtract(ys, self.tri.region.points_in_holes[0][1])))
         #print(array[rads.argmax()])
         return rads.argmax()
     
@@ -674,13 +674,37 @@ class show_results:
         for i in range(len(self.tri.vertex_boundary_markers)):
             if (self.tri.vertex_boundary_markers[i] == boundary):
                 xs[i] = array[i][0]
-                ys[i] = array[i][0]
+                ys[i] = array[i][1]
         #print(xs)
         #print()
         #print(ys)
-        rads = np.add(np.square(xs), np.square(ys))
+        rads = np.add(np.square(np.subtract(xs, self.tri.region.points_in_holes[0][0])), np.square(np.subtract(ys, self.tri.region.points_in_holes[0][1])))
         #print(array[rads.argmax()])
         return rads.argmin()
+    
+    def findAverageRad(self, maxOrMin = False, boundary = 0):
+        array = []
+        for i in range(len(self.tri.vertex_boundary_markers)):
+            if (self.tri.vertex_boundary_markers[i] >= 1):
+                array.append(self.tri.vertices[i])
+        ys = []
+        xs = []
+        for vertex in array:
+            xs.append(vertex[0])
+            ys.append(vertex[1])
+        xsa = np.array(xs)
+        ysa = np.array(ys)
+        rads = np.add(np.square(np.subtract(xsa, self.tri.region.points_in_holes[0][0])), np.square(np.subtract(ysa, self.tri.region.points_in_holes[0][1])))
+        rads = np.sqrt(rads)
+        rads.sort()
+        average = 0
+        for i in range(4):
+            if maxOrMin:
+                average += rads[len(rads) - i - 1]
+            else:
+                average += rads[i]
+        average /= 4
+        return average
     
     def findInputtedRadius(self):
         vertex = self.tri.vertices[self.findMaxRadius(2)]
@@ -707,6 +731,13 @@ class show_results:
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
 
+        print(self.tri.region.points_in_holes[0])
+        modRad = self.findAverageRad(True)
+        modRad /= self.findAverageRad(False)
+        print(self.findAverageRad(True))
+        print(self.findAverageRad(False))
+        modulus = (1 / (2 * np.pi)) * np.log10(modRad)
+        print(modulus)
 
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         self.tri.show(
