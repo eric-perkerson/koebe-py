@@ -287,8 +287,6 @@ class show_results:
         else:
             self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
             #self.fileNo = self.enteredFileName.get()[-1]
-        #self.og_file_stem = self.enteredFileName.get()
-        #self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
         self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
@@ -351,24 +349,7 @@ class show_results:
         self.flags = True
 
     def showResults(self):
-
-        # self.tri.show(
-        #     show_edges=False,
-        #     show_triangles=False,
-        #     fig=self.fig,
-        #     axes=self.axes
-        # )
-        # self.tri.show_voronoi_tesselation(
-        #     show_vertex_indices=False,
-        #     show_polygons=True,
-        #     show_edges= True,
-        #     fig=self.fig,
-        #     axes=self.axes
-        # )
-        # self.canvas.draw() 
         tk.mainloop()
-
-        return 
 
     # This next section is all the stuff the graphs need to work
 
@@ -578,8 +559,8 @@ class show_results:
         approxButton.grid(column=0, row=2)
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        # and adds a new click that finds nearest edge in the voronai graph
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
+        # and adds the same back?? Idk why I did this but I'll keep it this way for now.
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
@@ -588,7 +569,7 @@ class show_results:
         self.canvas.draw()
 
     def calculateUniformization(self):
-        num_contained_polygons = len(self.tri.contained_polygons)
+        #num_contained_polygons = len(self.tri.contained_polygons)
         g_star_bar = np.zeros(self.tri.num_triangles, dtype=np.float64) # creates a vector for each triangle
         perpendicular_edges_dict = {}
         for omega in range(self.tri.num_triangles): # Loops over each triangle
@@ -642,12 +623,6 @@ class show_results:
             show_level_curves=level,
             #show_singular_level_curves=self.show_singular_level_curves_tri,
             highlight_vertices=None,
-            #highlight_edges=self.highlight_edges_tri,
-            #highlight_triangles=self.highlight_triangles_tri,
-            #face_color=self.face_color_tri,
-            #highlight_triangles_color=self.highlight_triangles_color_tri,
-            #num_level_curves=self.num_level_curves_tri,
-            #line_width=self.line_width_tri,
             fig=self.fig,
             axes=self.axes
         )
@@ -660,12 +635,6 @@ class show_results:
             show_edges=edge,
             show_polygons=poly,
             show_region=region,
-            #highlight_vertices=self.highlight_vertices_vor,
-            #highlight_edges=self.highlight_edges_vor,
-            #highlight_polygons=self.highlight_polygons_vor,
-            #highlight_edges_color=self.highlight_edges_color_vor,
-            #highlight_vertices_color=self.highlight_vertices_color_vor,
-            #highlight_polygons_color=self.highlight_polygons_color_vor,
             fig=self.fig,
             axes=self.axes
         )
@@ -846,12 +815,6 @@ class show_results:
             show_level_curves=level,
             #show_singular_level_curves=self.show_singular_level_curves_tri,
             highlight_vertices=None,
-            #highlight_edges=self.highlight_edges_tri,
-            #highlight_triangles=self.highlight_triangles_tri,
-            #face_color=self.face_color_tri,
-            #highlight_triangles_color=self.highlight_triangles_color_tri,
-            #num_level_curves=self.num_level_curves_tri,
-            #line_width=self.line_width_tri,
             fig=self.fig,
             axes=self.axes
         )
@@ -864,12 +827,6 @@ class show_results:
             show_edges=edge,
             show_polygons=poly,
             show_region=region,
-            #highlight_vertices=self.highlight_vertices_vor,
-            #highlight_edges=self.highlight_edges_vor,
-            #highlight_polygons=self.highlight_polygons_vor,
-            #highlight_edges_color=self.highlight_edges_color_vor,
-            #highlight_vertices_color=self.highlight_vertices_color_vor,
-            #highlight_polygons_color=self.highlight_polygons_color_vor,
             fig=self.fig,
             axes=self.axes
         )
@@ -1135,53 +1092,54 @@ class show_results:
 
     def showDraw(self):
         self.controls.grid_remove()
-        self.controls = DrawRegion(self.gui, self.canvas_width, self.canvas_height)
+        self.drawRegion = DrawRegion(self.gui, self.canvas_width, self.canvas_height)
+        self.controls = self.drawRegion
         self.controls.grid(column=0, row=0)
         drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Draw", command = self.createNew)
         drawButton.grid(column=5, row=3)
 
     def createNew(self):
-        if self.freeDraw.get():
+        if self.drawRegion.getFreeDraw():
             subprocess.run([
                 'python',
                 'draw_region.py',
-                self.fileNameNew.get(),
-                self.fileRootNew.get()
+                self.drawRegion.getFileName(),
+                self.drawRegion.getFileRoot()
             ])
         else:
-            draw_region.draw_region_back(self.fileRootNew.get(), self.fileNameNew.get(), int(self.edgeNo.get()), int(self.inRad.get()), int(self.outRad.get()))
+            draw_region.draw_region_back(self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), int(self.drawRegion.getEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()))
         print("drew region")
         subprocess.run([
             'julia',
             'triangulate_via_julia.jl',
-            self.fileNameNew.get(),
-            self.fileRootNew.get(),
-            self.fileNameNew.get(),
-            self.triCount.get()
+            self.drawRegion.getFileName(),
+            self.drawRegion.getFileRoot(),
+            self.drawRegion.getFileName(),
+            self.drawRegion.getTriCount()
         ])
         print("triangulated region")
-        t = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.poly')
-        t.write(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.output.poly')
+        t = Triangulation.read(f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.poly')
+        t.write(f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.output.poly')
         print("did the weird read and write thing")
         subprocess.run([
             'python',
             'mesh_conversion/mesh_conversion.py',
             '-p',
-            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.output.poly',
+            f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.output.poly',
             '-n',
-            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.node',
+            f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.node',
             '-e',
-            f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.ele',
+            f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.ele',
         ])
         print("converted mesh")
         subprocess.run([
             'python',
             'mesh_conversion/fenicsx_solver.py',
-            self.fileNameNew.get(),
-            self.fileRootNew.get()
+            self.drawRegion.getFileName(),
+            self.drawRegion.getFileRoot()
         ])
         print("solved pde")
-        self.tri = Triangulation.read(f'regions/{self.fileRootNew.get()}/{self.fileNameNew.get()}/{self.fileNameNew.get()}.poly')
+        self.tri = Triangulation.read(f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.poly')
         self.show()
         self.flags = False
         self.stopFlag = False
