@@ -11,6 +11,7 @@ import networkx as nx
 import tkinter as tk
 from sys import argv
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+from matplotlib import animation
 import draw_region
 import subprocess
 import os
@@ -243,6 +244,7 @@ class show_results:
         self.ax2 = None
 
         self.graphConfigs = GraphConfig(width=self.canvas_width, height=self.canvas_height)
+        self.gifConfig = GifConfig(self.canvas_height, self.canvas_width)
     
     def basicGui(self):
         gui = tk.Tk() # initialized Tk
@@ -263,7 +265,7 @@ class show_results:
         rootText.grid(column=0, row=0)
         fileRoot = tk.StringVar()
         tk.Entry(controls, width=int(canvas_width/50), textvariable=fileRoot).grid(column=1, row=0)
-        nameText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file name", bg=BG_COLOR)
+        nameText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file name, should be in the following format: fileRoot_edgeNumber_innerRadius", bg=BG_COLOR)
         nameText.grid(column=0, row=1)
         fileName = tk.StringVar()
         tk.Entry(controls, width=int(canvas_width/50), textvariable=fileName).grid(column=1, row=1)
@@ -1095,51 +1097,54 @@ class show_results:
         self.drawRegion = DrawRegion(self.gui, self.canvas_width, self.canvas_height)
         self.controls = self.drawRegion
         self.controls.grid(column=0, row=0)
-        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Draw", command = self.createNew)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Draw", command = self.createNewCommand)
         drawButton.grid(column=5, row=3)
 
-    def createNew(self):
-        if self.drawRegion.getFreeDraw():
+    def createNewCommand(self):
+        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), self.drawRegion.getTriCount(), int(self.drawRegion.getEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()))
+
+    def createNew(self, freeDraw, fileRoot, fileName, triCount, edgeNo = None, inRad = None, outRad = None):
+        if freeDraw:
             subprocess.run([
                 'python',
                 'draw_region.py',
-                self.drawRegion.getFileName(),
-                self.drawRegion.getFileRoot()
+                fileName,
+                fileRoot
             ])
         else:
-            draw_region.draw_region_back(self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), int(self.drawRegion.getEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()))
+            draw_region.draw_region_back(fileRoot, fileName, edgeNo, inRad, outRad)
         print("drew region")
         subprocess.run([
             'julia',
             'triangulate_via_julia.jl',
-            self.drawRegion.getFileName(),
-            self.drawRegion.getFileRoot(),
-            self.drawRegion.getFileName(),
-            self.drawRegion.getTriCount()
+            fileName,
+            fileRoot,
+            fileName,
+            triCount
         ])
         print("triangulated region")
-        t = Triangulation.read(f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.poly')
-        t.write(f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.output.poly')
+        t = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
+        t.write(f'regions/{fileRoot}/{fileName}/{fileName}.output.poly')
         print("did the weird read and write thing")
         subprocess.run([
             'python',
             'mesh_conversion/mesh_conversion.py',
             '-p',
-            f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.output.poly',
+            f'regions/{fileRoot}/{fileName}/{fileName}.output.poly',
             '-n',
-            f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.node',
+            f'regions/{fileRoot}/{fileName}/{fileName}.node',
             '-e',
-            f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.ele',
+            f'regions/{fileRoot}/{fileName}/{fileName}.ele',
         ])
         print("converted mesh")
         subprocess.run([
             'python',
             'mesh_conversion/fenicsx_solver.py',
-            self.drawRegion.getFileName(),
-            self.drawRegion.getFileRoot()
+            fileName,
+            fileRoot
         ])
         print("solved pde")
-        self.tri = Triangulation.read(f'regions/{self.drawRegion.getFileRoot()}/{self.drawRegion.getFileName()}/{self.drawRegion.getFileName()}.poly')
+        self.tri = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
         self.show()
         self.flags = False
         self.stopFlag = False
@@ -1149,6 +1154,125 @@ class show_results:
         self.showSlitPath()
         print("finished")
 
+    def animationConfig(self):
+        self.controls.grid_remove()
+        self.controls = self.gifConfig.getFrame(self.gui)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Create", command = self.createAnimation)
+        drawButton.grid(column=5, row=3)
+
+    def createAnimation(self):
+        for i in range(self.gifConfig.getFinEdge() - self.gifConfig.getInitEdge()):
+            self.createNew()
+
+    def saarSave(self, poly_path, components):
+        print('Saving as ' + str(poly_path))
+        region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
+        with open(poly_path, 'w', encoding='utf-8') as file:
+            region.write(file) # writes the region to the polyfile
+
+##################
+# GOAL
+# Want to let user input: Initial Edge count, final edge count, Outer radius, Initial inner radius, final internal radius, number of steps in between
+# After this is implemented I should also see if I can add support for moving the hole around, different internal external edge counts
+# So I should create a new class that deals with these inputs, like drawregion and show. This will then allow my program access to these values, so when the button to start begins it can 
+# be plugged into a for loop. Definitly should include a warning about how long it will take. 
+
+class GifConfig():
+
+    def __init__(self, height, width):
+        self.canvas_height = height
+        self.canvas_width = width
+        self.initEdge = tk.IntVar()
+        self.initEdge.set(3)
+        self.finEdge = tk.IntVar()
+        self.finEdge.set(12)
+        self.outRad = tk.DoubleVar()
+        self.initInRad = tk.DoubleVar()
+        self.finInRad = tk.DoubleVar()
+        self.stepCount = tk.IntVar()
+        self.fileName = tk.StringVar()
+        self.fileRoot = tk.StringVar()
+
+    def getFrame(self, parent):
+        controls = tk.Frame(parent, width=self.canvas_width, height=self.canvas_height)
+        controls.columnconfigure(0, weight=1)
+        controls.rowconfigure(0, weight=1)
+        controls.grid(column=0, row=0)
+
+        instructLabel = tk.Label(controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Select options, then click start to generate a new sequence of figures, WARNING, it takes about 15-30 seconds per step to generate")
+        instructLabel.grid(column=2, row=0, columnspan=3)
+
+        iEdgeLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Starting Edge Count")
+        iEdgeLabel.grid(column=0, row=1)
+
+        iEdgeEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.initEdge)
+        iEdgeEntry.grid(column=1, row=1)
+
+        fEdgeLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Final Edge Count")
+        fEdgeLabel.grid(column=2, row=1)
+
+        fEdgeEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.finEdge)
+        fEdgeEntry.grid(column=3, row=1)
+
+        outRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius")
+        outRadiusLabel.grid(column=4, row=1)
+
+        outRadiusLabel = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.outRad)
+        outRadiusLabel.grid(column=5, row=1)
+
+        initInRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Initial Inner Radius")
+        initInRadiusLabel.grid(column=0, row=2)
+
+        initInRadiusEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.initInRad)
+        initInRadiusEntry.grid(column=1, row=2)
+
+        finInRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Final Inner Radius")
+        finInRadiusLabel.grid(column=2, row=2)
+
+        finInRadiusEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.finInRad)
+        finInRadiusEntry.grid(column=3, row=2)
+
+        stepCountLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Steps to shrink Inner Radius")
+        stepCountLabel.grid(column=4, row=2)
+
+        stepCountEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount)
+        stepCountEntry.grid(column=5, row=2)
+
+        fileNameLabel  = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name")
+        fileNameLabel.grid(column=2, row=3)
+
+        fileNameEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount)
+        fileNameEntry.grid(column=3, row=3)
+
+        fileRootLabelm = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
+        fileRootLabelm.grid(column=0, row=3)
+
+        fileRootEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount)
+        fileRootEntry.grid(column=1, row=3)
+
+        return controls
+
+    
+    def getInitEdge(self):
+        return self.initEdge.get()
+    def getFinEdge(self):
+        return self.finEdge.get()
+    def getOutRad(self):
+        return self.outRad.get()
+    def getInitInRad(self):
+        return self.initInRad.get()
+    def getFinInRad(self):
+        return self.finInRad.get()
+    def getStepCount(self):
+        return self.stepCount.get()
+    def getFileName(self):
+        return self.stepCount.get()
+    def getFileRoot(self):
+        return self.stepCount.get()
+
+
+
 if __name__ == "__main__":
     a = show_results()
+    a.saarCode()
     a.showResults()
