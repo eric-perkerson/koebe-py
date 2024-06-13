@@ -281,13 +281,13 @@ class show_results:
         self.controls.grid(column=0, row=0)
         text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.")
         text.grid(column=0, row=0)
-        self.file_root = self.enteredFileRoot.get()
-        self.og_file_stem = self.enteredFileName.get()
-        if self.file_root == '':
-            self.tri = Triangulation.read(f'regions/{self.og_file_stem}/{self.og_file_stem}.poly')
+        self.fileRoot = self.enteredFileRoot.get()
+        self.fileName = self.enteredFileName.get()
+        if self.fileRoot == '':
+            self.tri = Triangulation.read(f'regions/{self.fileName}/{self.fileName}.poly')
             #self.fileNo = None
         else:
-            self.tri = Triangulation.read(f'regions/{self.file_root}/{self.og_file_stem}/{self.og_file_stem}.poly')
+            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{self.fileName}/{self.fileName}.poly')
             #self.fileNo = self.enteredFileName.get()[-1]
         self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.matCanvas = self.canvas.get_tk_widget()
@@ -614,6 +614,7 @@ class show_results:
         self.toolbar.update()
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
+        self.ax2.axis('off')
 
         vert, edge, triangle, vInd, tInd, level, singLevel = self.graphConfigs.getConfigsTri()
         self.tri.show(
@@ -874,6 +875,8 @@ class show_results:
         newDrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.showDraw)
         newDrawButton.grid(column=5, row=0)
 
+        animButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.animationConfig)
+        animButton.grid(column=0, row=1)
 
 
         self.controls = mainMenu
@@ -1025,15 +1028,21 @@ class show_results:
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
 
     def nextGraph(self):
-        if self.fileNo == 100:
+        root, edge, step = self.fileName.split("_")
+        edgeNum = int(edge)
+        stepNum = int(step)
+        if edgeNum < 12:
+            edgeNum += 1
+        else:
+            stepNum += 1
+        name = root + "_" + str(edgeNum) + "_" + str(stepNum)
+        try:
+            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+        except FileNotFoundError:
+            print("File Not Found")
             return
-        self.fileNo += 5
-        file_stem = self.file_root + str(self.fileNo)
-        # if self.fileNo < 12:
-        #     self.fileNo += 1
-        # file_stem = self.file_root + str(self.fileNo)
-        #file_stem = 'non_concentric_annulus'
-        self.tri = Triangulation.read(f'regions/{self.file_root}/{file_stem}/{file_stem}.poly')
+        self.fileName = name
+        print(name)
         self.flags = False
         self.stopFlag = False
         hole_x, hole_y = self.tri.region.points_in_holes[0]
@@ -1045,15 +1054,23 @@ class show_results:
         self.showUniformization(uniformization)
     
     def prevGraph(self):
-        if self.fileNo == 5:
+        root, edge, step = self.fileName.split("_")
+        edgeNum = int(edge)
+        stepNum = int(step)
+        if edgeNum < 12:
+            edgeNum -= 1
+        elif stepNum == 0:
+            edgeNum -= 1
+        else:
+            stepNum -= 1
+        name = root + "_" + str(edgeNum) + "_" + str(stepNum)
+        try:
+            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+        except FileNotFoundError:
+            print("File Not Found")
             return
-        # if self.fileNo > 3:
-        #     self.fileNo -= 1
-        #file_stem = 
-        self.fileNo -= 5
-        file_stem = self.file_root + str(self.fileNo)
-        #file_stem = 'concentric_annulus'
-        self.tri = Triangulation.read(f'regions/{self.file_root}/{file_stem}/{file_stem}.poly')
+        self.fileName = name
+        print(name)
         self.flags = False
         self.stopFlag = False
         hole_x, hole_y = self.tri.region.points_in_holes[0]
@@ -1088,9 +1105,9 @@ class show_results:
         buttonHolder.rowconfigure(0, weight=1)
         buttonHolder.grid(column=0, row=2)
         nextButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Next Graph", command = self.nextGraph)
-        nextButton.grid(column=0, row=0)
+        nextButton.grid(column=1, row=0)
         previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph)
-        previousButton.grid(column=1, row=0)
+        previousButton.grid(column=0, row=0)
 
     def showDraw(self):
         self.controls.grid_remove()
@@ -1120,7 +1137,7 @@ class show_results:
             fileName,
             fileRoot,
             fileName,
-            triCount
+            str(triCount)
         ])
         print("triangulated region")
         t = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
@@ -1158,17 +1175,56 @@ class show_results:
         self.controls.grid_remove()
         self.controls = self.gifConfig.getFrame(self.gui)
         drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Create", command = self.createAnimation)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.mainMenu)
         drawButton.grid(column=5, row=3)
+        backButton.grid(column=5, row=4)
+
+    def showNSave(self, name):
+        self.updateLambdaGraph()
+        uniformization = self.calculateUniformization()
+        self.showUniformization(uniformization)
+        self.ax2.axis('off')
+        self.fig.savefig(name)
+        self.canvas.draw()
 
     def createAnimation(self):
+        firstFileName = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()) + "_0"
         for i in range(self.gifConfig.getFinEdge() - self.gifConfig.getInitEdge()):
-            self.createNew()
-
-    def saarSave(self, poly_path, components):
-        print('Saving as ' + str(poly_path))
-        region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
-        with open(poly_path, 'w', encoding='utf-8') as file:
-            region.write(file) # writes the region to the polyfile
+            #print(self.gifConfig.getInitEdge()+i)
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()+i) + "_0"
+            print(name)
+            self.createNew(False, 
+                           self.gifConfig.getFileRoot(), 
+                           name, 
+                           int(self.gifConfig.getTriCount()), 
+                           int(self.gifConfig.getInitEdge()+i), 
+                           self.gifConfig.getInitInRad(), 
+                           self.gifConfig.getOutRad()
+                           )
+            self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
+            path = "outputImg/" + name
+            self.showNSave(path)
+        for i in range(self.gifConfig.getStepCount() + 1):
+            #print(self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()))
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(i)
+            print(name)
+            self.createNew(
+                False,
+                self.gifConfig.getFileRoot(),
+                name,
+                int(self.gifConfig.getTriCount()), 
+                int(self.gifConfig.getFinEdge()), 
+                self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()), 
+                self.gifConfig.getOutRad()
+                )
+            self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
+            path = "outputImg/" + name
+            self.showNSave(path)
+        self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{firstFileName}/{firstFileName}.poly')
+        self.fileName = firstFileName
+        self.fileRoot = self.gifConfig.getFileRoot()
+        self.showIntermediate()
+            
 
 ##################
 # GOAL
@@ -1190,10 +1246,13 @@ class GifConfig():
         self.initInRad = tk.DoubleVar()
         self.finInRad = tk.DoubleVar()
         self.stepCount = tk.IntVar()
-        self.fileName = tk.StringVar()
         self.fileRoot = tk.StringVar()
+        self.triCount = tk.IntVar()
+        self.controls = None
 
     def getFrame(self, parent):
+        if self.controls is not None:
+            return None
         controls = tk.Frame(parent, width=self.canvas_width, height=self.canvas_height)
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
@@ -1238,17 +1297,19 @@ class GifConfig():
         stepCountEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount)
         stepCountEntry.grid(column=5, row=2)
 
-        fileNameLabel  = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name")
-        fileNameLabel.grid(column=2, row=3)
+        fileRootLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
+        fileRootLabel.grid(column=0, row=3)
 
-        fileNameEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount)
-        fileNameEntry.grid(column=3, row=3)
-
-        fileRootLabelm = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
-        fileRootLabelm.grid(column=0, row=3)
-
-        fileRootEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount)
+        fileRootEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.fileRoot)
         fileRootEntry.grid(column=1, row=3)
+
+        triCountLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Triangle Count")
+        triCountLabel.grid(column=2, row=3)
+
+        triCountEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.triCount)
+        triCountEntry.grid(column=3, row=3)
+
+        self.controls = controls
 
         return controls
 
@@ -1265,14 +1326,11 @@ class GifConfig():
         return self.finInRad.get()
     def getStepCount(self):
         return self.stepCount.get()
-    def getFileName(self):
-        return self.stepCount.get()
     def getFileRoot(self):
-        return self.stepCount.get()
-
-
+        return self.fileRoot.get()
+    def getTriCount(self):
+        return self.triCount.get()
 
 if __name__ == "__main__":
     a = show_results()
-    a.saarCode()
     a.showResults()
