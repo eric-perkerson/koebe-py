@@ -576,7 +576,12 @@ class show_results:
         perpendicular_edges_dict = {}
         for omega in range(self.tri.num_triangles): # Loops over each triangle
             #print(omega)
-            edges = self.build_path_edges(self.shortest_paths[omega]) # Takes in a list of verticies (circumcenters) connecting omega_0 to the node, and builds an edge path
+            #print(35 in self.shortest_paths)
+            if omega in self.shortest_paths:
+                edges = self.build_path_edges(self.shortest_paths[omega]) # Takes in a list of verticies (circumcenters) connecting omega_0 to the node, and builds an edge path
+            else:
+                edges = [] # Temporary fix, maybe. Why isnt there a path at that index?
+            # Error is because the path is not contained in the shortest path index
             flux_contributing_edges = []
             for edge in edges:
                 flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge))) # This creates a sequence of verticies (triangle verticies) connecting omega_0 to the desired end vertex
@@ -1141,6 +1146,7 @@ class show_results:
         ])
         print("triangulated region")
         t = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
+        # Error caused here seems to stem from improperly writing the number of vertices to the .node file. I think its a bug from the triangle refinement.
         t.write(f'regions/{fileRoot}/{fileName}/{fileName}.output.poly')
         print("did the weird read and write thing")
         subprocess.run([
