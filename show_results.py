@@ -242,6 +242,8 @@ class show_results:
         self.showFlag = True
         self.gui, self.controls, self.canvas_width, self.canvas_height, self.enteredFileRoot, self.enteredFileName = self.basicGui()
         self.ax2 = None
+        self.modulus = tk.StringVar()
+        self.modulusLabel = None
 
         self.graphConfigs = GraphConfig(width=self.canvas_width, height=self.canvas_height)
         self.gifConfig = GifConfig(self.canvas_height, self.canvas_width)
@@ -265,7 +267,7 @@ class show_results:
         rootText.grid(column=0, row=0)
         fileRoot = tk.StringVar()
         tk.Entry(controls, width=int(canvas_width/50), textvariable=fileRoot).grid(column=1, row=0)
-        nameText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file name, should be in the following format: fileRoot_edgeNumber_innerRadius", bg=BG_COLOR)
+        nameText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file name, should be in the following format to see further approximations: fileRoot_edgeNumber_0", bg=BG_COLOR)
         nameText.grid(column=0, row=1)
         fileName = tk.StringVar()
         tk.Entry(controls, width=int(canvas_width/50), textvariable=fileName).grid(column=1, row=1)
@@ -556,15 +558,16 @@ class show_results:
         self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
 
     def uniformizationPage(self):
-        self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Filler, probably click buttons to see the approximations of the annulus")
+        self.updateLambdaGraph()
+        uniformization = self.calculateUniformization()
+        self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
+        self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, self.modulus.get())
         approxButton = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See Approximations", command = self.showIntermediate)
         approxButton.grid(column=0, row=2)
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds the same back?? Idk why I did this but I'll keep it this way for now.
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
-        self.updateLambdaGraph()
-        uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
         self.ax2.axis('off')
 
@@ -613,8 +616,9 @@ class show_results:
         imags = np.square(imags)
         radii = np.sqrt(np.add(reals, imags))
         radii = np.sort(radii)
-        averageLarge = (radii[0] + radii[1] + radii[2] + radii[3]) / 4
-        averageSmall = (radii[-1] + radii[-2] + radii[-3] + radii[-4]) / 4
+        averageSmall = (radii[0] + radii[1] + radii[2] + radii[3]) / 4
+        averageLarge = (radii[-1] + radii[-2] + radii[-3] + radii[-4]) / 4
+        #print(averageLarge, averageSmall)
         modulus = (1 / (2 * np.pi)) * np.log10(averageLarge / averageSmall)
         return modulus
 
@@ -823,7 +827,7 @@ class show_results:
         # print(self.findAverageRad(False))
         # modulus = (1 / (2 * np.pi)) * np.log10(modRad)
         # print(modulus)
-        # Above is using the triangulation, below is using uniformization
+        # # Above is using the triangulation, below is using uniformization
         # self.updateLambdaGraph()
         # uniformization = self.calculateUniformization()
         # print(self.findModulus(uniformization))
@@ -897,7 +901,7 @@ class show_results:
         newDrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.showDraw)
         newDrawButton.grid(column=5, row=0)
 
-        animButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.animationConfig)
+        animButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Create Animation", command = self.animationConfig)
         animButton.grid(column=0, row=1)
 
 
@@ -997,17 +1001,17 @@ class show_results:
 
     def createNewConfigFrame(self, commandB, textL):
         self.controls.grid_remove()
-        configs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
+        configs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         configs.columnconfigure(0, weight=1)
         configs.rowconfigure(0, weight=1)
         configs.grid(column=0, row=0)
         i = 0
         if textL is not None:
-            instructions = tk.Label(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text=textL)
+            instructions = tk.Label(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text=textL, bg=BG_COLOR)
             instructions.grid(column=0, row=0)
             i = 1
         if commandB is not None:
-            backButton = tk.Button(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = commandB)
+            backButton = tk.Button(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = commandB, bg=BG_COLOR)
             backButton.grid(column=0, row=i)
         return configs
 
@@ -1016,9 +1020,9 @@ class show_results:
         self.controls.grid_remove()
         self.controls = self.graphConfigs.getFrame(parent = self.gui)
 
-        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show, bg=BG_COLOR)
         drawButton.grid(column=6, row=2)
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu, bg=BG_COLOR)
         backButton.grid(column=0, row=2)
 
     # actual controller for displaying paths, sets what happens when you click
@@ -1074,6 +1078,8 @@ class show_results:
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
+        self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
+        self.updateMod()
     
     def prevGraph(self):
         root, edge, step = self.fileName.split("_")
@@ -1102,6 +1108,21 @@ class show_results:
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
+        self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
+        self.updateMod()
+
+    def updateMod(self):
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Click buttons to switch between approximations.")
+        buttonHolder = tk.Frame(self.controls, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
+        buttonHolder.columnconfigure(0, weight=1)
+        buttonHolder.rowconfigure(0, weight=1)
+        buttonHolder.grid(column=0, row=2)
+        nextButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Next Graph", command = self.nextGraph)
+        nextButton.grid(column=1, row=0)
+        previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph)
+        previousButton.grid(column=0, row=0)
+        modulusLabel = tk.Label(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text=self.modulus.get())
+        modulusLabel.grid(column=0, row=3, columnspan=3)
     
     def showIntermediate(self):
         #TODO 
@@ -1120,16 +1141,8 @@ class show_results:
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization)
-
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Click buttons to switch between approximations.")
-        buttonHolder = tk.Frame(self.controls, width=self.canvas_width, height=self.canvas_height)
-        buttonHolder.columnconfigure(0, weight=1)
-        buttonHolder.rowconfigure(0, weight=1)
-        buttonHolder.grid(column=0, row=2)
-        nextButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Next Graph", command = self.nextGraph)
-        nextButton.grid(column=1, row=0)
-        previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph)
-        previousButton.grid(column=0, row=0)
+        self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
+        self.updateMod()
 
     def showDraw(self):
         self.controls.grid_remove()
