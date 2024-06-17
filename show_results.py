@@ -603,7 +603,20 @@ class show_results:
         contained_triangles = np.where(contained_triangle_indicator)[0]
         slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
         contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
+        #print(uniformization)
         return uniformization
+    
+    def findModulus(self, uni):
+        reals = np.real(uni)
+        imags = np.imag(uni)
+        reals = np.square(reals)
+        imags = np.square(imags)
+        radii = np.sqrt(np.add(reals, imags))
+        radii = np.sort(radii)
+        averageLarge = (radii[0] + radii[1] + radii[2] + radii[3]) / 4
+        averageSmall = (radii[-1] + radii[-2] + radii[-3] + radii[-4]) / 4
+        modulus = (1 / (2 * np.pi)) * np.log10(averageLarge / averageSmall)
+        return modulus
 
     def showUniformization(self, uniformization):
         # refreshes graph with updated information
@@ -810,6 +823,10 @@ class show_results:
         # print(self.findAverageRad(False))
         # modulus = (1 / (2 * np.pi)) * np.log10(modRad)
         # print(modulus)
+        # Above is using the triangulation, below is using uniformization
+        # self.updateLambdaGraph()
+        # uniformization = self.calculateUniformization()
+        # print(self.findModulus(uniformization))
 
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         
