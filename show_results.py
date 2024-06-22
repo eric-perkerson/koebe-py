@@ -11,6 +11,7 @@ import networkx as nx
 import tkinter as tk
 from sys import argv
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+from matplotlib.patches import Annulus, Circle, Polygon
 from matplotlib import animation
 import draw_region
 import subprocess
@@ -27,6 +28,7 @@ PURPLE = '#9e86c8'
 PINK = '#b05279'
 YELLOW = '#e5b567'
 GREY = '#797979'
+BLACK = '#000000'
 RAND_1 = '#87992d'
 RAND_4 = '#8119f2'
 RAND_5 = '#4ce7dc'
@@ -110,39 +112,39 @@ class GraphConfig(tk.Frame):
         return self.showSlitBool.get()
     
     def getFrame(self, parent):
-        super().__init__(parent, width = self.canvas_width, height = self.canvas_height)
+        super().__init__(parent, width = self.canvas_width, height = self.canvas_height, bg=BG_COLOR)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.grid(column=0, row=0)
-        checkButtonTri1 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri)
+        checkButtonTri1 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Vertices Tri", variable=self.show_vertices_tri, bg=BG_COLOR)
         checkButtonTri1.grid(column=0, row=0)
-        checkButtonTri2 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri)
+        checkButtonTri2 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show Edges Tri", variable=self.show_edges_tri, bg=BG_COLOR)
         checkButtonTri2.grid(column=1, row=0)
-        checkButtonTri3 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri)
+        checkButtonTri3 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangles Tri", variable=self.show_triangles_tri, bg=BG_COLOR)
         checkButtonTri3.grid(column=2, row=0)
-        checkButtonTri4 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri)
+        checkButtonTri4 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Tri", variable=self.show_vertex_indices_tri, bg=BG_COLOR)
         checkButtonTri4.grid(column=3, row=0)
-        checkButtonTri5 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri)
+        checkButtonTri5 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Triangle Indices Tri", variable=self.show_triangle_indices_tri, bg=BG_COLOR)
         checkButtonTri5.grid(column=4, row=0)
-        checkButtonTri6 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri)
+        checkButtonTri6 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Level Curves Tri", variable=self.show_level_curves_tri, bg=BG_COLOR)
         checkButtonTri6.grid(column=5, row=0)
-        checkButtonTri7 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri)
+        checkButtonTri7 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Singular Level Curves Tri", variable=self.show_singular_level_curves_tri, bg=BG_COLOR)
         checkButtonTri7.grid(column=6, row=0)
-        checkButtonVor1 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor)
+        checkButtonVor1 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertex Indices Vor", variable=self.show_vertex_indices_vor, bg=BG_COLOR)
         checkButtonVor1.grid(column=0, row=1)
-        checkButtonVor2 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor)
+        checkButtonVor2 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygon Indices Vor", variable=self.show_polygon_indices_vor, bg=BG_COLOR)
         checkButtonVor2.grid(column=1, row=1)
-        checkButtonVor3 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor)
+        checkButtonVor3 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Vertices Vor", variable=self.show_vertices_vor, bg=BG_COLOR)
         checkButtonVor3.grid(column=2, row=1)
-        checkButtonVor4 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor)
+        checkButtonVor4 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Edges Vor", variable=self.show_edges_vor, bg=BG_COLOR)
         checkButtonVor4.grid(column=3, row=1)
-        checkButtonVor5 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor)
+        checkButtonVor5 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Polygons Vor", variable=self.show_polygons_vor, bg=BG_COLOR)
         checkButtonVor5.grid(column=4, row=1)
-        checkButtonVor6 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor)
+        checkButtonVor6 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor, bg=BG_COLOR)
         checkButtonVor6.grid(column=5, row=1)
         # drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
         # drawButton.grid(column=6, row=1)
-        slitButton = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Slit", variable=self.showSlitBool)
+        slitButton = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Slit", variable=self.showSlitBool, bg=BG_COLOR)
         slitButton.grid(column=6, row=1)
         # backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu)
         # backButton.grid(column=1, row=2)
@@ -150,7 +152,7 @@ class GraphConfig(tk.Frame):
 
 class DrawRegion(tk.Frame):
     def __init__(self, parent, width, height):
-        super().__init__(parent, width = width, height = height)
+        super().__init__(parent, width = width, height = height, bg=BG_COLOR)
         self.canvas_width = width
         self.canvas_height = height
         self.columnconfigure(0, weight=1)
@@ -164,49 +166,53 @@ class DrawRegion(tk.Frame):
         self.fileRoot = tk.StringVar()
         self.fileName = tk.StringVar()
         self.triCount = tk.StringVar()
+        self.randomSet = tk.BooleanVar()
 
-        instructLabel = tk.Label(self, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Select option, then click calcultate to generate a new figure")
+        instructLabel = tk.Label(self, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Select option, then click calcultate to generate a new figure", bg=BG_COLOR)
         instructLabel.grid(column=2, row=0, columnspan=3)
 
-        edgeLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Edges")
+        edgeLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Edges", bg=BG_COLOR)
         edgeLabel.grid(column=0, row=1)
 
-        edgeEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.edgeNo)
+        edgeEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.edgeNo, bg=BLACK)
         edgeEntry.grid(column=1, row=1)
 
-        radiusOneLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius")
+        radiusOneLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius", bg=BG_COLOR)
         radiusOneLabel.grid(column=0, row=2)
 
-        radiusOneEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.outRad)
+        radiusOneEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.outRad, bg=BLACK)
         radiusOneEntry.grid(column=1, row=2)
 
-        radiusTwoLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Inner Radius")
+        radiusTwoLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Inner Radius", bg=BG_COLOR)
         radiusTwoLabel.grid(column=0, row=3)
 
-        radiusTwoEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.inRad)
+        radiusTwoEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.inRad, bg=BLACK)
         radiusTwoEntry.grid(column=1, row=3)
 
-        fileNameLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name")
+        fileNameLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name", bg=BG_COLOR)
         fileNameLabel.grid(column=4, row=2)
 
-        fileNameEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileName)
+        fileNameEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileName, bg=BLACK)
         fileNameEntry.grid(column=5, row=2)
 
-        fileRootLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
+        fileRootLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root", bg=BG_COLOR)
         fileRootLabel.grid(column=4, row=1)
 
-        fileRootEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileRoot)
+        fileRootEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileRoot, bg=BLACK)
         fileRootEntry.grid(column=5, row=1)
 
-        freeDrawButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Free Draw", variable=self.freeDraw)
+        freeDrawButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Free Draw", variable=self.freeDraw, bg=BG_COLOR)
         freeDrawButton.grid(column=2, row=3)
 
-        TriangleNumLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Triangles")
+        TriangleNumLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Triangles", bg=BG_COLOR)
         TriangleNumLabel.grid(column=2, row=1)
 
         reg = self.register(self.isNumber)
-        TriangleNumEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.triCount, validate='key', validatecommand= (reg, '%P', '%i'))
+        TriangleNumEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.triCount, validate='key', validatecommand= (reg, '%P', '%i'), bg=BLACK)
         TriangleNumEntry.grid(column=3, row=1)
+
+        randomButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Randomize Vertices", variable=self.randomSet, bg=BG_COLOR)
+        randomButton.grid(column=3, row=3)
 
     def isNumber(self, input, index):
         # lets text come through if its in a valid format
@@ -231,6 +237,8 @@ class DrawRegion(tk.Frame):
         return self.fileName.get()
     def getTriCount(self):
         return self.triCount.get()
+    def getRandomSet(self):
+        return self.randomSet.get()
 
 
 class show_results:
@@ -266,22 +274,22 @@ class show_results:
         rootText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file root, leave blank for none", bg=BG_COLOR)
         rootText.grid(column=0, row=0)
         fileRoot = tk.StringVar()
-        tk.Entry(controls, width=int(canvas_width/50), textvariable=fileRoot).grid(column=1, row=0)
+        tk.Entry(controls, width=int(canvas_width/50), textvariable=fileRoot, bg=BLACK).grid(column=1, row=0)
         nameText = tk.Label(controls, height=int(canvas_height/224), width=int(canvas_height/14), text="Enter a file name, should be in the following format to see further approximations: fileRoot_edgeNumber_0", bg=BG_COLOR)
         nameText.grid(column=0, row=1)
         fileName = tk.StringVar()
-        tk.Entry(controls, width=int(canvas_width/50), textvariable=fileName).grid(column=1, row=1)
-        tk.Button(controls, height=1, width=int(canvas_width/50), command=self.loadFigure, text="Load").grid(column=0,row=2)
+        tk.Entry(controls, width=int(canvas_width/50), textvariable=fileName, bg=BLACK).grid(column=1, row=1)
+        tk.Button(controls, height=1, width=int(canvas_width/50), command=self.loadFigure, text="Load", bg=BG_COLOR).grid(column=0,row=2)
         gui.protocol("WM_DELETE_WINDOW", exit)
         return gui, controls, canvas_width, canvas_height, fileRoot, fileName
     
     def loadFigure(self):
         self.controls.destroy()
-        self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height/40, relief="ridge", bg=BLUE)
+        self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height/40, relief="ridge", bg=BG_COLOR)
         self.controls.columnconfigure(0, weight=1)
         self.controls.rowconfigure(0, weight=1)
         self.controls.grid(column=0, row=0)
-        text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.")
+        text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.", bg=BG_COLOR)
         text.grid(column=0, row=0)
         self.fileRoot = self.enteredFileRoot.get()
         self.fileName = self.enteredFileName.get()
@@ -315,7 +323,7 @@ class show_results:
         #print(self.canvas_width)
         fig.set_figheight(6)
         fig.set_figwidth(6)
-        graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
+        graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge", bg=BG_COLOR)
         graphHolder.grid(column=0, row=1)
         canvas = FigureCanvasTkAgg(fig, master = graphHolder)   
         toolbar = NavigationToolbar2Tk(canvas, graphHolder)
@@ -562,14 +570,14 @@ class show_results:
         uniformization = self.calculateUniformization()
         self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
         self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, self.modulus.get())
-        approxButton = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See Approximations", command = self.showIntermediate)
+        approxButton = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See Approximations", command = self.showIntermediate, bg=BG_COLOR)
         approxButton.grid(column=0, row=2)
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds the same back?? Idk why I did this but I'll keep it this way for now.
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         self.showUniformization(uniformization)
-        self.ax2.axis('off')
+        #self.ax2.axis('on')
 
         self.canvas.draw()
 
@@ -626,17 +634,26 @@ class show_results:
         # refreshes graph with updated information
         plt.close("all")
         self.fig, (self.axes, self.ax2) = plt.subplots(1,2, sharex=False, sharey=False)
-        self.fig.set_figheight(6)
-        self.fig.set_figwidth(13)
+        self.fig.set_figheight(5)
+        self.fig.set_figwidth(14)
         self.graphHolder.destroy()
-        self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
+        self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge", bg=BG_COLOR)
         self.graphHolder.grid(column=0, row=1)
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.graphHolder)   
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.graphHolder)
         self.toolbar.update()
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
-        self.ax2.axis('off')
+
+        innerRad = self.findMinRadius(1)
+        outerRad = self.findMinRadius(2)
+
+        point0 = self.tri.region.points_in_holes[0]
+        self.axes.add_patch(Circle(point0, radius =outerRad,fill = False, edgecolor = 'g',
+                    linestyle = '--',linewidth = 1.25))
+
+        self.axes.add_patch(Circle(point0, radius =innerRad,fill = False, edgecolor = 'g',
+                    linestyle = '--',linewidth = 1.25))
 
         vert, edge, triangle, vInd, tInd, level, singLevel = self.graphConfigs.getConfigsTri()
         self.tri.show(
@@ -663,6 +680,7 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
+        self.axes.set_aspect('equal')
         self.ax2.scatter(
             1 * np.real(uniformization),
             1 * np.imag(uniformization),
@@ -670,6 +688,11 @@ class show_results:
             linewidths = .1
         ) #Plots image of uniformization map
         self.ax2.set_aspect('equal')
+        self.fig.tight_layout()
+        self.ax2.axis('on')
+        self.axes.axis('on')
+        self.canvas.draw()
+        
 
     def add_voronoi_edges_to_axes(self, edge_list, axes, color): # I think this is exactly what it is called
         lines = [
@@ -730,46 +753,36 @@ class show_results:
         return np.argmin(distanceToBary)
     
     def findMaxRadius(self, boundary):
-        array = np.full(len(self.tri.vertices), 0, dtype=object)
-        for i in range(len(self.tri.vertex_boundary_markers)):
-            #print(self.tri.vertex_boundary_markers[i])
-            if (self.tri.vertex_boundary_markers[i] == boundary):
-                array[i] = self.tri.vertices[i]
-        #print(array)
-        #print()
-        ys = np.full(len(self.tri.vertices), 0, dtype=object)
-        xs = np.full(len(self.tri.vertices), 0, dtype=object)
+        array = []
         for i in range(len(self.tri.vertex_boundary_markers)):
             if (self.tri.vertex_boundary_markers[i] == boundary):
-                xs[i] = array[i][0]
-                ys[i] = array[i][1]
-        #print(xs)
-        #print()
-        #print(ys)
-        rads = np.add(np.square(np.subtract(xs, self.tri.region.points_in_holes[0][0])), np.square(np.subtract(ys, self.tri.region.points_in_holes[0][1])))
-        #print(array[rads.argmax()])
-        return rads.argmax()
+                array.append(self.tri.vertices[i])
+        ys = []
+        xs = []
+        for vertex in array:
+            xs.append(vertex[0])
+            ys.append(vertex[1])
+        xsa = np.array(xs)
+        ysa = np.array(ys)
+        rads = np.add(np.square(np.subtract(xsa, self.tri.region.points_in_holes[0][0])), np.square(np.subtract(ysa, self.tri.region.points_in_holes[0][1])))
+        rads = np.sqrt(rads)
+        return np.max(rads)
     
     def findMinRadius(self, boundary):
-        array = np.full(len(self.tri.vertices), 0, dtype=object)
-        for i in range(len(self.tri.vertex_boundary_markers)):
-            #print(self.tri.vertex_boundary_markers[i])
-            if (self.tri.vertex_boundary_markers[i] == boundary):
-                array[i] = self.tri.vertices[i]
-        #print(array)
-        #print()
-        ys = np.full(len(self.tri.vertices), 0, dtype=object)
-        xs = np.full(len(self.tri.vertices), 0, dtype=object)
+        array = []
         for i in range(len(self.tri.vertex_boundary_markers)):
             if (self.tri.vertex_boundary_markers[i] == boundary):
-                xs[i] = array[i][0]
-                ys[i] = array[i][1]
-        #print(xs)
-        #print()
-        #print(ys)
-        rads = np.add(np.square(np.subtract(xs, self.tri.region.points_in_holes[0][0])), np.square(np.subtract(ys, self.tri.region.points_in_holes[0][1])))
-        #print(array[rads.argmax()])
-        return rads.argmin()
+                array.append(self.tri.vertices[i])
+        ys = []
+        xs = []
+        for vertex in array:
+            xs.append(vertex[0])
+            ys.append(vertex[1])
+        xsa = np.array(xs)
+        ysa = np.array(ys)
+        rads = np.add(np.square(np.subtract(xsa, self.tri.region.points_in_holes[0][0])), np.square(np.subtract(ysa, self.tri.region.points_in_holes[0][1])))
+        rads = np.sqrt(rads)
+        return np.min(rads)
     
     def findAverageRad(self, maxOrMin = False, boundary = 0):
         array = []
@@ -811,7 +824,7 @@ class show_results:
         self.fig.set_figheight(6)
         self.fig.set_figwidth(6)
         self.graphHolder.destroy()
-        self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge")
+        self.graphHolder = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height , relief="ridge", bg=BG_COLOR)
         self.graphHolder.grid(column=0, row=1)
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.graphHolder)   
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.graphHolder)
@@ -859,7 +872,10 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
-        self.canvas.draw()
+        if self.graphConfigs.getSlit():
+            self.showSlit()
+        else:
+            self.canvas.draw()
 
     def showSlit(self):
         # highlights the slit
@@ -878,30 +894,30 @@ class show_results:
             self.showSlit()
         self.controls.grid_remove()
         # adds buttons to various modes, currently just graph edit and edit flux
-        mainMenu = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height)
+        mainMenu = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         mainMenu.columnconfigure(0, weight=1)
         mainMenu.rowconfigure(0, weight=1)
         mainMenu.grid(column=0, row=0)
 
-        graphButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Graph Display Options", command = self.graphConfig)
+        graphButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Graph Display Options", command = self.graphConfig, bg=BG_COLOR)
         graphButton.grid(column=0, row=0)
 
-        fluxButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Edit Flux", command = self.fluxConfig)
+        fluxButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Edit Flux", command = self.fluxConfig, bg=BG_COLOR)
         fluxButton.grid(column=1, row=0)
 
-        pathButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Paths", command = self.pathFinder)
+        pathButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Paths", command = self.pathFinder, bg=BG_COLOR)
         pathButton.grid(column=2, row=0)
 
-        uniformButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Uniformization and Approximations", command = self.uniformizationPage)
+        uniformButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Uniformization and Approximations", command = self.uniformizationPage, bg=BG_COLOR)
         uniformButton.grid(column=3, row=0)
 
-        redrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Choose another slit path", command = self.redraw)
+        redrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Choose another slit path", command = self.redraw, bg=BG_COLOR)
         redrawButton.grid(column=4, row=0)
 
-        newDrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.showDraw)
+        newDrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.showDraw, bg=BG_COLOR)
         newDrawButton.grid(column=5, row=0)
 
-        animButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Create Animation", command = self.animationConfig)
+        animButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Create Animation", command = self.animationConfig, bg=BG_COLOR)
         animButton.grid(column=0, row=1)
 
 
@@ -966,12 +982,12 @@ class show_results:
         self.selectedIndex = self.nearestEdge(x, y)
 
         # adds a entry and button to input user data to the flux graph, and places them at a point in the middle of the graph
-        self.editor = tk.Frame(self.gui, height = int(self.canvas_height/50), width=int(self.canvas_height/50))
+        self.editor = tk.Frame(self.gui, height = int(self.canvas_height/50), width=int(self.canvas_height/50), bg=BG_COLOR)
         fluxValue = tk.StringVar()
         reg = self.gui.register(self.validateText)
         currentFlux = self.lambda_graph.edges[self.tri.voronoi_edges[self.selectedIndex][0], self.tri.voronoi_edges[self.selectedIndex][1]]['weight']
         fluxValue.set(str(currentFlux))
-        fluxInput = tk.Entry(self.editor, width=int(self.canvas_height/50), bg=BG_COLOR, validate='key', validatecommand= (reg, '%P', '%i'), textvariable = fluxValue)
+        fluxInput = tk.Entry(self.editor, width=int(self.canvas_height/50), bg=BLACK, validate='key', validatecommand= (reg, '%P', '%i'), textvariable = fluxValue)
         fluxInput.grid(column=0, row=0)
         sendButton = tk.Button(self.editor, height=1, width=1, bg=BG_COLOR, command= self.editFluxGraph)
         sendButton.grid(column=1, row=0)
@@ -1117,11 +1133,11 @@ class show_results:
         buttonHolder.columnconfigure(0, weight=1)
         buttonHolder.rowconfigure(0, weight=1)
         buttonHolder.grid(column=0, row=2)
-        nextButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Next Graph", command = self.nextGraph)
+        nextButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Next Graph", command = self.nextGraph, bg=BG_COLOR)
         nextButton.grid(column=1, row=0)
-        previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph)
+        previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph, bg=BG_COLOR)
         previousButton.grid(column=0, row=0)
-        modulusLabel = tk.Label(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text=self.modulus.get())
+        modulusLabel = tk.Label(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text=self.modulus.get(), bg=BG_COLOR)
         modulusLabel.grid(column=0, row=3, columnspan=3)
     
     def showIntermediate(self):
@@ -1149,13 +1165,15 @@ class show_results:
         self.drawRegion = DrawRegion(self.gui, self.canvas_width, self.canvas_height)
         self.controls = self.drawRegion
         self.controls.grid(column=0, row=0)
-        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Draw", command = self.createNewCommand)
-        drawButton.grid(column=5, row=3)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Draw", command = self.createNewCommand, bg=BG_COLOR)
+        drawButton.grid(column=4, row=3)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.mainMenu, bg=BG_COLOR)
+        backButton.grid(column=5, row=3)
 
     def createNewCommand(self):
-        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), self.drawRegion.getTriCount(), int(self.drawRegion.getEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()))
+        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), self.drawRegion.getTriCount(), int(self.drawRegion.getEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
 
-    def createNew(self, freeDraw, fileRoot, fileName, triCount, edgeNo = None, inRad = None, outRad = None):
+    def createNew(self, freeDraw, fileRoot, fileName, triCount, edgeNo = None, inRad = None, outRad = None, randomOrNot = False):
         if freeDraw:
             subprocess.run([
                 'python',
@@ -1164,7 +1182,7 @@ class show_results:
                 fileRoot
             ])
         else:
-            draw_region.draw_region_back(fileRoot, fileName, edgeNo, inRad, outRad)
+            draw_region.draw_region_back(fileRoot, fileName, edgeNo, inRad, outRad, randomSet = randomOrNot)
         print("drew region")
         subprocess.run([
             'julia',
@@ -1210,8 +1228,8 @@ class show_results:
     def animationConfig(self):
         self.controls.grid_remove()
         self.controls = self.gifConfig.getFrame(self.gui)
-        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Create", command = self.createAnimation)
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.mainMenu)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Create", command = self.createAnimation, bg=BG_COLOR)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.mainMenu, bg=BG_COLOR)
         drawButton.grid(column=5, row=3)
         backButton.grid(column=5, row=4)
 
@@ -1289,60 +1307,60 @@ class GifConfig():
     def getFrame(self, parent):
         if self.controls is not None:
             return None
-        controls = tk.Frame(parent, width=self.canvas_width, height=self.canvas_height)
+        controls = tk.Frame(parent, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
         controls.grid(column=0, row=0)
 
-        instructLabel = tk.Label(controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Select options, then click start to generate a new sequence of figures, WARNING, it takes about 15-30 seconds per step to generate")
+        instructLabel = tk.Label(controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Select options, then click start to generate a new sequence of figures, WARNING, it takes about 15-30 seconds per step to generate", bg=BG_COLOR)
         instructLabel.grid(column=2, row=0, columnspan=3)
 
-        iEdgeLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Starting Edge Count")
+        iEdgeLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Starting Edge Count", bg=BG_COLOR)
         iEdgeLabel.grid(column=0, row=1)
 
-        iEdgeEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.initEdge)
+        iEdgeEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.initEdge, bg=BLACK)
         iEdgeEntry.grid(column=1, row=1)
 
-        fEdgeLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Final Edge Count")
+        fEdgeLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Final Edge Count", bg=BG_COLOR)
         fEdgeLabel.grid(column=2, row=1)
 
-        fEdgeEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.finEdge)
+        fEdgeEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.finEdge, bg=BLACK)
         fEdgeEntry.grid(column=3, row=1)
 
-        outRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius")
+        outRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius", bg=BG_COLOR)
         outRadiusLabel.grid(column=4, row=1)
 
-        outRadiusLabel = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.outRad)
+        outRadiusLabel = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.outRad, bg=BLACK)
         outRadiusLabel.grid(column=5, row=1)
 
-        initInRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Initial Inner Radius")
+        initInRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Initial Inner Radius", bg=BG_COLOR)
         initInRadiusLabel.grid(column=0, row=2)
 
-        initInRadiusEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.initInRad)
+        initInRadiusEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.initInRad, bg=BLACK)
         initInRadiusEntry.grid(column=1, row=2)
 
-        finInRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Final Inner Radius")
+        finInRadiusLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Final Inner Radius", bg=BG_COLOR)
         finInRadiusLabel.grid(column=2, row=2)
 
-        finInRadiusEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.finInRad)
+        finInRadiusEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.finInRad, bg=BLACK)
         finInRadiusEntry.grid(column=3, row=2)
 
-        stepCountLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Steps to shrink Inner Radius")
+        stepCountLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Steps to shrink Inner Radius", bg=BG_COLOR)
         stepCountLabel.grid(column=4, row=2)
 
-        stepCountEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount)
+        stepCountEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.stepCount, bg=BLACK)
         stepCountEntry.grid(column=5, row=2)
 
-        fileRootLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root")
+        fileRootLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root", bg=BG_COLOR)
         fileRootLabel.grid(column=0, row=3)
 
-        fileRootEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.fileRoot)
+        fileRootEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.fileRoot, bg=BLACK)
         fileRootEntry.grid(column=1, row=3)
 
-        triCountLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Triangle Count")
+        triCountLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Triangle Count", bg=BG_COLOR)
         triCountLabel.grid(column=2, row=3)
 
-        triCountEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.triCount)
+        triCountEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.triCount, bg=BLACK)
         triCountEntry.grid(column=3, row=3)
 
         self.controls = controls

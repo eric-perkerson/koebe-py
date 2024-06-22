@@ -161,11 +161,10 @@ def create_mesh(output_name, poly_dict):
 
         if boundary:
             lines[boundary].append(line)
-
+    print("a" * 100)
     # add triangles
     triangles = []
     for triangle in poly_dict['triangles']:
-        print(triangle)
         l1 = gmsh.model.geo.addLine(points[triangle[0]], points[triangle[1]])
         l2 = gmsh.model.geo.addLine(points[triangle[1]], points[triangle[2]])
         l3 = gmsh.model.geo.addLine(points[triangle[2]], points[triangle[0]])
@@ -178,21 +177,24 @@ def create_mesh(output_name, poly_dict):
     gmsh.option.set_number("Geometry.Tolerance", 1e-3)
     gmsh.model.geo.remove_all_duplicates()
     gmsh.model.geo.synchronize()
-
+    print("b" * 100)
     # add physical groups
     for boundary, line_list in lines.items():
         gmsh.model.addPhysicalGroup(dim=1, tags=line_list, tag=boundary)
     gmsh.model.addPhysicalGroup(dim=2, tags=triangles, tag=0)
-
+    print("c" * 100)
     # generate mesh
-    gmsh.model.mesh.generate(2)
+    gmsh.model.mesh.generate(2) # This seems to send all the messages
+    print("d" * 100)
 
     # names of physical groups
     gmsh.model.setPhysicalName(dim=2, tag=0, name="compound_surface")
     for boundary, line_list in lines.items():
         gmsh.model.setPhysicalName(dim=1, tag=boundary, name=f"boundary_{boundary}")
-
+    print("e" * 100)
     # write mesh to file
+
+
     gmsh.write(f"{output_name}.msh")
 
     # clear gmsh

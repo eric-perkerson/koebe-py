@@ -8,6 +8,8 @@ import numpy as np
 import warnings
 import unicodedata
 import subprocess
+import random
+import math
 
 from region import Region
 
@@ -138,11 +140,11 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
     
     #poly_file = get_unused_file_name(poly_file, poly_root)
     example_directory = ((Path('regions') / poly_root) / poly_file) / poly_file
-    print(example_directory)
+    # print(example_directory)
     if not ((Path('regions') / poly_root) / poly_file).is_dir():
         ((Path('regions') / poly_root) / poly_file).mkdir(parents=True, exist_ok=True)
     poly_path = example_directory.with_suffix('.poly')
-    print(poly_path)
+    # print(poly_path)
     # The above sets up the file to be written too.
 
     components = [[]]
@@ -189,7 +191,6 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
                 tag = "Poly" + str(len(components) - 1)
                 canvas.delete(tag)
                 # If you go under 3 points, remove the polygon
-        return
     
     def redo():
         """Redoes the last action taken by the user, repeatable.
@@ -210,17 +211,14 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
                     fill=FILL_COLORS[len(components) - 1],
                     tag=tag
                     )
-        return
     
     def deleteLines():
         for line in gridLines:
             canvas.delete(line)
-        return
     
     def gridSet():
         if (grid.get() == "FreeForm"):
             deleteLines()
-            #print("FreeForm")
         elif (grid.get() == "Square"):
             deleteLines()
             for x in range(30):
@@ -241,19 +239,76 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
             print("How")
         return
     
+    def concentricPolygonRandom():
+        xValue = int(canvas_width/2)
+        yValue = int(3*canvas_height/7)
+        valid = False
+        while not valid:
+            angles = []
+            while len(angles) != int(edges.get()):
+                theta = random.uniform(0, int(edges.get()))
+                angles.append(theta)
+            angles.sort()
+            flag = True
+            for i in range(len(angles)):
+                theta = angles[i]
+                x = int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))))
+                y = int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                theta = angles[i - 1]
+                prevx = int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))))
+                prevy = int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                midx = (x + prevx) / 2
+                midy = (y + prevy) / 2
+                if math.sqrt((midx - xValue) ** 2 + (midy - yValue) ** 2) < int(polyRadiusTwo.get()):
+                    flag = False
+                if i == len(angles) - 1:
+                    theta = angles[0]
+                    nextx = int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))))
+                    nexty = int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                    if math.sqrt((nextx - xValue) ** 2 + (nexty - yValue) ** 2) < int(polyRadiusTwo.get()):
+                        flag = False
+            totalAngleChange = 0
+            max = 0
+            for i in range(len(angles)):
+                totalAngleChange += abs(angles[i - 1] - angles[i])
+                if abs(angles[i - 1] - angles[i]) > max:
+                    max = abs(angles[i - 1] - angles[i])
+            totalAngleChange -= max
+            if totalAngleChange < int(edges.get()) / 2:
+               flag = False
+            valid = flag
+        for theta in angles:
+            paint(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
+                yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
+                )
+        components.append([])
+        angles = []
+        for i in range(0, int(edges.get())):
+            angles.append(random.uniform(0, int(edges.get())))
+        angles.sort()
+        for theta in angles:
+            paint(xValue + int(polyRadiusTwo.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
+                yValue + int(polyRadiusTwo.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
+                )
+            
     def concentricPolygon():
         xValue = int(canvas_width/2)
         yValue = int(3*canvas_height/7)
         for theta in range(0, int(edges.get())):
-            paint(int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get())))),
-                int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+            paint(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
+                yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
                 )
         components.append([])
         for theta in range(0, int(edges.get())):
-            paint(int(xValue + int(polyRadiusTwo.get()) * np.cos(theta * (2*np.pi/int(edges.get())))),
-                int(yValue + int(polyRadiusTwo.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+            paint(xValue + int(polyRadiusTwo.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
+                yValue + int(polyRadiusTwo.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
                 )
-        return 
+            
+    def polygon():
+        if randomSet.get():
+            concentricPolygonRandom()
+        else:
+            concentricPolygon()
     
         
     
@@ -310,11 +365,12 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
     radiusTwoEntry = tk.Entry(polygonBuilder, width=int(canvas_height/56), textvariable=polyRadiusTwo)
     radiusTwoEntry.grid(column=1, row=2)
 
-    createPolygon = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/64), text="Insert Polygon", command=concentricPolygon)
+    createPolygon = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/64), text="Insert Polygon", command=polygon)
     createPolygon.grid(column=3, row=0)
     
-    button4 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
-    button4.grid(column=4, row=0)
+    randomSet = tk.BooleanVar()
+    randomButton = tk.Checkbutton(controls, height=int(canvas_height/42), width=int(canvas_height/42), variable=randomSet, text='Randomize Vertices')
+    randomButton.grid(column=4, row=0)
     
     button5 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
     button5.grid(column=5, row=0)
@@ -344,7 +400,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
         """
         return [item for sublist in list_of_lists for item in sublist] # horrific looking, but combines all items in all lists in the list of lists to a single list
 
-    
+    print
     def paint(x, y):
         """Adds verticies to the domain, and fills in the area between them if theres 3 or more.
 
@@ -401,6 +457,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
                 fill=FILL_COLORS[len(components) - 1],
                 tag=tag
             ) # adds the polygon, with the flattoned list of verticies, the respective fill color, and the identifier
+        last_deleted = []
     
     def paintE(event, epsilon=5): # I seperated paint from the function called when clicking to make paint more abstract in use
         """Adds verticies to the domain, and fills in the area between them if theres 3 or more.
@@ -460,7 +517,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
 
     return poly_file
 
-def draw_region_back(fileRoot, fileName, sideNum, inRad, outRad, x=None, y=None):
+def draw_region_back(fileRoot, fileName, sideNum, inRad, outRad, x=None, y=None, randomSet=False):
     """Draws and saves a polygon without manual clicking
 
         Parameters
@@ -472,15 +529,66 @@ def draw_region_back(fileRoot, fileName, sideNum, inRad, outRad, x=None, y=None)
         outRad : radius of the annulus/outside radius
         x : x value of where the hole is placed inside the shape
         y : y value of where the hole is placed inside the shape
+        randomSet : whether to randomize the vertices on the polygon
         """
-    components = [[]]
-    for theta in range(0, int(sideNum)):
-        components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
-                                                int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
-    components.append([])
-    for theta in range(0, int(sideNum)):
-        components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
-                                                int(int(inRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+
+    if randomSet:
+        valid = False
+        while not valid:
+            angles = []
+            while len(angles) != int(sideNum):
+                theta = random.uniform(0, int(sideNum))
+                angles.append(theta)
+            angles.sort()
+            flag = True
+            for i in range(len(angles)):
+                theta = angles[i]
+                x = int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum))))
+                y = int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))
+                theta = angles[i - 1]
+                prevx = int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum))))
+                prevy = int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))
+                midx = (x + prevx) / 2
+                midy = (y + prevy) / 2
+                if math.sqrt((midx) ** 2 + (midy) ** 2) < int(inRad):
+                    flag = False
+                if i == len(angles) - 1:
+                    theta = angles[0]
+                    nextx = int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum))))
+                    nexty = int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))
+                    if math.sqrt((nextx) ** 2 + (nexty) ** 2) < int(inRad):
+                        flag = False
+            totalAngleChange = 0
+            max = 0
+            for i in range(len(angles)):
+                totalAngleChange += abs(angles[i - 1] - angles[i])
+                if abs(angles[i - 1] - angles[i]) > max:
+                    max = abs(angles[i - 1] - angles[i])
+            totalAngleChange -= max
+            if totalAngleChange < int(sideNum) / 2:
+                flag = False
+            valid = flag
+        components = [[]]
+        for theta in angles:
+            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
+                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+        components.append([])
+        angles = []
+        for i in range(0, int(sideNum)):
+            angles.append(random.uniform(0, int(sideNum)))
+        angles.sort()
+        for theta in angles:
+            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
+                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+    else:
+        components = [[]]
+        for theta in range(0, int(sideNum)):
+            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
+                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+        components.append([])
+        for theta in range(0, int(sideNum)):
+            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
+                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
 
     print('Saving as ' + fileRoot + '/' + fileName)
     region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies

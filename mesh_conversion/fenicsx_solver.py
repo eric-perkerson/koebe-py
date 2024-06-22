@@ -58,6 +58,13 @@ if proc == 0:
     meshio.write(f"regions/{file_root}/{file_stem}/mesh.xdmf", triangle_mesh)
     meshio.write(f"regions/{file_root}/{file_stem}/mt.xdmf", line_mesh)
 
+import pyvista
+plotter = pyvista.Plotter()
+plotter.add_mesh(msh, show_edges = True)
+plotter.show_bounds()
+plotter.view_xy()
+plotter.show()
+
 # This creates the meshtags and topology of the mesh from the xdmf files above
 with XDMFFile(MPI.COMM_WORLD, f"regions/{file_root}/{file_stem}/mesh.xdmf", "r") as xdmf:
     mesh = xdmf.read_mesh(name="Grid")
