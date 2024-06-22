@@ -305,6 +305,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
                 )
             
     def polygon():
+        # TODO add inner != outer side numbers
         if randomSet.get():
             concentricPolygonRandom()
         else:
@@ -517,14 +518,15 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
 
     return poly_file
 
-def draw_region_back(fileRoot, fileName, sideNum, inRad, outRad, x=None, y=None, randomSet=False):
+def draw_region_back(fileRoot, fileName, inSideNum, outSideNum, inRad, outRad, x=None, y=None, randomSet=False):
     """Draws and saves a polygon without manual clicking
 
         Parameters
         ----------
         fileRoot : name of file overall for that shape
         fileName : name of specific file for that specific shape's state
-        sideNum : number of sides for the shape
+        inSideNum : number of sides for the inner shape
+        outSideNum : number of sides for the outer shape
         inRad : radius of the hole/inside radius
         outRad : radius of the annulus/outside radius
         x : x value of where the hole is placed inside the shape
@@ -532,30 +534,32 @@ def draw_region_back(fileRoot, fileName, sideNum, inRad, outRad, x=None, y=None,
         randomSet : whether to randomize the vertices on the polygon
         """
 
+    # TODO Add an option for the polygon to be inscribed or to be circumscribed by the annuli radii
+
     if randomSet:
         valid = False
         while not valid:
             angles = []
-            while len(angles) != int(sideNum):
-                theta = random.uniform(0, int(sideNum))
+            while len(angles) != int(outSideNum):
+                theta = random.uniform(0, int(outSideNum))
                 angles.append(theta)
             angles.sort()
             flag = True
             for i in range(len(angles)):
                 theta = angles[i]
-                x = int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum))))
-                y = int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))
+                x = int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum))))
+                y = int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))
                 theta = angles[i - 1]
-                prevx = int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum))))
-                prevy = int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))
+                prevx = int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum))))
+                prevy = int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))
                 midx = (x + prevx) / 2
                 midy = (y + prevy) / 2
                 if math.sqrt((midx) ** 2 + (midy) ** 2) < int(inRad):
                     flag = False
                 if i == len(angles) - 1:
                     theta = angles[0]
-                    nextx = int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum))))
-                    nexty = int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))
+                    nextx = int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum))))
+                    nexty = int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))
                     if math.sqrt((nextx) ** 2 + (nexty) ** 2) < int(inRad):
                         flag = False
             totalAngleChange = 0
@@ -565,30 +569,30 @@ def draw_region_back(fileRoot, fileName, sideNum, inRad, outRad, x=None, y=None,
                 if abs(angles[i - 1] - angles[i]) > max:
                     max = abs(angles[i - 1] - angles[i])
             totalAngleChange -= max
-            if totalAngleChange < int(sideNum) / 2:
+            if totalAngleChange < int(outSideNum) / 2:
                 flag = False
             valid = flag
         components = [[]]
         for theta in angles:
-            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
-                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum)))),
+                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))])
         components.append([])
         angles = []
-        for i in range(0, int(sideNum)):
-            angles.append(random.uniform(0, int(sideNum)))
+        for i in range(0, int(inSideNum)):
+            angles.append(random.uniform(0, int(inSideNum)))
         angles.sort()
         for theta in angles:
-            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
-                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(inSideNum)))),
+                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(inSideNum))))])
     else:
         components = [[]]
-        for theta in range(0, int(sideNum)):
-            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
-                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+        for theta in range(0, int(outSideNum)):
+            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum)))),
+                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))])
         components.append([])
-        for theta in range(0, int(sideNum)):
-            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(sideNum)))),
-                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(sideNum))))])
+        for theta in range(0, int(inSideNum)):
+            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(inSideNum)))),
+                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(inSideNum))))])
 
     print('Saving as ' + fileRoot + '/' + fileName)
     region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies

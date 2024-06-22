@@ -160,40 +160,30 @@ class DrawRegion(tk.Frame):
 
         self.freeDraw = tk.BooleanVar()
         self.freeDraw.set(False)
-        self.edgeNo = tk.StringVar()
+        self.inEdgeNum = tk.StringVar()
+        self.outEdgeNum = tk.StringVar()
         self.outRad = tk.StringVar()
         self.inRad = tk.StringVar()
         self.fileRoot = tk.StringVar()
         self.fileName = tk.StringVar()
         self.triCount = tk.StringVar()
         self.randomSet = tk.BooleanVar()
+        self.inOrOut = tk.BooleanVar()
 
         instructLabel = tk.Label(self, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Select option, then click calcultate to generate a new figure", bg=BG_COLOR)
         instructLabel.grid(column=2, row=0, columnspan=3)
 
-        edgeLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Edges", bg=BG_COLOR)
-        edgeLabel.grid(column=0, row=1)
-
-        edgeEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.edgeNo, bg=BLACK)
-        edgeEntry.grid(column=1, row=1)
-
         radiusOneLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Radius", bg=BG_COLOR)
-        radiusOneLabel.grid(column=0, row=2)
+        radiusOneLabel.grid(column=0, row=1)
 
         radiusOneEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.outRad, bg=BLACK)
-        radiusOneEntry.grid(column=1, row=2)
+        radiusOneEntry.grid(column=1, row=1)
 
         radiusTwoLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Inner Radius", bg=BG_COLOR)
-        radiusTwoLabel.grid(column=0, row=3)
+        radiusTwoLabel.grid(column=2, row=1)
 
         radiusTwoEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.inRad, bg=BLACK)
-        radiusTwoEntry.grid(column=1, row=3)
-
-        fileNameLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name", bg=BG_COLOR)
-        fileNameLabel.grid(column=4, row=2)
-
-        fileNameEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileName, bg=BLACK)
-        fileNameEntry.grid(column=5, row=2)
+        radiusTwoEntry.grid(column=3, row=1)
 
         fileRootLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Root", bg=BG_COLOR)
         fileRootLabel.grid(column=4, row=1)
@@ -201,18 +191,39 @@ class DrawRegion(tk.Frame):
         fileRootEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileRoot, bg=BLACK)
         fileRootEntry.grid(column=5, row=1)
 
-        freeDrawButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Free Draw", variable=self.freeDraw, bg=BG_COLOR)
-        freeDrawButton.grid(column=2, row=3)
+        outEdgeLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Outer Number of Edges", bg=BG_COLOR)
+        outEdgeLabel.grid(column=0, row=2)
+
+        outEdgeEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.outEdgeNum, bg=BLACK)
+        outEdgeEntry.grid(column=1, row=2)
+
+        inEdgeLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Inner Number of Edges", bg=BG_COLOR)
+        inEdgeLabel.grid(column=2, row=2)
+
+        inEdgeEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.inEdgeNum, bg=BLACK)
+        inEdgeEntry.grid(column=3, row=2)
+
+        fileNameLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="File Name", bg=BG_COLOR)
+        fileNameLabel.grid(column=4, row=2)
+
+        fileNameEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.fileName, bg=BLACK)
+        fileNameEntry.grid(column=5, row=2)
 
         TriangleNumLabel = tk.Label(self, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Number of Triangles", bg=BG_COLOR)
-        TriangleNumLabel.grid(column=2, row=1)
+        TriangleNumLabel.grid(column=0, row=3)
 
         reg = self.register(self.isNumber)
         TriangleNumEntry = tk.Entry(self, width=int(self.canvas_height/50), textvariable=self.triCount, validate='key', validatecommand= (reg, '%P', '%i'), bg=BLACK)
-        TriangleNumEntry.grid(column=3, row=1)
+        TriangleNumEntry.grid(column=1, row=3)
 
-        randomButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Randomize Vertices", variable=self.randomSet, bg=BG_COLOR)
+        freeDrawButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/50), text="Free Draw", variable=self.freeDraw, bg=BG_COLOR)
+        freeDrawButton.grid(column=2, row=3)
+
+        randomButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/50), text="Randomize Vertices", variable=self.randomSet, bg=BG_COLOR)
         randomButton.grid(column=3, row=3)
+
+        inOrOutButton = tk.Checkbutton(self, height=int(self.canvas_height/600), width=int(self.canvas_height/40), text="Inscribe the polygon or Not", variable=self.inOrOut, bg=BG_COLOR)
+        inOrOutButton.grid(column=4, row=3)
 
     def isNumber(self, input, index):
         # lets text come through if its in a valid format
@@ -225,8 +236,10 @@ class DrawRegion(tk.Frame):
     
     def getFreeDraw(self):
         return self.freeDraw.get()
-    def getEdgeNo(self):
-        return self.edgeNo.get()
+    def getOuterEdgeNo(self):
+        return self.outEdgeNum.get()
+    def getInnerEdgeNo(self):
+        return self.inEdgeNum.get()
     def getOutRad(self):
         return self.outRad.get()
     def getInRad(self):
@@ -315,8 +328,8 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
+        self.axes.set_aspect('equal')
         self.canvas.draw() 
-        return
     
     def basicTkinter(self):
         fig, axes = plt.subplots()
@@ -817,9 +830,8 @@ class show_results:
     
     def show(self):
         plt.close("all")
+        # TODO try and preserve zoom information for the display
         # refreshes graph with updated information
-        #self.fig.clear()
-        #self.axes.clear()
         self.fig, self.axes = plt.subplots()
         self.fig.set_figheight(6)
         self.fig.set_figwidth(6)
@@ -829,21 +841,8 @@ class show_results:
         self.canvas = FigureCanvasTkAgg(self.fig, master = self.graphHolder)   
         self.toolbar = NavigationToolbar2Tk(self.canvas, self.graphHolder)
         self.toolbar.update()
-        #print(self.graphHolder.children)
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
-
-        # print(self.tri.region.points_in_holes[0])
-        # modRad = self.findAverageRad(True)
-        # modRad /= self.findAverageRad(False)
-        # print(self.findAverageRad(True))
-        # print(self.findAverageRad(False))
-        # modulus = (1 / (2 * np.pi)) * np.log10(modRad)
-        # print(modulus)
-        # # Above is using the triangulation, below is using uniformization
-        # self.updateLambdaGraph()
-        # uniformization = self.calculateUniformization()
-        # print(self.findModulus(uniformization))
 
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         
@@ -872,6 +871,7 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
+        self.axes.set_aspect('equal')
         if self.graphConfigs.getSlit():
             self.showSlit()
         else:
@@ -970,6 +970,9 @@ class show_results:
             self.editor = None
             self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
             self.controls.children['!button']['state'] = 'normal'
+            self.show()
+            self.fig.canvas.callbacks.disconnect(self.callbackName)
+            self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
 
     def fluxFinder(self, event):
         if (self.fig.canvas.toolbar.mode != ''):
@@ -1165,15 +1168,15 @@ class show_results:
         self.drawRegion = DrawRegion(self.gui, self.canvas_width, self.canvas_height)
         self.controls = self.drawRegion
         self.controls.grid(column=0, row=0)
-        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Draw", command = self.createNewCommand, bg=BG_COLOR)
-        drawButton.grid(column=4, row=3)
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.mainMenu, bg=BG_COLOR)
-        backButton.grid(column=5, row=3)
+        drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Draw", command = self.createNewCommand, bg=BG_COLOR)
+        drawButton.grid(column=5, row=4)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu, bg=BG_COLOR)
+        backButton.grid(column=4, row=4)
 
     def createNewCommand(self):
-        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), self.drawRegion.getTriCount(), int(self.drawRegion.getEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
+        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), self.drawRegion.getTriCount(), int(self.drawRegion.getInnerEdgeNo()), int(self.drawRegion.getOuterEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
 
-    def createNew(self, freeDraw, fileRoot, fileName, triCount, edgeNo = None, inRad = None, outRad = None, randomOrNot = False):
+    def createNew(self, freeDraw, fileRoot, fileName, triCount, inEdgeNum, outEdgeNum, inRad = None, outRad = None, randomOrNot = False):
         if freeDraw:
             subprocess.run([
                 'python',
@@ -1182,7 +1185,7 @@ class show_results:
                 fileRoot
             ])
         else:
-            draw_region.draw_region_back(fileRoot, fileName, edgeNo, inRad, outRad, randomSet = randomOrNot)
+            draw_region.draw_region_back(fileRoot, fileName, inEdgeNum, outEdgeNum, inRad, outRad, randomSet = randomOrNot)
         print("drew region")
         subprocess.run([
             'julia',
