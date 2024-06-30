@@ -1,0 +1,84 @@
+\documentclass{article}
+
+\usepackage{
+	graphicx,
+	fullpage,
+	amsmath,
+	amssymb,
+}
+\usepackage[parfill]{parskip}
+
+\newcommand{\problem}[2][]{ \vspace{10pt}{\Large \bf{Problem #2} } {\em #1} \\ \vspace{0pt}}
+\newcommand{\subproblem}[2][]{ \vspace{10pt} {\large \bf{#2} } {\em #1} \\ }
+
+\DeclareMathOperator*{\geo}{\text{geo}}
+
+\newcommand{\solutions}[5]{
+	\begin{center}
+	{
+		\small  #1 #2
+		\hfill {\Large \bf {Eric Perkerson} }\\ \vspace{.5pt}
+		#3 \hfill
+		{
+			 Date: #5
+		}
+	} \\
+	\vspace{-1ex}
+	\hrulefill\\
+	\vspace{4ex}
+	{
+		\LARGE Uniformization of Annuli via an Algorithmic Construction of a Harmonic Conjugate Function
+	} \\
+	\vspace{20pt}
+	\end{center}
+}
+
+\begin{document}
+
+\solutions{}{}{}{1}{\today}
+
+\section{Introduction}
+
+\section{Mathematical Background}
+
+\section{Construction of the Harmonic Function}
+
+\section{Construction of the Slit}
+
+Notation: let $[a : b] := [a, b] \cap \mathbb{Z}$, i.e. the integers from $a$ to $b$ inclusive.
+
+Given a region $R \subset \mathbb{R}^2$ which is a topological annulus, we construct a triangulation $T = (T_0, T_1, T_2)$ where $T_0 = (v_0, v_1, \dots, v_{n_v - 1})$ is a tuple of triangulation vertices $v_i \in \mathbb{R}^2$, $T_1 = (e_0, e_1, \dots, e_{n_e - 1})$ is a tuple of triangulation edges $e_i \in T_0 \times T_0$, and $T_2 = (t_0, t_1, \dots, t_{n_t - 1})$ is a tuple of triangles $t_i \in T_0 \times T_0 \times T_0$. The triangulation is constructed to be acute, meaning that for all $i$, $t_i \in T_2$ is an acute triangle.
+
+We also construct the Voronoi tesselation $\Lambda = (\Lambda_0, \Lambda_1, \Lambda_2)$ dual to the (Delaunay) triangulation, where $\Lambda_0 = (\nu_0, \nu_1, \dots, \nu_{n_\nu - 1})$ is a tuple of the Voronoi vertices $\nu_i \in \mathbb{R}^2$, $\Lambda_1 = (\varepsilon_0, \varepsilon_1, \dots, \varepsilon_{n_\varepsilon - 1})$ is a tuple of the Voronoi edges $\varepsilon_i \in \Lambda_0 \times \Lambda_0$, and $\Lambda_2 = (\rho_0, \rho_1, \dots, \rho_{n_t - 1})$ is a tuple of the Voronoi polygons $\rho_i \in (\Lambda_0) \cup (\Lambda_0 \times \Lambda_0) \cup \dots \cup (\Lambda_0 \times \dots_{V\text{-times}} \times \Lambda_0)$ where $V$ is the maximum number of vertices of the constructed polygons. Duality means that each polygon $\rho_i$ corresponds to triangle $t_i \in T_2$.
+
+Quite often, we will limit attention to the contained Voronoi tesselation $\tilde{\Lambda} = (\tilde{\Lambda}_0, \tilde{\Lambda}_1, \tilde{\Lambda}_2)$, where we only keep polygons $\tilde{\Lambda}_2 = \{ \rho_i \in \Lambda_2 \colon \geo(\rho_i) \subseteq R \}$, and we only keep the necessary vertices and edges of $\Lambda_0$ and $\Lambda_1$ in order to compose the polygons in $\tilde{\Lambda}_2$, i.e. if a vertex $\nu_i$ only appears in a non-contained polygon $\rho \in \tilde{\Lambda_2} \setminus \Lambda_2$ then it will not be contained in $\tilde{\Lambda_0}$, and similarly with edges to form $\tilde{\Lambda_1}$. Note that the contained polygons $\tilde{\Lambda}_2$ correspond to the interior vertices of $T_0$. Since $\tilde{\Lambda}_2 \subseteq \Lambda_2$ if they are regarded as sets rather than tuples, we can define a reindexing map $h \colon [1 \colon n_\rho] \to [1 \colon n_t]$ defined by $h(i) = j$ if $v_i \in \geo(\rho_i)$, i.e. $h$ maps the index in the contained polygons $\tilde{\Lambda}_2$ to the index of that polygon in the original tuple of polygons $\Lambda_2$.
+
+Next, we solve the PDE $g$ on the triangulation vertices $T_0$.
+
+Now, we arbitrarily choose a base cell from the contained vertices, denoted by $\rho_\omega \in \tilde{\Lambda_2}$. If desired, this can be done by choosing a base point $p_\omega \in R$ and then choosing the base cell to be the contained cell $\rho_\omega \in \tilde{\Lambda_2}$ such that $\geo(\rho_\omega) \ni p_\omega$. This will not always work, since typically $\geo(\tilde{\Lambda}_2) := \cup_{\rho \in \tilde{\Lambda}_2} \{ \geo(\rho) \} \subsetneq R$, but if the triangulation is refined enough it will generally cause $\geo(\tilde{\Lambda}_2)$ to approach $R$.
+
+We now use the base cell to begin constructing topological slit of the annulus. Choose an arbitrary point $h \in \mathbb{R}^2$ in the hole of the annulus $R$. This ``point in the hole'' of $R$ will serve the role of the origin in defining an angle measure on $R$. To this end, we take the triangular vertex $v_\omega$ corresponding to the base cell $\rho_\omega$ and construct the ray $r_0 = \overrightarrow{h v_\omega}$.
+
+Using the ray $r$, we construct a slit path of Voronoi cells $S_\rho$ in $\tilde{\Lambda}_2$ by the following constructive algorithm:
+\begin{enumerate}
+	\item Given: Voronoi polygon topology $A_\rho$, the index of the base cell $\omega$, the ray $r$ defining the slit of the plane.
+	\item First, we construct the outward component of the cell path slit.
+	\item Initialize $p = \omega$.
+	\item (1) For \texttt{edge} in \texttt{edges}$(p)$:
+	if \texttt{edge} intersects $r$ with a positive orientation, then update $p \leftarrow A_\rho[p, \texttt{edge}]$. If $p \ne -1$, goto step (1).
+	\item Finally, we perform a similar process to construct the inward component of the cell path slit, reversing the orientation of the intersection being searched for. Now the two components can be appropriately concatenated to form the entire cell path slit from inner boundary to outer boundary.
+\end{enumerate}
+
+Note: it is simpler (and avoids a possible issue with having the base cell not in the first connected component of the cells intersected by the ray $r$) to restrict the selection of the base cell $\rho_\omega$ to the cells with are hit first by the ray $r$.
+
+\section{Computation of the Harmonic Conjugate}
+
+\section{Computation of the Period}
+
+\section{Construction of the Uniformizing Function}
+
+Linear interpolation of the harmonic function $g$, which is defined on $T_0$, using barycentric average to define an interpolated $g$ defined on $\Lambda_0$
+
+\section{Previous Work and Numerical Results}
+
+\end{document}
