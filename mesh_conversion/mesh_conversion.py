@@ -73,6 +73,7 @@ def read_triangle(poly_file, ele_file, node_file=None):
         vertices.append(values[1:]) # ignore label
     #print(vertices)
     output['vertices'] = np.array(vertices)
+    #print(len(np.array(vertices)))
 
     # store segments
     segments = []
@@ -82,6 +83,7 @@ def read_triangle(poly_file, ele_file, node_file=None):
         values[2] -= 1 # subtract 1 to get 0-based indexing
         segments.append(values[1:]) # ignore label
     output['segments'] = np.array(segments)
+    #print(len(np.array(segments)))
 
     # store holes
     holes = []
@@ -89,6 +91,7 @@ def read_triangle(poly_file, ele_file, node_file=None):
         values = [float(x) for x in line]
         holes.append(values[1:])  # ignore label
     output['holes'] = np.array(holes)
+    #print(np.array(holes))
 
     # Read triangles
     try:
@@ -112,6 +115,7 @@ def read_triangle(poly_file, ele_file, node_file=None):
             triangles.append(values[1:]) # ignore label
         #print(len(triangles))
         output['triangles'] = np.array(triangles)
+        #print(np.array(triangles))
     except Exception:
         raise Exception("no triangles given in ele-file")
 
@@ -161,7 +165,7 @@ def create_mesh(output_name, poly_dict):
 
         if boundary:
             lines[boundary].append(line)
-    print("a" * 100)
+            ############
     # add triangles
     triangles = []
     for triangle in poly_dict['triangles']:
@@ -177,21 +181,23 @@ def create_mesh(output_name, poly_dict):
     gmsh.option.set_number("Geometry.Tolerance", 1e-3)
     gmsh.model.geo.remove_all_duplicates()
     gmsh.model.geo.synchronize()
-    print("b" * 100)
     # add physical groups
+    #print(lines.keys())
+    #print(lines[2])
+    #print(lines[1])
     for boundary, line_list in lines.items():
+        #print(line_list[:5])
+        #print()
+        #print(len(line_list))
         gmsh.model.addPhysicalGroup(dim=1, tags=line_list, tag=boundary)
     gmsh.model.addPhysicalGroup(dim=2, tags=triangles, tag=0)
-    print("c" * 100)
     # generate mesh
     gmsh.model.mesh.generate(2) # This seems to send all the messages
-    print("d" * 100)
 
     # names of physical groups
     gmsh.model.setPhysicalName(dim=2, tag=0, name="compound_surface")
     for boundary, line_list in lines.items():
         gmsh.model.setPhysicalName(dim=1, tag=boundary, name=f"boundary_{boundary}")
-    print("e" * 100)
     # write mesh to file
 
 

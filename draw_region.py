@@ -240,8 +240,18 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
         return
     
     def concentricPolygonRandom():
+        # TODO
+        # The circumscribing case, putting the circle in the polygon, is not quite flushed out. It needs 2 changes:
+        # One: It seems to be breaking with larger edge counts. I think this has to do with problems it faces with angle values larger
+        # than edge count, which I'm going to see if theres a simple solution in a second
+        # Two: The outer radius function needs to be completely reworked. Right now it ensures that the outer radius does not 
+        # intersect the inner radius, however with the circumscribing case the outer radius needs to make sure it encapsulates whatever weird
+        # values it comes up with. I think having a maximum radius for the inner section would work to reduce this difficulty, but it still needs
+        # to be edited in this way.
         xValue = int(canvas_width/2)
         yValue = int(3*canvas_height/7)
+        print(xValue, yValue)
+        angleCoef = (2*np.pi/int(edges.get()))
         valid = False
         while not valid:
             angles = []
@@ -252,57 +262,185 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
             flag = True
             for i in range(len(angles)):
                 theta = angles[i]
-                x = int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))))
-                y = int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                x = xValue + int(polyRadiusOne.get()) * np.cos(theta * angleCoef)
+                y = yValue + int(polyRadiusOne.get()) * np.sin(theta * angleCoef)
                 theta = angles[i - 1]
-                prevx = int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))))
-                prevy = int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                prevx = xValue + int(polyRadiusOne.get()) * np.cos(theta * angleCoef)
+                prevy = yValue + int(polyRadiusOne.get()) * np.sin(theta * angleCoef)
                 midx = (x + prevx) / 2
                 midy = (y + prevy) / 2
                 if math.sqrt((midx - xValue) ** 2 + (midy - yValue) ** 2) < int(polyRadiusTwo.get()):
                     flag = False
                 if i == len(angles) - 1:
                     theta = angles[0]
-                    nextx = int(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))))
-                    nexty = int(yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get()))))
+                    nextx = xValue + int(polyRadiusOne.get()) * np.cos(theta * angleCoef)
+                    nexty = yValue + int(polyRadiusOne.get()) * np.sin(theta * angleCoef)
                     if math.sqrt((nextx - xValue) ** 2 + (nexty - yValue) ** 2) < int(polyRadiusTwo.get()):
                         flag = False
             totalAngleChange = 0
             max = 0
-            for i in range(len(angles)):
-                totalAngleChange += abs(angles[i - 1] - angles[i])
-                if abs(angles[i - 1] - angles[i]) > max:
-                    max = abs(angles[i - 1] - angles[i])
+            print("in outer radius, angles are: ", angles)
+            for i in range(len(angles) - 1):
+                totalAngleChange += abs(angles[i] - angles[i + 1])
+                if abs(angles[i] - angles[i + 1]) > max:
+                    max = abs(angles[i] - angles[i + 1])
+            if abs((int(edges.get()) - angles[-1]) + angles[0]) > max:
+                max = abs((int(edges.get()) - angles[-1]) + angles[0])
             totalAngleChange -= max
-            if totalAngleChange < int(edges.get()) / 2:
+            if max > int(edges.get()) / 2:
                flag = False
             valid = flag
+        outerVertices = []
         for theta in angles:
-            paint(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
-                yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
-                )
-        components.append([])
+            point = [xValue + int(polyRadiusOne.get()) * np.cos(theta * angleCoef),
+                yValue + int(polyRadiusOne.get()) * np.sin(theta * angleCoef)]
+            outerVertices.append(point)
         angles = []
-        for i in range(0, int(edges.get())):
-            angles.append(random.uniform(0, int(edges.get())))
-        angles.sort()
-        for theta in angles:
-            paint(xValue + int(polyRadiusTwo.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
-                yValue + int(polyRadiusTwo.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
-                )
+        for point in outerVertices:
+                paint(point[0], point[1])
+        components.append([])
+        if inOrOut.get():
+            for i in range(0, int(edges.get())):
+                angles.append(random.uniform(0, int(edges.get())))
+            angles.sort()
+            for theta in angles:
+                paint(xValue + int(polyRadiusTwo.get()) * np.cos(theta * angleCoef),
+                    yValue + int(polyRadiusTwo.get()) * np.sin(theta * angleCoef)
+                    )
+        else:
+            radialCoef = (1 / (np.cos(np.pi / int(edges.get())))) * int(polyRadiusTwo.get())
+            theta = random.uniform(0, int(edges.get()))
+            angles.append(theta)
+            radius = []
+            radius.append(radialCoef)
+            totalMult = 0
+            paint(xValue + radialCoef * np.cos(theta * angleCoef),
+                   yValue + radialCoef * np.sin(theta * angleCoef))
+            for i in range(2, int(edges.get())):
+                if totalMult > 1.75 * int(edges.get()):
+                    mult = random.uniform(.5, .8) + 1
+                else:
+                    mult = random.uniform(.5, 1.5) + 1
+                totalMult += mult
+                print("radius at ", i, ": ", radius[i - 2])
+                change = np.arccos(int(polyRadiusTwo.get()) / radius[i - 2]) * (int(edges.get()) / (2 * np.pi))
+                difference = mult * change
+                tanAngle = theta + change
+                theta += difference
+                angles.append(theta)
+                a = xValue + radius[i - 2] * np.cos((tanAngle - change) * angleCoef)
+                # a = 735 + (100 * 1.1547005383792515) * cos((t - pi/6) * 2pi / 6)
+                b = yValue + radius[i - 2] * np.sin((tanAngle - change) * angleCoef)
+                c = xValue + int(polyRadiusTwo.get()) * np.cos(tanAngle * angleCoef)
+                d = yValue + int(polyRadiusTwo.get()) * np.sin(tanAngle * angleCoef)
+                m = (d - b) / (c - a)
+                print("angle", theta)
+                xOne = (m * c - d - xValue * np.tan(theta * angleCoef) + yValue) / (m - np.tan(theta * angleCoef))
+                yOne = m * (xOne - c) + d
+                print("point", xOne, yOne)
+                paint(xOne, yOne)
+                rad = np.sqrt((xOne - xValue) ** 2 + (yOne - yValue) ** 2)
+                radius.append(rad)
+            print(radius)
+            print(angles)
+            for i in range(len(angles)):
+                valid = False
+                while not valid:
+                    valid = True
+                    if angles[i] > int(edges.get()):
+                        angles[i] -= int(edges.get())
+                        valid = False
+            print(angles)
+            change = np.arccos(int(polyRadiusTwo.get()) / radius[-1])
+            theta = angles[0] - change
+            x = [0,0]
+            y = [0,0]
+            a = xValue + int(polyRadiusTwo.get()) * np.cos(theta * angleCoef)
+            b = yValue + int(polyRadiusTwo.get()) * np.sin(theta * angleCoef)
+            print("a0,b0", a,b)
+            x[0] = xValue + radialCoef * np.cos(angles[0] * angleCoef)
+            y[0] = yValue + radialCoef * np.sin(angles[0] * angleCoef)
+            print("x0,y0", x[0], y[0])
+            backSlope = (b - y[0]) / (a - x[0])
+            print("back", backSlope)
+            theta = angles[-1] + change
+            a = xValue + int(polyRadiusTwo.get()) * np.cos(theta * angleCoef)
+            b = yValue + int(polyRadiusTwo.get()) * np.sin(theta * angleCoef)
+            print("a1,b1", a,b)
+            x[1] = xValue + radius[-1] * np.cos(angles[-1] * angleCoef)
+            y[1] = yValue + radius[-1] * np.sin(angles[-1] * angleCoef)
+            print("x1,y1", x[1], y[1])
+            frontSlope = (b - y[1]) / (a - x[1])
+            print("front", frontSlope)
+            intersectionPoint = [0,0]
+            intersectionPoint[0] = ((frontSlope * x[1]) - (backSlope * x[0]) + y[0] - y[1]) / (frontSlope - backSlope)
+            intersectionPoint[1] = frontSlope * (intersectionPoint[0] - x[1]) + y[1]
+            print("inter", intersectionPoint)
+            paint(intersectionPoint[0], intersectionPoint[1])
+            
+            # use intersection point to get angle, use as maximum for deciding third to last point
+            # Then find the point between the first and third to last point which has midpoints on the circle when connected
+
+            # There is still an issue with ordering, i think for larger values it manages to wrap around itself, and unfortunatly I don't think this is solvable with sort.
+        for i in range(400):
+            angleCoef = (2*np.pi/400)
+            epsilon = 5
+            pointX = xValue + int(polyRadiusTwo.get()) * np.cos(i * angleCoef)
+            pointY = yValue + int(polyRadiusTwo.get()) * np.sin(i * angleCoef)
+            x_1, y_1 = (pointX - epsilon), (pointY - epsilon)
+            x_2, y_2 = (pointX + epsilon), (pointY + epsilon) # this and above create edges for the oval that will be set at that x and y
+            oTag = "Oval" + str(pointX) + str(pointY)
+            #print(oTag)
+            oval = canvas.create_oval(
+                x_1,
+                y_1,
+                x_2,
+                y_2,
+                tags=oTag,
+                fill=BDRY_COLORS[len(components) - 2],
+                outline=''
+            ) # creates a little oval to make the vertex more visible
+            canvas.tag_raise(oval) # moves the oval to the top of the display list, I think its unnessecary though
             
     def concentricPolygon():
         xValue = int(canvas_width/2)
         yValue = int(3*canvas_height/7)
+        angleCoef = (2*np.pi/int(edges.get()))
         for theta in range(0, int(edges.get())):
-            paint(xValue + int(polyRadiusOne.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
-                yValue + int(polyRadiusOne.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
+            paint(xValue + int(polyRadiusOne.get()) * np.cos(theta * angleCoef),
+                yValue + int(polyRadiusOne.get()) * np.sin(theta * angleCoef)
                 )
         components.append([])
-        for theta in range(0, int(edges.get())):
-            paint(xValue + int(polyRadiusTwo.get()) * np.cos(theta * (2*np.pi/int(edges.get()))),
-                yValue + int(polyRadiusTwo.get()) * np.sin(theta * (2*np.pi/int(edges.get())))
-                )
+        if inOrOut.get():
+            for theta in range(0, int(edges.get())):
+                paint(xValue + int(polyRadiusTwo.get()) * np.cos(theta * angleCoef),
+                    yValue + int(polyRadiusTwo.get()) * np.sin(theta * angleCoef)
+                    )
+        else:
+            radialCoef = (1 / (np.cos(np.pi / int(edges.get()))))
+            for theta in range(0, int(edges.get())):
+                paint(xValue + (int(polyRadiusTwo.get()) * radialCoef) * np.cos(theta * angleCoef),
+                    yValue + (int(polyRadiusTwo.get()) * radialCoef) * np.sin(theta * angleCoef)
+                    )
+        # for i in range(400):
+        #     angleCoef = (2*np.pi/400)
+        #     epsilon = 5
+        #     pointX = xValue + int(polyRadiusTwo.get()) * np.cos(i * angleCoef)
+        #     pointY = yValue + int(polyRadiusTwo.get()) * np.sin(i * angleCoef)
+        #     x_1, y_1 = (pointX - epsilon), (pointY - epsilon)
+        #     x_2, y_2 = (pointX + epsilon), (pointY + epsilon) # this and above create edges for the oval that will be set at that x and y
+        #     oTag = "Oval" + str(pointX) + str(pointY)
+        #     #print(oTag)
+        #     oval = canvas.create_oval(
+        #         x_1,
+        #         y_1,
+        #         x_2,
+        #         y_2,
+        #         tags=oTag,
+        #         fill=BDRY_COLORS[len(components) - 1],
+        #         outline=''
+        #     ) # creates a little oval to make the vertex more visible
+        #     canvas.tag_raise(oval) # moves the oval to the top of the display list, I think its unnessecary though
             
     def polygon():
         # TODO add inner != outer side numbers
@@ -368,13 +506,13 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
 
     createPolygon = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/64), text="Insert Polygon", command=polygon)
     createPolygon.grid(column=3, row=0)
-    
+
     randomSet = tk.BooleanVar()
     randomButton = tk.Checkbutton(controls, height=int(canvas_height/42), width=int(canvas_height/42), variable=randomSet, text='Randomize Vertices')
     randomButton.grid(column=4, row=0)
-    
-    button5 = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgFill)
-    button5.grid(column=5, row=0)
+    inOrOut = tk.BooleanVar()
+    inOutButton = tk.Checkbutton(controls, height=int(canvas_height/42), width=int(canvas_height/42), variable=inOrOut, text='Inscribed or Circumscribed')
+    inOutButton.grid(column=5, row=0)
     
     redo_button = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgRedo, command=redo)
     redo_button.grid(column=6, row=0)
@@ -586,6 +724,7 @@ def draw_region_back(fileRoot, fileName, inSideNum, outSideNum, inRad, outRad, x
                                                     int(int(inRad) * np.sin(theta * (2*np.pi/int(inSideNum))))])
     else:
         components = [[]]
+        print(outRad)
         for theta in range(0, int(outSideNum)):
             components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum)))),
                                                     int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))])
@@ -603,11 +742,8 @@ def draw_region_back(fileRoot, fileName, inSideNum, outSideNum, inRad, outRad, x
     with open(poly_path, 'w', encoding='utf-8') as file:
         region.write(file) # writes the region to the polyfile
 
-    return
-
 if __name__ == "__main__":
     if len(argv) > 1:
         draw_region(argv[1], argv[2])
     else:
         draw_region()
-    #draw_region_back('vertex', 'vertex13', 13, 75, 200)
