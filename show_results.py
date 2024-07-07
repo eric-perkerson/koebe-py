@@ -15,6 +15,7 @@ from matplotlib.patches import Annulus, Circle, Polygon
 from matplotlib import animation
 import draw_region
 import subprocess
+import random
 import os
 from pathlib import Path
 import math
@@ -261,19 +262,39 @@ class DrawRegion(tk.Frame):
 class show_results:
 
     def __init__(self):
-        self.flags = False
-        self.stopFlag = False
-        self.showFlag = True
-        self.matCanvas = None
-        self.ax2 = None
-        self.modulusLabel = None
-        self.g_star_bar = None
-        self.period_gsb = None
-        self.currentGValue = None
-        self.flag2 = True
+        # The following is my list of instance variables, embarrassing.
+        self.flags = False # Switches the call back from determining point in hole to base point
+        self.stopFlag = False # Stops the call back from adding further points
+        self.matCanvas = None # This holds the tk canvas widget
+        self.ax2 = None # This will eventually hold the uniformization
+        self.g_star_bar = None # This is the values of the g bar function
+        self.period_gsb = None # This is the period of g bar
+        self.currentGValue = None # This holds the selected indices g value
+        self.currentGBarValue = None # This holds the selected indices g bar value
+        self.changeGBar = None # This holds the change in g bar at that index compared to the next
+        self.fig = None # This is the figure displaying everything
+        self.axes = None # This holds the displayed mesh
+        self.graphHolder = None # This is the frame the canvas is placed into
+        self.canvas = None # This holds the canvas the figure is placed in
+        self.toolbar = None # This is the toolbar of the matplotlib interface
+        self.callbackName = None # This holds the current call back for clicking
+        self.tri = None # This holds the actual triangulation object from the figure
+        self.fileRoot = None # This holds the root of the files for the selected figure
+        self.fileName = None # This holds the name of the files for the selected figure
+        self.base_cell = None # This is the index of the voronoi cell where the user clicked inside the graph
+        self.base_point = None # This holds the actual vertex of that index in base_cell
+        self.cell_path = None # This will hold the cell path of the slit, the cells comprising the slit
+        self.pointInHole = None # This is the selected point inside the hole in the figure
+        self.omega_0 = None # To be frank I'm not totally sure, I think its the cell from which all paths start/ minimum angle to the line of the slit
+        self.lambda_graph = None # This is the network of the figure
+        self.shortest_paths = None # Array of shortest paths between omega_0 and each cell
+        self.editor = None # Probably first to get removed, it will store the frame that pops up when you click while editing flux
+        self.selectedIndex = None # index of the edge closest to the click when editing flux
+        self.averageChange = None # Average change in g bar across the whole graph
         self.gui, self.canvas_width, self.canvas_height, = self.basicGui()
         self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
         self.modulus = tk.StringVar()
+
 
         self.graphConfigs = GraphConfig(width=self.canvas_width, height=self.canvas_height)
         self.gifConfig = GifConfig(self.canvas_height, self.canvas_width)
@@ -318,7 +339,6 @@ class show_results:
         self.controls.grid(column=0, row=0)
         self.stopFlag = False
         self.flags = False
-        self.showFlag = True
         text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.", bg=BG_COLOR)
         text.grid(column=0, row=0)
         self.fileRoot = self.enteredFileRoot.get()
@@ -364,16 +384,17 @@ class show_results:
         callbackName = fig.canvas.callbacks.connect('button_press_event', self.callback)
         return fig, axes, graphHolder, canvas, toolbar, graphHolder, callbackName
     
-    def callback(self,event):
+    def callback(self, event):
         if (self.fig.canvas.toolbar.mode != ''):
             #print(self.fig.canvas.toolbar.mode)
             return
         x = event.xdata
         y = event.ydata
+        if x is None or y is None:
+            return
         self.plotPoint(x,y)
 
     def plotPoint(self, x, y):
-        print(self.showFlag)
         if (not self.stopFlag):
             if (self.flags):
                 self.base_cell = self.determinePolygon(x, y)
@@ -389,9 +410,6 @@ class show_results:
                 plt.draw()
                 self.stopFlag = True
                 self.showSlitPath()
-                if self.showFlag == True:
-                    #self.showSlitPath()
-                    self.showFlag = False
 
         self.flags = True
 
@@ -413,7 +431,7 @@ class show_results:
 
     # Seems to basically act as a test, testing whether a given edge (i think tail-head is the circumcenters forming the edge) is intersecting the hole-base line
     # it seems to be used with circumcenters, so by edge i mean edges between circumcenters, not edges of the triangulation
-    def segment_intersects_line(self,tail, head):
+    def segment_intersects_line(self, tail, head):
         tail_to_right = point_to_right_of_line_compiled(
             self.pointInHole[0],
             self.pointInHole[1],
@@ -523,7 +541,7 @@ class show_results:
         slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
 
         # Create poly edge path on the left of line
-        self.connected_component = []
+        connected_component = []
         perpendicular_edges = []
         #this loops through every cell in the cell path
         for cell_path_index, cell in enumerate(reversed(self.cell_path)):
@@ -540,7 +558,7 @@ class show_results:
                         self.tri.circumcenters[edge[1]]
                     )):
                         if (contained_topology[cell][edge_index] != -1):  # This most likely checks to make sure the edge is not on the outside of the figure
-                            self.connected_component.append(edge) # add the edge as a connected component
+                            connected_component.append(edge) # add the edge as a connected component
                             perpendicular_edges.append((cell, contained_topology[cell][edge_index])) # This adds a tuplet with the original cell, and the vertex of that cells current index, not sure what for, its never used
                     else:
                         break # this is the only way to break the while loop, it happens if a previous edge has a tail to the right, and we've now gotten to an edge that has a head to the right of the line
@@ -552,13 +570,13 @@ class show_results:
         # This creates a path of EDGES, currently we had a path of cellsx
         
         # Edges to weight
-        self.edges_to_weight = []
+        edges_to_weight = []
         for cell_path_index, cell in enumerate(reversed(self.cell_path)): # again loops over the path of cells
             edges = self.tri.make_polygon_edges(self.tri.contained_polygons[cell]) # again retrives a list of all edges in that cell
             for edge in edges: # loops over each edge
                 if self.segment_intersects_line(self.tri.circumcenters[edge[0]], self.tri.circumcenters[edge[1]]): # if the segment in the cell path intersects the line
-                    self.edges_to_weight.append(edge) # adds every edge that intersects the line
-        self.edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), self.edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
+                    edges_to_weight.append(edge) # adds every edge that intersects the line
+        edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
 
         # Create contained_edges
         # triangulation_edges_reindexed = self.tri.original_to_contained_index[self.tri.triangulation_edges]
@@ -570,8 +588,8 @@ class show_results:
 
                 # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
         # the circumcenter of the base_cell
-        slit_path = [edge[0] for edge in self.connected_component] # the slit path is the sequence of edges from inside to out
-        slit_path.append(self.connected_component[-1][1]) # adds the final edge
+        slit_path = [edge[0] for edge in connected_component] # the slit path is the sequence of edges from inside to out
+        slit_path.append(connected_component[-1][1]) # adds the final edge
         # Connected component goes from outer boundary to inner boundary. Reverse after making slit
         slit_path = list(reversed(slit_path))
         angles = np.array([ # builds an array of angles between the circumcenter and line
@@ -587,14 +605,13 @@ class show_results:
         self.lambda_graph.add_nodes_from(range(len(self.tri.circumcenters))) # adds all circumcenters, not really maintaining structure just adding a node for each
         self.lambda_graph.add_edges_from(self.tri.voronoi_edges) # adds all edges connecting these nodes
         nx.set_edge_attributes(self.lambda_graph, values=1, name='weight') # sets all edges to have a value of 1
-        for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
+        for edge in edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
     def redraw(self):
-        self.createNewConfigFrame(self.mainMenu, "Click a point inside the hole, then click a point outside the graph to choose the line.")
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Click a point inside the hole, then click a point outside the graph to choose the line.")
         self.flags = False
         self.stopFlag = False
-        self.showFlag = True
         self.show()
 
     def updateLambdaGraph(self):
@@ -636,9 +653,9 @@ class show_results:
 
         # Interpolate the value of pde_solution to get its values on the omegas
         pde_on_omega_values = [np.mean(self.tri.pde_values[self.tri.triangles[i]]) for i in range(self.tri.num_triangles)] # takes in the solution on the triangle vertices and gives a solution on the circumcenter/node
-        period_gsb = np.max(self.g_star_bar) # the maximum value in the vector is stored, so i guess the largest flux
+        self.period_gsb = np.max(self.g_star_bar) # the maximum value in the vector is stored, so i guess the largest flux
         # TODO: allow the last edge so we get all the
-        uniformization = np.exp(2 * np.pi / period_gsb * (pde_on_omega_values + 1j * self.g_star_bar)) # Uniformizes the triangulation into an approximation of the annulus
+        uniformization = np.exp(2 * np.pi / self.period_gsb * (pde_on_omega_values + 1j * self.g_star_bar)) # Uniformizes the triangulation into an approximation of the annulus
 
         # Level curves for gsb
         g_star_bar_interpolated_interior = np.array([np.mean(self.g_star_bar[poly]) for poly in self.tri.contained_polygons]) # vector of the average fluxes for each contained cell
@@ -652,7 +669,8 @@ class show_results:
         #print(uniformization)
         return uniformization
     
-    def findModulus(self, uni):
+    @staticmethod
+    def findModulus(uni):
         reals = np.real(uni)
         imags = np.imag(uni)
         reals = np.square(reals)
@@ -748,7 +766,8 @@ class show_results:
         axes.add_collection(line_collection)
 
     # Find the perpendicular edges to the lambda path
-    def build_path_edges(self, vertices): # specifically this takes in a list of verticies, and creates a list of edges connecting the verticies in order that they are stored
+    @staticmethod
+    def build_path_edges(vertices): # specifically this takes in a list of verticies, and creates a list of edges connecting the verticies in order that they are stored
         #print(vertices)
         edges = []
         for i in range(len(vertices) - 1):
@@ -908,10 +927,10 @@ class show_results:
             self.showSlit()
         else:
             self.canvas.draw()
-            if not first:
-                self.toolbar.push_current()
-                self.axes.set_xlim(xZoom)
-                self.axes.set_ylim(yZoom)
+        if not first:
+            self.toolbar.push_current()
+            self.axes.set_xlim(xZoom)
+            self.axes.set_ylim(yZoom)
 
     def showSlit(self):
         # highlights the slit
@@ -964,7 +983,7 @@ class show_results:
         animButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Create Animation", command = self.animationConfig, bg=BG_COLOR)
         animButton.grid(column=0, row=1)
 
-        numericalButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Numerical Values", command = self.showNumericalResults, bg=BG_COLOR)
+        numericalButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Numerical Values", command = self.showFunction, bg=BG_COLOR)
         numericalButton.grid(column=1, row=1)
 
         numericalButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Load a new Figure", command = self.loadNew, bg=BG_COLOR)
@@ -978,14 +997,12 @@ class show_results:
         self.controls.grid_remove()
         self.stopFlag = False
         self.flags = False
-        self.showFlag = True
         self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
 
     def showSlitPath(self):
         # displays slit path and takes to the main menu
         self.slitPathCalculate()
-        if self.flag2 is True:
-            self.mainMenu()
+        self.mainMenu()
 
     def nearestEdge(self, x, y):
         distanceToMidPoints = np.array([ # builds an array of distance between click and edge midpoints
@@ -1004,7 +1021,8 @@ class show_results:
         plt.draw()
         return index
 
-    def validateText(self, input, index):
+    @staticmethod
+    def validateText(input, index):
         # lets text come through if its in a valid format
         if input.count(".") > 1:
             return False
@@ -1040,6 +1058,8 @@ class show_results:
         self.updateLambdaGraph()
         x = event.xdata
         y = event.ydata        
+        if x is None or y is None:
+            return
         # finds index of the edge closest to the mouse click
         self.selectedIndex = self.nearestEdge(x, y)
 
@@ -1113,6 +1133,8 @@ class show_results:
         x = event.xdata
         y = event.ydata
 
+        if x is None or y is None:
+            return
         distanceToVerticies = np.array([ # builds an array of distance between click and edge midpoints
             ((vertex[0] - x)**2 +
             (vertex[1] - y)**2)
@@ -1215,7 +1237,6 @@ class show_results:
         self.flags = False
         self.stopFlag = False
         hole_x, hole_y = self.tri.region.points_in_holes[0]
-        self.flag2 = False
         self.plotPoint(hole_x, hole_y)
         self.plotPoint(hole_x + 1000, hole_y)
         self.slitPathCalculate()
@@ -1226,65 +1247,58 @@ class show_results:
         self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
         self.updateMod()
 
-    def showG(self):
-        # Think of a more efficient way, maybe attaching each to their index, sorting, and using that to find the correct index, but here we go
-        self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.gFinder)
-        self.controls.grid_remove()
-        self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
-        self.controls.grid(column=0, row=0)
-        self.controls.columnconfigure(0, weight=1)
-        self.controls.rowconfigure(0, weight=1)
-        instructionLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="g = " + str(self.currentGValue), bg=BG_COLOR)
-        instructionLabel.grid(column=0, row=1)
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="back", command = self.showNumericalResults, bg=BG_COLOR)
-        backButton.grid(column=0, row=2)
-    
-    def gFinder(self, event):
-        self.show()
-        x = event.xdata
-        y = event.ydata
-        vertexIndex = self.nearestVertex(x, y)
-        self.currentGValue = self.tri.pde_values[vertexIndex]
-        plt.plot(self.tri.vertices[vertexIndex][0], self.tri.vertices[vertexIndex][1], 'bo', markersize = 2)
-        plt.draw()
-        self.showG()
-
-    
-    def nearestVertex(self, x, y):
-        distanceToVerticies = np.array([ # builds an array of distance between click and vertices
-            ((vertex[0] - x)**2 +
-            (vertex[1] - y)**2)
-            for vertex in self.tri.vertices
+    def nearestVertexInPoly(self, x, y, polygon):
+        distanceToVertices = np.array([ # builds an array of distance between click and vertices
+            ((self.tri.circumcenters[index][0] - x)**2 +
+            (self.tri.circumcenters[index][1] - y)**2)
+            for index in self.tri.contained_polygons[polygon]
         ])
-        return np.argmin(distanceToVerticies)
-    
-    def gBarFinder(self, event):
-        x = event.xdata
-        y = event.ydata
-        distanceToVerticies = np.array([ # builds an array of distance between click and vertices
-            ((vertex[0] - x)**2 +
-            (vertex[1] - y)**2)
-            for vertex in self.tri.vertices # replace with circumcenters around the contained polygon at the voronoi cell.
-        ])
-        return np.argmin(distanceToVerticies)
+        return self.tri.contained_polygons[polygon][np.argmin(distanceToVertices)]
     
     def voroniFinder(self, event):
+        if (self.fig.canvas.toolbar.mode != ''):
+            #print(self.fig.canvas.toolbar.mode)
+            return
         self.show()
         x = event.xdata
         y = event.ydata
+        if x is None or y is None:
+            self.showFunction()
         voronoiIndex = self.determinePolygon(x, y)
+        vertexIndex = self.nearestVertexInPoly(x, y, voronoiIndex)
         cell = self.tri.vertices[self.tri.contained_to_original_index[voronoiIndex]]
+        vertex = self.tri.circumcenters[vertexIndex]
+        plt.plot(vertex[0], vertex[1], 'bo', markersize = 2)
         plt.plot(cell[0], cell[1], 'bo', markersize = 2)
-        print(self.tri.contained_polygons[voronoiIndex])
         # for vertex in self.tri.contained_polygons[voronoiIndex]:
         #     plt.plot(self.tri.circumcenters[vertex][0], self.tri.circumcenters[vertex][1], 'bo', markersize = 2)
         # COME BACK TO TODO, not finding period thats on eric, though displaying the rest is fine, even if the difference will be handled elsewhere (with sample of 100 random vertices).
+        xZoom = self.axes.get_xlim()
+        yZoom = self.axes.get_ylim()
         plt.draw()
-        self.showGBarAfterCell(voronoiIndex)
-
+        self.toolbar.push_current()
+        self.axes.set_xlim(xZoom)
+        self.axes.set_ylim(yZoom)
+        self.currentGValue = self.tri.pde_values[self.tri.contained_to_original_index[voronoiIndex]]
+        self.currentGBarValue = self.g_star_bar[vertexIndex]
+        if vertexIndex in self.tri.contained_polygons[voronoiIndex]:
+            adjacentBarInd = self.tri.contained_polygons[voronoiIndex].index(vertexIndex) + 1
+            # print(adjacentBarInd)
+            if adjacentBarInd >= len(self.tri.contained_polygons[voronoiIndex]):
+                adjacentBarInd = 0
+            # print(self.tri.contained_polygons[voronoiIndex][adjacentBarInd])
+            self.changeGBar = abs(self.g_star_bar[vertexIndex] - self.g_star_bar[self.tri.contained_polygons[voronoiIndex][adjacentBarInd]])
+        else:
+            self.changeGBar = None
+        # print("Hopefully correct polygon: ", self.tri.contained_polygons[voronoiIndex], self.tri.contained_to_original_index[voronoiIndex])
+        # print("Using Circumcenters: ", self.tri.circumcenters[vertexIndex])
+        # print("Hopefully correct center: ", cell, voronoiIndex)
+        # print("Hopefully correct vertex, using circumcenters: ", vertex, vertexIndex)
+        self.showGBarAfter()
     
-    def showGBar(self):
+    def showFunction(self):
+        self.updateLambdaGraph()
+        self.calculateUniformization()
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voroniFinder)
         self.controls.grid_remove()
@@ -1292,47 +1306,45 @@ class show_results:
         self.controls.grid(column=0, row=0)
         self.controls.columnconfigure(0, weight=1)
         self.controls.rowconfigure(0, weight=1)
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="back", command = self.showNumericalResults, bg=BG_COLOR)
-        backButton.grid(column=0, row=1)
+        if len(self.tri.contained_polygons) >= 100:
+            size = 100
+        else:
+            size = len(self.tri.contained_polygons)
+        changeArray = np.zeros(size)
+        for i in range(size):
+            index = random.randint(0, len(self.tri.contained_polygons) - 1)
+            vertexInd = random.randint(0, len(self.tri.contained_polygons[index]) - 1)
+            adjacentBarInd = vertexInd + 1
+            if adjacentBarInd >= len(self.tri.contained_polygons[index]):
+                adjacentBarInd = 0
+            changeArray[i] = abs(self.g_star_bar[self.tri.contained_polygons[index][vertexInd]] - self.g_star_bar[self.tri.contained_polygons[index][adjacentBarInd]])
+        self.averageChange = np.mean(changeArray)
+        instructionLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Click on a vertex to display function information")
+        instructionLabel.grid(column=0, row=1)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="back", command = self.disconnectAndReturn, bg=BG_COLOR)
+        backButton.grid(column=0, row=2)
     
-    def showGBarAfterCell(self, cell):
+    def showGBarAfter(self):
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.gBarFinder)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voroniFinder)
         self.controls.grid_remove()
         self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         self.controls.grid(column=0, row=0)
         self.controls.columnconfigure(0, weight=1)
         self.controls.rowconfigure(0, weight=1)
-        gBarLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="g bar = " + str(self.currentGValue), bg=BG_COLOR)
-        gBarLabel.grid(column=0, row=1)
-        changeLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Change in g bar = " + str(self.currentGValue), bg=BG_COLOR)
+        gLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="g = " + str(self.currentGValue), bg=BG_COLOR)
+        gLabel.grid(column=0, row=1)
+        gBarLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="g bar = " + str(self.currentGBarValue), bg=BG_COLOR)
+        gBarLabel.grid(column=2, row=1)
+        changeLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="Change in g bar = " + str(self.changeGBar), bg=BG_COLOR)
         changeLabel.grid(column=0, row=2)
-        periodLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Period of g bar = " + str(self.currentGValue), bg=BG_COLOR)
+        averageChangeLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Average change in g bar = " + str(self.averageChange), bg=BG_COLOR)
+        averageChangeLabel.grid(column=2, row=2)
+        periodLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="Period of g bar = " + str(self.period_gsb), bg=BG_COLOR)
         periodLabel.grid(column=0, row=3)
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="back", command = self.showNumericalResults, bg=BG_COLOR)
-        backButton.grid(column=0, row=4)
 
-    def showNumericalResults(self):
-        self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
-        self.controls.grid_remove()
-        self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
-        self.controls.grid(column=0, row=0)
-        self.controls.columnconfigure(0, weight=1)
-        self.controls.rowconfigure(0, weight=1)
-        instructionLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="Click buttons for numerical results", bg=BG_COLOR)
-        instructionLabel.grid(column=0, row=0)
-        # Buttons should be:
-        # Show g at a selected vertex, clicker to display in a label in the controls section
-        # Show g_bar at a selected vornoi cell's vertex, this should also show the difference between it and an adjacent vertex on the cell, always pick the next one around. This should also show the period. So display selected value for g_bar on top of period in labels in controls
-        gFunctionValueButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show g value", command = self.showG, bg=BG_COLOR)
-        gFunctionValueButton.grid(column=0, row=1)
-        gBarValueButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Show g bar values", command = self.showGBar, bg=BG_COLOR)
-        gBarValueButton.grid(column=0, row=2)
-
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu, bg=BG_COLOR)
-        backButton.grid(column=0, row=3)
-
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="back", command = self.disconnectAndReturn, bg=BG_COLOR)
+        backButton.grid(column=1, row=4)
 
     def showDraw(self):
         self.controls.grid_remove()
@@ -1355,16 +1367,16 @@ class show_results:
         self.show()
 
     def createNew(self, freeDraw, fileRoot, fileName, triCount, inEdgeNum, outEdgeNum, inRad = None, outRad = None, randomOrNot = False):
-        if freeDraw:
-            subprocess.run([
-                'python',
-                'draw_region.py',
-                fileName,
-                fileRoot
-            ])
-        else:
-            draw_region.draw_region_back(fileRoot, fileName, inEdgeNum, outEdgeNum, inRad, outRad, randomSet = randomOrNot)
-        print("drew region")
+        # if freeDraw:
+        #     subprocess.run([
+        #         'python',
+        #         'draw_region.py',
+        #         fileName,
+        #         fileRoot
+        #     ])
+        # else:
+        #     draw_region.draw_region_back(fileRoot, fileName, inEdgeNum, outEdgeNum, inRad, outRad, randomSet = randomOrNot)
+        # print("drew region")
         print(triCount)
         print(str(triCount))
         subprocess.run([
@@ -1377,7 +1389,6 @@ class show_results:
         ])
         print("triangulated region")
         t = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
-        # Error caused here seems to stem from improperly writing the number of vertices to the .node file. I think its a bug from the triangle refinement.
         t.write(f'regions/{fileRoot}/{fileName}/{fileName}.output.poly')
         print("did the weird read and write thing")
         subprocess.run([

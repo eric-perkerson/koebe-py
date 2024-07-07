@@ -178,7 +178,7 @@ def create_mesh(output_name, poly_dict):
         triangles.append(triangle)
 
     # synchronize geometry before adding physical groups
-    gmsh.option.set_number("Geometry.Tolerance", 1e-3)
+    gmsh.option.set_number("Geometry.Tolerance", 1e-10)
     gmsh.model.geo.remove_all_duplicates()
     gmsh.model.geo.synchronize()
     # add physical groups
