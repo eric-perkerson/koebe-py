@@ -1,10 +1,10 @@
 # Fdb version 3
-["xdvipdfmx"] 1719778676 "eric_saar_annuli.xdv" "eric_saar_annuli.pdf" "eric_saar_annuli" 1719778681
-  "eric_saar_annuli.xdv" 1719778676 38848 f91efc5d7db7daf16a9299c80422cf6e "xelatex"
+["xdvipdfmx"] 1720984126 "eric_saar_annuli.xdv" "eric_saar_annuli.pdf" "eric_saar_annuli" 1720984126
+  "eric_saar_annuli.xdv" 1720984126 42444 3ec234647bfb729a0f04a5862489cd93 "xelatex"
   (generated)
   "eric_saar_annuli.pdf"
-["xelatex"] 1719778676 "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" "eric_saar_annuli.xdv" "eric_saar_annuli" 1719778681
-  "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" 1719778591 5956 881aba897fe3623c8e548d8506567acc ""
+["xelatex"] 1720984125 "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" "eric_saar_annuli.xdv" "eric_saar_annuli" 1720984126
+  "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" 1720984125 6497 6fb210f0c6cd3d9d881b3aad3fbaa583 ""
   "/usr/local/texlive/2020/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2020/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex7.tfm" 1246382020 1004 54797486969f23fa377b128694d548df ""
   "/usr/local/texlive/2020/texmf-dist/fonts/tfm/public/amsfonts/symbols/msam10.tfm" 1246382020 916 f87d7c45f9c908e672703b83b72241a3 ""
@@ -15,6 +15,7 @@
   "/usr/local/texlive/2020/texmf-dist/fonts/tfm/public/amsfonts/symbols/msbm7.tfm" 1246382020 940 228d6584342e91276bf566bcf9716b83 ""
   "/usr/local/texlive/2020/texmf-dist/tex/generic/kvsetkeys/kvsetkeys.sty" 1576624944 13807 952b0226d4efca026f0e19dd266dcc22 ""
   "/usr/local/texlive/2020/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty" 1576624883 18552 1e1cc7b75da0dfaacce7cdcb27d306bf ""
+  "/usr/local/texlive/2020/texmf-dist/tex/latex/algorithm2e/algorithm2e.sty" 1500498588 167160 d91cee26d3ef5727644d2110445741dd ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/amsfonts/amsfonts.sty" 1359763108 5949 3f3fd50a8cc94c3d4cbf4fc66cd3df1c ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/amsfonts/amssymb.sty" 1359763108 13829 94730e64147574077f8ecfea9bb69af4 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/amsfonts/umsa.fd" 1359763108 961 6518c6525a34feb5e8250ffa91731cff ""
@@ -25,6 +26,7 @@
   "/usr/local/texlive/2020/texmf-dist/tex/latex/amsmath/amsopn.sty" 1523134290 4116 32e6abd27229755a83a8b7f18e583890 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/amsmath/amstext.sty" 1523134290 2432 8ff93b1137020e8f21930562a874ae66 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/base/article.cls" 1580683321 20023 e427dd9e17e239bf926ef3aab67fe35e ""
+  "/usr/local/texlive/2020/texmf-dist/tex/latex/base/ifthen.sty" 1580683321 5159 892429808d9e0e2b3548aaefd9a06ed0 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/base/size10.clo" 1580683321 8446 9874cccac5fee462272c582807dbbf56 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/base/ts1cmr.fd" 1580683321 2431 b6cead9f069ed55f4fba0c637aa047b6 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/etoolbox/etoolbox.sty" 1569190624 45259 743c52a37a6e5ed83cfe0e128b2da10d ""
@@ -34,15 +36,18 @@
   "/usr/local/texlive/2020/texmf-dist/tex/latex/graphics/graphicx.sty" 1580683321 9067 1b996612394a52e1efe89c8bfe8a5892 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/graphics/keyval.sty" 1580683321 2590 e3b24ff953e5b58d924f163d25380312 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/graphics/trig.sty" 1580683321 3976 d7fa7d81d2870d509d25b17d0245e735 ""
+  "/usr/local/texlive/2020/texmf-dist/tex/latex/ifoddpage/ifoddpage.sty" 1461535682 2148 0426cd8bb94163c1e23726d0c15e2c21 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/kvoptions/kvoptions.sty" 1575152344 22520 c4c2dab203104295e1e618be7e5c0f5b ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/l3backend/l3backend-xdvipdfmx.def" 1584044900 24122 2811f916663c7ee4dc89a3107086b073 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/parskip/parskip.sty" 1579802043 4151 bd592f37b856f80e699388b77e72d753 ""
   "/usr/local/texlive/2020/texmf-dist/tex/latex/preprint/fullpage.sty" 1137110595 2789 05b418f78b224ec872f5b11081138605 ""
+  "/usr/local/texlive/2020/texmf-dist/tex/latex/relsize/relsize.sty" 1369619135 15542 c4cc3164fe24f2f2fbb06eb71b1da4c4 ""
+  "/usr/local/texlive/2020/texmf-dist/tex/latex/tools/xspace.sty" 1580683321 4546 3e6071704acf4f66392376b7b66ae02c ""
   "/usr/local/texlive/2020/texmf-dist/web2c/texmf.cnf" 1583102494 39451 60d7debd9ef8ece44cbe965493576c2d ""
   "/usr/local/texlive/2020/texmf-var/web2c/xetex/xelatex.fmt" 1586288269 4769632 cea4f80911e5df070b1f6d7834d4faf8 ""
   "/usr/local/texlive/2020/texmf.cnf" 1586288231 577 d60164b4589a341208aff7a667fbbdcb ""
-  "eric_saar_annuli.aux" 1719778676 930 aa1e43c2f361a6181201b628c272ec22 "xelatex"
-  "eric_saar_annuli.tex" 1719778591 5956 881aba897fe3623c8e548d8506567acc ""
+  "eric_saar_annuli.aux" 1720984126 1113 6f682a3d117b669fa240d6d18822144e "xelatex"
+  "eric_saar_annuli.tex" 1720984125 6497 6fb210f0c6cd3d9d881b3aad3fbaa583 ""
   (generated)
   "eric_saar_annuli.aux"
   "eric_saar_annuli.xdv"

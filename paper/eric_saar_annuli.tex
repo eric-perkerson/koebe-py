@@ -7,6 +7,7 @@
 	amssymb,
 }
 \usepackage[parfill]{parskip}
+\usepackage[ruled]{algorithm2e}
 
 \newcommand{\problem}[2][]{ \vspace{10pt}{\Large \bf{Problem #2} } {\em #1} \\ \vspace{0pt}}
 \newcommand{\subproblem}[2][]{ \vspace{10pt} {\large \bf{#2} } {\em #1} \\ }
@@ -45,7 +46,7 @@
 
 \section{Construction of the Slit}
 
-Notation: let $[a : b] := [a, b] \cap \mathbb{Z}$, i.e. the integers from $a$ to $b$ inclusive.
+Notation: let $[a : b] := \{ z \in \mathbb{Z} \colon a \le z \le b \}$.
 
 Given a region $R \subset \mathbb{R}^2$ which is a topological annulus, we construct a triangulation $T = (T_0, T_1, T_2)$ where $T_0 = (v_0, v_1, \dots, v_{n_v - 1})$ is a tuple of triangulation vertices $v_i \in \mathbb{R}^2$, $T_1 = (e_0, e_1, \dots, e_{n_e - 1})$ is a tuple of triangulation edges $e_i \in T_0 \times T_0$, and $T_2 = (t_0, t_1, \dots, t_{n_t - 1})$ is a tuple of triangles $t_i \in T_0 \times T_0 \times T_0$. The triangulation is constructed to be acute, meaning that for all $i$, $t_i \in T_2$ is an acute triangle.
 
@@ -68,6 +69,22 @@ Using the ray $r$, we construct a slit path of Voronoi cells $S_\rho$ in $\tilde
 	if \texttt{edge} intersects $r$ with a positive orientation, then update $p \leftarrow A_\rho[p, \texttt{edge}]$. If $p \ne -1$, goto step (1).
 	\item Finally, we perform a similar process to construct the inward component of the cell path slit, reversing the orientation of the intersection being searched for. Now the two components can be appropriately concatenated to form the entire cell path slit from inner boundary to outer boundary.
 \end{enumerate}
+
+\begin{algorithm}%[H]
+	\SetAlgoLined
+	\LinesNumbered
+	\DontPrintSemicolon
+	\SetArgSty{textnormal}
+	\KwIn{A region object \texttt{R} with genus two}
+	\KwOut{The singular level curve of the region object \texttt{R}}
+	T = triangulate\_acute(R)\;
+	f = solve\_pdf(T)\;
+	% $\Lambda$ = build\_lambda(T)\;
+	singular\_vertex = find\_singular\_vertex(T)\;
+	singular\_height = f(singular\_vertex)\;
+	singular\_level\_curve = compute\_level\_curve(T, singular\_height)\;
+	\caption{Algorithm to Compute the Singular Level Curve}
+\end{algorithm}
 
 Note: it is simpler (and avoids a possible issue with having the base cell not in the first connected component of the cells intersected by the ray $r$) to restrict the selection of the base cell $\rho_\omega$ to the cells with are hit first by the ray $r$.
 

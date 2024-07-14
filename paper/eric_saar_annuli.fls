@@ -46,6 +46,16 @@ INPUT /usr/local/texlive/2020/texmf-dist/tex/generic/kvsetkeys/kvsetkeys.sty
 INPUT /usr/local/texlive/2020/texmf-dist/tex/generic/kvsetkeys/kvsetkeys.sty
 INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/etoolbox/etoolbox.sty
 INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/etoolbox/etoolbox.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/algorithm2e/algorithm2e.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/algorithm2e/algorithm2e.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/base/ifthen.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/base/ifthen.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/ifoddpage/ifoddpage.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/ifoddpage/ifoddpage.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/tools/xspace.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/tools/xspace.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/relsize/relsize.sty
+INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/relsize/relsize.sty
 INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/l3backend/l3backend-xdvipdfmx.def
 INPUT /usr/local/texlive/2020/texmf-dist/tex/latex/l3backend/l3backend-xdvipdfmx.def
 INPUT eric_saar_annuli.aux

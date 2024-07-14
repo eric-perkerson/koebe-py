@@ -264,7 +264,7 @@ class Triangulation(object):
             self._rebase_vertex_topology()
 
             # Now make the inverse mapping array
-            self.original_to_contained_index = np.full((self.contained_to_original_index[-1] + 1,), -1)
+            self.original_to_contained_index = np.full((self.num_vertices,), -1)
             for i in range(len(self.contained_to_original_index)):
                 self.original_to_contained_index[self.contained_to_original_index[i]] = i
 
@@ -724,7 +724,7 @@ class Triangulation(object):
                     tuple(self.vertices[edge[1]])
                 ] for edge in self._triangulation_edges_all
             ]
-            line_collection = mc.LineCollection(lines, linewidths=2)
+            line_collection = mc.LineCollection(lines, linewidths=line_width)
             axes.add_collection(line_collection)
         # color_array = np.ones(self.num_triangles) * color  # np.random.random(self.num_triangles) * 500
         if highlight_edges:
