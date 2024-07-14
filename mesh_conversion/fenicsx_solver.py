@@ -51,20 +51,36 @@ proc = MPI.COMM_WORLD.rank
 # mesh.xdmf and mt.xdmf
 if proc == 0:
     # Read in mesh
-    msh = meshio.read(f"regions/{file_root}/{file_stem}/{file_stem}.output.msh")
-    # Create and save one file for the mesh, and one file for the facets
-    triangle_mesh = create_mesh(msh, "triangle", prune_z=True)
-    line_mesh = create_mesh(msh, "line", prune_z=True)
-    meshio.write(f"regions/{file_root}/{file_stem}/mesh.xdmf", triangle_mesh)
-    meshio.write(f"regions/{file_root}/{file_stem}/mt.xdmf", line_mesh)
+    if file_root != "":
+        msh = meshio.read(f"regions/{file_root}/{file_stem}/{file_stem}.output.msh")
+        # Create and save one file for the mesh, and one file for the facets
+        triangle_mesh = create_mesh(msh, "triangle", prune_z=True)
+        line_mesh = create_mesh(msh, "line", prune_z=True)
+        meshio.write(f"regions/{file_root}/{file_stem}/mesh.xdmf", triangle_mesh)
+        meshio.write(f"regions/{file_root}/{file_stem}/mt.xdmf", line_mesh)
+    else:
+        msh = meshio.read(f"regions/{file_stem}/{file_stem}.output.msh")
+        # Create and save one file for the mesh, and one file for the facets
+        triangle_mesh = create_mesh(msh, "triangle", prune_z=True)
+        line_mesh = create_mesh(msh, "line", prune_z=True)
+        meshio.write(f"regions/{file_stem}/mesh.xdmf", triangle_mesh)
+        meshio.write(f"regions/{file_stem}/mt.xdmf", line_mesh)
 
 # This creates the meshtags and topology of the mesh from the xdmf files above
-with XDMFFile(MPI.COMM_WORLD, f"regions/{file_root}/{file_stem}/mesh.xdmf", "r") as xdmf:
-    mesh = xdmf.read_mesh(name="Grid")
-    ct = xdmf.read_meshtags(mesh, name="Grid")
-mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim-1)
-with XDMFFile(MPI.COMM_WORLD, f"regions/{file_root}/{file_stem}/mt.xdmf", "r") as xdmf:
-    ft = xdmf.read_meshtags(mesh, name="Grid")
+if file_root != "":
+    with XDMFFile(MPI.COMM_WORLD, f"regions/{file_root}/{file_stem}/mesh.xdmf", "r") as xdmf:
+        mesh = xdmf.read_mesh(name="Grid")
+        ct = xdmf.read_meshtags(mesh, name="Grid")
+    mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim-1)
+    with XDMFFile(MPI.COMM_WORLD, f"regions/{file_root}/{file_stem}/mt.xdmf", "r") as xdmf:
+        ft = xdmf.read_meshtags(mesh, name="Grid")
+else:
+    with XDMFFile(MPI.COMM_WORLD, f"regions/{file_stem}/mesh.xdmf", "r") as xdmf:
+        mesh = xdmf.read_mesh(name="Grid")
+        ct = xdmf.read_meshtags(mesh, name="Grid")
+    mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim-1)
+    with XDMFFile(MPI.COMM_WORLD, f"regions/{file_stem}/mt.xdmf", "r") as xdmf:
+        ft = xdmf.read_meshtags(mesh, name="Grid")
 
 
 ###############################################################
@@ -201,11 +217,18 @@ uh = problem.solve()
 # Write the solution, uh, to a file, entry per line
 # Undo permutation of vertices done internally by dolfinx
 inverse_permutation = np.argsort(mesh.geometry.input_global_indices)
-with open(f'regions/{file_root}/{file_stem}/{file_stem}.pde', 'w') as output_file:
-    num_vertices = len(uh.x.array)
-    output_file.write(f'{num_vertices}\n')
-    for i, entry in enumerate(uh.x.array[inverse_permutation], 1):
-        output_file.write(f"{i} {entry}\n")
+if file_root != "":
+    with open(f'regions/{file_root}/{file_stem}/{file_stem}.pde', 'w') as output_file:
+        num_vertices = len(uh.x.array)
+        output_file.write(f'{num_vertices}\n')
+        for i, entry in enumerate(uh.x.array[inverse_permutation], 1):
+            output_file.write(f"{i} {entry}\n")
+else:
+    with open(f'regions/{file_stem}/{file_stem}.pde', 'w') as output_file:
+        num_vertices = len(uh.x.array)
+        output_file.write(f'{num_vertices}\n')
+        for i, entry in enumerate(uh.x.array[inverse_permutation], 1):
+            output_file.write(f"{i} {entry}\n")
 
 
 # # with open(f'regions/{file_stem}/solution_fenicsx.txt','w') as output_file:

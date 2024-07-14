@@ -291,6 +291,7 @@ class show_results:
         self.editor = None # Probably first to get removed, it will store the frame that pops up when you click while editing flux
         self.selectedIndex = None # index of the edge closest to the click when editing flux
         self.averageChange = None # Average change in g bar across the whole graph
+        self.enteredInfo = None # Records information about all the files contained under the current root
         self.gui, self.canvas_width, self.canvas_height, = self.basicGui()
         self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
         self.modulus = tk.StringVar()
@@ -322,7 +323,7 @@ class show_results:
         rootText.grid(column=0, row=0)
         fileRoot = tk.StringVar()
         tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileRoot, bg=BLACK).grid(column=1, row=0)
-        nameText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Enter a file name, should be in the following format to see further approximations: fileRoot_edgeNumber_0", bg=BG_COLOR)
+        nameText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/10), text="Enter a file name, should be in the following format to see varying levels of approximations: fileRoot_edgeNumber_triCount_steps", bg=BG_COLOR)
         nameText.grid(column=0, row=1)
         fileName = tk.StringVar()
         tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileName, bg=BLACK).grid(column=1, row=1)
@@ -394,7 +395,7 @@ class show_results:
             return
         self.plotPoint(x,y)
 
-    def plotPoint(self, x, y):
+    def plotPoint(self, x, y, noShow = False):
         if (not self.stopFlag):
             if (self.flags):
                 self.base_cell = self.determinePolygon(x, y)
@@ -409,7 +410,8 @@ class show_results:
                 plt.plot([self.base_point[0],self.pointInHole[0]],[self.base_point[1],self.pointInHole[1]],'bo-', markersize = 2, linewidth = 1)
                 plt.draw()
                 self.stopFlag = True
-                self.showSlitPath()
+                if not noShow:
+                    self.showSlitPath()
 
         self.flags = True
 
@@ -609,7 +611,7 @@ class show_results:
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
     def redraw(self):
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Click a point inside the hole, then click a point outside the graph to choose the line.")
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click a point inside the hole, then click a point outside the graph to choose the line.")
         self.flags = False
         self.stopFlag = False
         self.show()
@@ -621,7 +623,7 @@ class show_results:
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
-        self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, self.modulus.get())
+        self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Back", self.modulus.get())
         approxButton = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See Approximations", command = self.showIntermediate, bg=BG_COLOR)
         approxButton.grid(column=0, row=2)
         # disconnects the ability to click normally
@@ -1091,13 +1093,13 @@ class show_results:
 
     def fluxConfig(self):
         # removes old controls and adds new scene
-        self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Click on an edge to edit it's flux. Press enter to set value.")
+        self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Back", "Click on an edge to edit it's flux. Press enter to set value.")
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
 
-    def createNewConfigFrame(self, commandB, textL):
+    def createNewConfigFrame(self, commandB, textB, textL):
         self.controls.grid_remove()
         configs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         configs.columnconfigure(0, weight=1)
@@ -1109,7 +1111,7 @@ class show_results:
             instructions.grid(column=0, row=0)
             i = 1
         if commandB is not None:
-            backButton = tk.Button(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Back", command = commandB, bg=BG_COLOR)
+            backButton = tk.Button(configs, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text=textB, command = commandB, bg=BG_COLOR)
             backButton.grid(column=0, row=i)
         return configs
 
@@ -1148,27 +1150,29 @@ class show_results:
     # changes mode to display paths
     def pathFinder(self):
         self.updateLambdaGraph()
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Click on a vertex to see the path from omega0 to that vertex.")
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click on a vertex to see the path from omega0 to that vertex.")
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds a new click that finds nearest edge in the voronai graph
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
 
     def nextGraph(self):
-        root, edge, step = self.fileName.split("_")
+        root, edge, triCount, step = self.fileName.split("_")
         edgeNum = int(edge)
         stepNum = int(step)
-        if edgeNum < 12:
+        triNum = int(triCount)
+        if edgeNum < int(self.enteredInfo[3]):
             edgeNum += 1
+        elif triNum < int(self.enteredInfo[8]):
+            triNum += int(int(self.enteredInfo[8]) / int(self.enteredInfo[9]))
         else:
             stepNum += 1
-        name = root + "_" + str(edgeNum) + "_" + str(stepNum)
+        name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
         try:
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
         except FileNotFoundError:
-            print("File Not Found")
+            print("File Not Found: ", name)
             return
         self.fileName = name
-        print(name)
         self.flags = False
         self.stopFlag = False
         hole_x, hole_y = self.tri.region.points_in_holes[0]
@@ -1182,23 +1186,23 @@ class show_results:
         self.updateMod()
     
     def prevGraph(self):
-        root, edge, step = self.fileName.split("_")
+        root, edge, triCount, step = self.fileName.split("_")
         edgeNum = int(edge)
         stepNum = int(step)
-        if edgeNum < 12:
-            edgeNum -= 1
-        elif stepNum == 0:
-            edgeNum -= 1
-        else:
+        triNum = int(triCount)
+        if stepNum > 0:
             stepNum -= 1
-        name = root + "_" + str(edgeNum) + "_" + str(stepNum)
+        elif triNum > int(self.enteredInfo[7]):
+            triNum -= int(int(self.enteredInfo[8]) / int(self.enteredInfo[9]))
+        elif edgeNum > int(self.enteredInfo[2]):
+            edgeNum -= 1
+        name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
         try:
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
         except FileNotFoundError:
-            print("File Not Found")
+            print("File Not Found: ", name)
             return
         self.fileName = name
-        print(name)
         self.flags = False
         self.stopFlag = False
         hole_x, hole_y = self.tri.region.points_in_holes[0]
@@ -1212,7 +1216,7 @@ class show_results:
         self.updateMod()
 
     def updateMod(self):
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Click buttons to switch between approximations.")
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click buttons to switch between approximations.")
         buttonHolder = tk.Frame(self.controls, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         buttonHolder.columnconfigure(0, weight=1)
         buttonHolder.rowconfigure(0, weight=1)
@@ -1227,13 +1231,19 @@ class show_results:
         modulusLabel.grid(column=0, row=3, columnspan=3)
     
     def showIntermediate(self):
-        #TODO 
-        # Create ability to switch between graphs, either an animation or arrow buttons
-        # Will be in uniformization graph
-        # The directory will hold around 10 intermediate values where the center collapses down to a point
-        # The chain will be load new graph in -> re calculate slit path (I'll probably have a method that re plots it? I need to ask Saar and eric about this
-        # As the voronoi cells will change) -> plot 
-
+        if self.fileRoot == '':
+            self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Your File does not have a root!")
+            return
+        directory = Path('regions/' + self.fileRoot)
+        directory_info = directory / (self.fileRoot + "_info.txt")
+        if (not directory.is_dir()) or (not directory_info.is_file()):
+            self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "The inputted file is not part of a chain!")
+            return
+        self.enteredInfo = []
+        with open(directory_info, 'r', encoding='utf-8') as file:
+            for i, line in enumerate(file):
+                if i != 0:
+                    self.enteredInfo.append(line)
         self.flags = False
         self.stopFlag = False
         hole_x, hole_y = self.tri.region.points_in_holes[0]
@@ -1357,28 +1367,38 @@ class show_results:
         backButton.grid(column=4, row=4)
 
     def createNewCommand(self):
-        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), self.drawRegion.getTriCount(), int(self.drawRegion.getInnerEdgeNo()), int(self.drawRegion.getOuterEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
+        triCount = int(self.drawRegion.getTriCount())
+        if triCount < 3 * int(self.drawRegion.getOuterEdgeNo()):
+            triCount = 3 * int(self.drawRegion.getOuterEdgeNo()) + 10
+        self.fileName = self.drawRegion.getFileName()
+        self.fileRoot = self.drawRegion.getFileRoot()
+        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), triCount, int(self.drawRegion.getInnerEdgeNo()), int(self.drawRegion.getOuterEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
         self.flags = False
         self.stopFlag = False
         hole_x, hole_y = self.tri.region.points_in_holes[0]
         self.plotPoint(hole_x, hole_y)
         self.plotPoint(hole_x + 1000, hole_y)
         self.slitPathCalculate()
-        self.show()
+        self.show(first=True)
 
     def createNew(self, freeDraw, fileRoot, fileName, triCount, inEdgeNum, outEdgeNum, inRad = None, outRad = None, randomOrNot = False):
-        # if freeDraw:
-        #     subprocess.run([
-        #         'python',
-        #         'draw_region.py',
-        #         fileName,
-        #         fileRoot
-        #     ])
-        # else:
-        #     draw_region.draw_region_back(fileRoot, fileName, inEdgeNum, outEdgeNum, inRad, outRad, randomSet = randomOrNot)
-        # print("drew region")
-        print(triCount)
-        print(str(triCount))
+        if freeDraw:
+            if fileRoot != None:
+                subprocess.run([
+                    'python',
+                    'draw_region.py',
+                    fileName,
+                    fileRoot
+                ])
+            else:
+                subprocess.run([
+                    'python',
+                    'draw_region.py',
+                    fileName
+                ])
+        else:
+            draw_region.draw_region_back(fileName, inEdgeNum, outEdgeNum, inRad, outRad, randomSet = randomOrNot, fileRoot=fileRoot)
+        print("drew region")
         subprocess.run([
             'julia',
             'triangulate_via_julia.jl',
@@ -1388,28 +1408,55 @@ class show_results:
             str(int(triCount))
         ])
         print("triangulated region")
-        t = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
-        t.write(f'regions/{fileRoot}/{fileName}/{fileName}.output.poly')
-        print("did the weird read and write thing")
-        subprocess.run([
-            'python',
-            'mesh_conversion/mesh_conversion.py',
-            '-p',
-            f'regions/{fileRoot}/{fileName}/{fileName}.output.poly',
-            '-n',
-            f'regions/{fileRoot}/{fileName}/{fileName}.node',
-            '-e',
-            f'regions/{fileRoot}/{fileName}/{fileName}.ele',
-        ])
+        if fileRoot != None:
+            t = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
+            t.write(f'regions/{fileRoot}/{fileName}/{fileName}.output.poly')
+        else:
+            t = Triangulation.read(f'regions/{fileName}/{fileName}.poly')
+            t.write(f'regions/{fileName}/{fileName}.output.poly')
+        print("made output.poly")
+        if fileRoot != None:
+            subprocess.run([
+                'python',
+                'mesh_conversion/mesh_conversion.py',
+                '-p',
+                f'regions/{fileRoot}/{fileName}/{fileName}.output.poly',
+                '-n',
+                f'regions/{fileRoot}/{fileName}/{fileName}.node',
+                '-e',
+                f'regions/{fileRoot}/{fileName}/{fileName}.ele',
+            ])
+        else:
+            subprocess.run([
+                'python',
+                'mesh_conversion/mesh_conversion.py',
+                '-p',
+                f'regions/{fileName}/{fileName}.output.poly',
+                '-n',
+                f'regions/{fileName}/{fileName}.node',
+                '-e',
+                f'regions/{fileName}/{fileName}.ele',
+            ])
         print("converted mesh")
-        subprocess.run([
-            'python',
-            'mesh_conversion/fenicsx_solver.py',
-            fileName,
-            fileRoot
-        ])
+        if fileRoot != None:
+            subprocess.run([
+                'python',
+                'mesh_conversion/fenicsx_solver.py',
+                fileName,
+                fileRoot
+            ])
+        else:
+            subprocess.run([
+                'python',
+                'mesh_conversion/fenicsx_solver.py',
+                fileName,
+                fileRoot
+            ])
         print("solved pde")
-        self.tri = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
+        if fileRoot != None:
+            self.tri = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
+        else:
+            self.tri = Triangulation.read(f'regions/{fileName}/{fileName}.poly')
         print("finished")
 
     def animationConfig(self):
@@ -1438,49 +1485,61 @@ class show_results:
         self.canvas.draw()
 
     def createAnimation(self):
-        firstFileName = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()) + "_0"
+        firstFileName = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()) + "_" + str(int(self.gifConfig.getTriCountInit())) + "_0"
+        # The following is the steps increasing edge count
         for i in range(self.gifConfig.getFinEdge() - self.gifConfig.getInitEdge()):
-            #print(self.gifConfig.getInitEdge()+i)
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()+i) + "_0"
-            print(name)
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()+i) + "_" + str(int(self.gifConfig.getTriCountInit())) + "_0"
+            #print(name)
+            if int(self.gifConfig.getTriCountInit()) < int(self.gifConfig.getInitEdge()+i):
+                triCount = int(self.gifConfig.getInitEdge()+i) * 3 + 10
+            else:
+                triCount = int(self.gifConfig.getTriCountInit())
             self.createNew(False, 
                            self.gifConfig.getFileRoot(), 
                            name, 
-                           int(self.gifConfig.getTriCountInit()), 
+                           int(triCount), 
+                           int(self.gifConfig.getInitEdge()+i), 
                            int(self.gifConfig.getInitEdge()+i), 
                            self.gifConfig.getInitInRad(), 
                            self.gifConfig.getOutRad()
                            )
             self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
             self.showNSave(name)
-        for i in range(self.gifConfig.getStepCount()):
-            #print(self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()))
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(i)
-            print(name)
+        # The following is the steps refining triangulation
+        for i in range(self.gifConfig.getTriCountSteps()):
+            triCount = int(int(self.gifConfig.getTriCountInit()) + i * (int(self.gifConfig.getTriCountFinal()) - int(self.gifConfig.getTriCountInit())) / self.gifConfig.getTriCountSteps())
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(int(triCount)) + "_0"
+            #print(name)
+            if triCount < int(self.gifConfig.getFinEdge()) * 3:
+                triCount = int(self.gifConfig.getFinEdge()) * 3 + 10
             self.createNew(
                 False,
                 self.gifConfig.getFileRoot(),
                 name,
-                int(self.gifConfig.getTriCountInit()), 
+                int(triCount),
                 int(self.gifConfig.getFinEdge()), 
-                self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()), 
+                int(self.gifConfig.getFinEdge()), 
+                self.gifConfig.getInitInRad(), 
                 self.gifConfig.getOutRad()
                 )
             self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
             self.showNSave(name)
-        print(self.gifConfig.getOutRad())
-        for i in range(self.gifConfig.getTriCountSteps()):
-            #print(self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()))
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(i)
-            print(name)
+        # The following is the steps shrinking the inner radius
+        for i in range(self.gifConfig.getStepCount()):
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(int(self.gifConfig.getTriCountFinal())) + "_" + str(i)
+            #print(name)
+            if int(self.gifConfig.getTriCountFinal()) < int(self.gifConfig.getFinEdge()) * 3:
+                triCount = int(self.gifConfig.getFinEdge()) * 3 + 10
+            else:
+                triCount = int(self.gifConfig.getTriCountFinal())
             self.createNew(
                 False,
                 self.gifConfig.getFileRoot(),
                 name,
-                int(self.gifConfig.getTriCountInit()) + i * (int(self.gifConfig.getTriCountFinal()) - int(self.gifConfig.getTriCountInit())) / self.gifConfig.getTriCountSteps(), 
+                int(triCount), 
                 int(self.gifConfig.getFinEdge()), 
                 int(self.gifConfig.getFinEdge()), 
-                self.gifConfig.getFinInRad(), 
+                self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()), 
                 self.gifConfig.getOutRad()
                 )
             self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')

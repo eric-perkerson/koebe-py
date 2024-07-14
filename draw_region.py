@@ -128,7 +128,7 @@ def get_unused_file_name(poly_file, poly_root):
     return poly_file
 
 
-def draw_region(poly_file='vertex14', poly_root='vertex'):
+def draw_region(poly_file, poly_root=None):
     """Launches a GUI used to draw a polygonal region with polygonal holes. Writes the result to
     `poly_file`.
 
@@ -139,12 +139,20 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
     """
     
     #poly_file = get_unused_file_name(poly_file, poly_root)
-    example_directory = ((Path('regions') / poly_root) / poly_file) / poly_file
-    # print(example_directory)
-    if not ((Path('regions') / poly_root) / poly_file).is_dir():
-        ((Path('regions') / poly_root) / poly_file).mkdir(parents=True, exist_ok=True)
-    poly_path = example_directory.with_suffix('.poly')
-    # print(poly_path)
+    if poly_root != None:
+        example_directory = ((Path('regions') / poly_root) / poly_file) / poly_file
+        # print(example_directory)
+        if not ((Path('regions') / poly_root) / poly_file).is_dir():
+            ((Path('regions') / poly_root) / poly_file).mkdir(parents=True, exist_ok=True)
+        poly_path = example_directory.with_suffix('.poly')
+        # print(poly_path)\
+    else:
+        example_directory = (Path('regions') / poly_file) / poly_file
+        # print(example_directory)
+        if not (Path('regions') / poly_file).is_dir():
+            (Path('regions') / poly_file).mkdir(parents=True, exist_ok=True)
+        poly_path = example_directory.with_suffix('.poly')
+        # print(poly_path)\
     # The above sets up the file to be written too.
 
     components = [[]]
@@ -656,7 +664,7 @@ def draw_region(poly_file='vertex14', poly_root='vertex'):
 
     return poly_file
 
-def draw_region_back(fileRoot, fileName, inSideNum, outSideNum, inRad, outRad, x=None, y=None, randomSet=False):
+def draw_region_back(fileName, inSideNum, outSideNum, inRad, outRad, x=None, y=None, randomSet=False, fileRoot = None):
     """Draws and saves a polygon without manual clicking
 
         Parameters
@@ -733,9 +741,14 @@ def draw_region_back(fileRoot, fileName, inSideNum, outSideNum, inRad, outRad, x
             components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(inSideNum)))),
                                                     int(int(inRad) * np.sin(theta * (2*np.pi/int(inSideNum))))])
 
-    print('Saving as ' + fileRoot + '/' + fileName)
-    region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
-    example_directory = Path('regions/' + fileRoot) / fileName
+    if fileRoot != None:
+        print('Saving as ' + fileRoot + '/' + fileName)
+        region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
+        example_directory = Path('regions/' + fileRoot) / fileName
+    else:
+        print('Saving as ' + fileName)
+        region = Region.region_from_components(components) # creates a region object from the components the user added, the components being the verticies
+        example_directory = Path('regions/') / fileName
     if not example_directory.is_dir():
         example_directory.mkdir(parents=True, exist_ok=True)
     poly_path = (example_directory / fileName).with_suffix('.poly')

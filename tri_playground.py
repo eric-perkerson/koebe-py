@@ -762,6 +762,56 @@ for omega in range(tri.num_triangles):
     perpendicular_edges_dict[omega] = flux_contributing_edges
     g_star_bar[omega] = flux_on_contributing_edges(flux_contributing_edges)
 
+def compute_period():
+    omega_0_cross_ray_edge_position = position(True, np.array([(omega_0 in edge) for edge in edges_to_weight]))
+    omega_0_cross_ray_edge = tuple(edges_to_weight[omega_0_cross_ray_edge_position])
+    if omega_0_cross_ray_edge[1] == omega_0:
+        omega_0_clockwise_neighbor = omega_0_cross_ray_edge[0]
+    else:
+        omega_0_clockwise_neighbor = omega_0_cross_ray_edge[1]
+
+    last_flux_contributing_edge = tuple(get_perpendicular_edge(omega_0_cross_ray_edge))
+    closed_loop_flux = g_star_bar[omega_0_clockwise_neighbor] + (
+        tri.conductance[last_flux_contributing_edge] * np.abs(
+            tri.pde_values[last_flux_contributing_edge[0]] - tri.pde_values[last_flux_contributing_edge[1]]
+        )
+    )
+    return closed_loop_flux
+
+# Interpolate the value of pde_solution to get its values on the omegas
+@numba.njit
+def cartesian_to_barycentric(x, y, x_1, y_1, x_2, y_2, x_3, y_3):
+    det_T_inverse = 1 / ((x_1 - x_3) * (y_2 - y_3) + (x_3 - x_2) * (y_1 - y_3))
+    lambda_1 = ((y_2 - y_3) * (x - x_3) + (x_3 - x_2) * (y - y_3)) * det_T_inverse
+    lambda_2 = ((y_3 - y_1) * (x - x_3) + (x_1 - x_3) * (y - y_3)) * det_T_inverse
+    return lambda_1, lambda_2
+
+
+@numba.njit
+def barycentric_to_cartesian(lambda_1, lambda_2, x_1, y_1, x_2, y_2, x_3, y_3):
+    lambda_3 = 1 - lambda_1 - lambda_2
+    x = lambda_1 * x_1 + lambda_2 * x_2 + lambda_3 * x_3
+    y = lambda_1 * y_1 + lambda_2 * y_2 + lambda_3 * y_3
+    return x, y
+
+
+@numba.njit
+def barycentric_interpolation(x, y, x_1, y_1, x_2, y_2, x_3, y_3, f_1, f_2, f_3):
+    lambda_1, lambda_2 = cartesian_to_barycentric(x, y, x_1, y_1, x_2, y_2, x_3, y_3)
+    lambda_3 = 1 - lambda_1 - lambda_2
+    return lambda_1 * f_1 + lambda_2 * f_2 + lambda_3 * f_3
+
+pde_on_omega_values = [
+    barycentric_interpolation(
+        tri.circumcenters[i][0], tri.circumcenters[i][1],
+        tri.triangle_coordinates[i][0][0], tri.triangle_coordinates[i][0][1],
+        tri.triangle_coordinates[i][1][0], tri.triangle_coordinates[i][1][1],
+        tri.triangle_coordinates[i][2][0], tri.triangle_coordinates[i][2][1],
+        tri.pde_values[tri.triangles[i][0]],
+        tri.pde_values[tri.triangles[i][1]],
+        tri.pde_values[tri.triangles[i][2]],
+    ) for i in range(tri.num_triangles)
+]
 
 # # Show shortest paths for a particular circumcenter
 # omega = 172

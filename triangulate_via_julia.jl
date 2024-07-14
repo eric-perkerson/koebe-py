@@ -27,7 +27,12 @@ else
 end
 
 file_name = input_file_name * ".poly"
-relative_input_file_path = joinpath(REGION_DIR, file_root, input_file_name, file_name)
+if file_root != ""
+    relative_input_file_path = joinpath(REGION_DIR, file_root, input_file_name, file_name)
+else
+    relative_input_file_path = joinpath(REGION_DIR, input_file_name, file_name)
+end
+
 # coordinates, vertex_bdry_markers, edges, edge_bdry_markers = TriVor.read_poly_file(file)
 coordinates, triangles, boundary_markers = acute_triangulate(relative_input_file_path)
 T = TriVor.Triangulation(coordinates, triangles, boundary_markers)
