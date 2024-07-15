@@ -572,13 +572,13 @@ class show_results:
         # This creates a path of EDGES, currently we had a path of cellsx
         
         # Edges to weight
-        edges_to_weight = []
+        self.edges_to_weight = []
         for cell_path_index, cell in enumerate(reversed(self.cell_path)): # again loops over the path of cells
             edges = self.tri.make_polygon_edges(self.tri.contained_polygons[cell]) # again retrives a list of all edges in that cell
             for edge in edges: # loops over each edge
                 if self.segment_intersects_line(self.tri.circumcenters[edge[0]], self.tri.circumcenters[edge[1]]): # if the segment in the cell path intersects the line
-                    edges_to_weight.append(edge) # adds every edge that intersects the line
-        edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
+                    self.edges_to_weight.append(edge) # adds every edge that intersects the line
+        self.edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), self.edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
 
         # Create contained_edges
         # triangulation_edges_reindexed = self.tri.original_to_contained_index[self.tri.triangulation_edges]
@@ -607,7 +607,7 @@ class show_results:
         self.lambda_graph.add_nodes_from(range(len(self.tri.circumcenters))) # adds all circumcenters, not really maintaining structure just adding a node for each
         self.lambda_graph.add_edges_from(self.tri.voronoi_edges) # adds all edges connecting these nodes
         nx.set_edge_attributes(self.lambda_graph, values=1, name='weight') # sets all edges to have a value of 1
-        for edge in edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
+        for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
     def redraw(self):
@@ -635,6 +635,44 @@ class show_results:
 
         self.canvas.draw()
 
+    def compute_period(self):
+        omega_0_cross_ray_edge_position = self.position(True, np.array([(self.omega_0 in edge) for edge in self.edges_to_weight]))
+        omega_0_cross_ray_edge = tuple(self.edges_to_weight[omega_0_cross_ray_edge_position])
+        if omega_0_cross_ray_edge[1] == self.omega_0:
+            omega_0_clockwise_neighbor = omega_0_cross_ray_edge[0]
+        else:
+            omega_0_clockwise_neighbor = omega_0_cross_ray_edge[1]
+
+        last_flux_contributing_edge = tuple(self.get_perpendicular_edge(omega_0_cross_ray_edge))
+        closed_loop_flux = self.g_star_bar[omega_0_clockwise_neighbor] + (
+            self.tri.conductance[last_flux_contributing_edge] * np.abs(
+                self.tri.pde_values[last_flux_contributing_edge[0]] - self.tri.pde_values[last_flux_contributing_edge[1]]
+            )
+        )
+        return closed_loop_flux
+
+    #@numba.njit
+    def cartesian_to_barycentric(self, x, y, x_1, y_1, x_2, y_2, x_3, y_3):
+        det_T_inverse = 1 / ((x_1 - x_3) * (y_2 - y_3) + (x_3 - x_2) * (y_1 - y_3))
+        lambda_1 = ((y_2 - y_3) * (x - x_3) + (x_3 - x_2) * (y - y_3)) * det_T_inverse
+        lambda_2 = ((y_3 - y_1) * (x - x_3) + (x_1 - x_3) * (y - y_3)) * det_T_inverse
+        return lambda_1, lambda_2
+
+
+    # @numba.njit
+    # def barycentric_to_cartesian(lambda_1, lambda_2, x_1, y_1, x_2, y_2, x_3, y_3):
+    #     lambda_3 = 1 - lambda_1 - lambda_2
+    #     x = lambda_1 * x_1 + lambda_2 * x_2 + lambda_3 * x_3
+    #     y = lambda_1 * y_1 + lambda_2 * y_2 + lambda_3 * y_3
+    #     return x, y
+
+
+    #@numba.njit
+    def barycentric_interpolation(self, x, y, x_1, y_1, x_2, y_2, x_3, y_3, f_1, f_2, f_3):
+        lambda_1, lambda_2 = self.cartesian_to_barycentric(x, y, x_1, y_1, x_2, y_2, x_3, y_3)
+        lambda_3 = 1 - lambda_1 - lambda_2
+        return lambda_1 * f_1 + lambda_2 * f_2 + lambda_3 * f_3
+
     def calculateUniformization(self):
         #num_contained_polygons = len(self.tri.contained_polygons)
         self.g_star_bar = np.zeros(self.tri.num_triangles, dtype=np.float64) # creates a vector for each triangle
@@ -654,8 +692,24 @@ class show_results:
             self.g_star_bar[omega] = self.flux_on_contributing_edges(flux_contributing_edges) # adds the flux for this path to whatever the g_star_bar vector is, which is apparently the harmonic conjugate to g, the pde solution
 
         # Interpolate the value of pde_solution to get its values on the omegas
-        pde_on_omega_values = [np.mean(self.tri.pde_values[self.tri.triangles[i]]) for i in range(self.tri.num_triangles)] # takes in the solution on the triangle vertices and gives a solution on the circumcenter/node
-        self.period_gsb = np.max(self.g_star_bar) # the maximum value in the vector is stored, so i guess the largest flux
+        #pde_on_omega_values = [np.mean(self.tri.pde_values[self.tri.triangles[i]]) for i in range(self.tri.num_triangles)] # takes in the solution on the triangle vertices and gives a solution on the circumcenter/node
+
+        pde_on_omega_values = [
+            self.barycentric_interpolation(
+                self.tri.circumcenters[i][0], self.tri.circumcenters[i][1],
+                self.tri.triangle_coordinates[i][0][0], self.tri.triangle_coordinates[i][0][1],
+                self.tri.triangle_coordinates[i][1][0], self.tri.triangle_coordinates[i][1][1],
+                self.tri.triangle_coordinates[i][2][0], self.tri.triangle_coordinates[i][2][1],
+                self.tri.pde_values[self.tri.triangles[i][0]],
+                self.tri.pde_values[self.tri.triangles[i][1]],
+                self.tri.pde_values[self.tri.triangles[i][2]],
+            ) for i in range(self.tri.num_triangles)
+        ]
+
+        #self.period_gsb = np.max(self.g_star_bar) # the maximum value in the vector is stored, so i guess the largest flux
+        
+        self.period_gsb = self.compute_period()
+        
         # TODO: allow the last edge so we get all the
         uniformization = np.exp(2 * np.pi / self.period_gsb * (pde_on_omega_values + 1j * self.g_star_bar)) # Uniformizes the triangulation into an approximation of the annulus
 

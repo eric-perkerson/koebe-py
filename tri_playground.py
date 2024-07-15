@@ -2,18 +2,18 @@ from region import Region
 from triangulation import (
     Triangulation,
     point_to_right_of_line_compiled,
-    polygon_oriented_counterclockwise
 )
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-#from cmcrameri import cm
+from cmcrameri import cm
 import subprocess
 from region import Region
 import pyvista
 from matplotlib import collections as mc
 import numba
 import networkx as nx
+import itertools
 
 
 @numba.njit
@@ -36,96 +36,22 @@ def add_edges_to_axes(edge_list, axes, color):
     axes.add_collection(line_collection)
 
 
+# NUM_TRIANGLES = 1000
+# USE_WOLFRAM_SOLVER = False
 
-NUM_TRIANGLES = 2000
-USE_WOLFRAM_SOLVER = True
+# file_stem = "non_concentric_annulus"
+# # file_stem = 'No_3_fold_sym'
+# # file_stem = '3_fold_sym'
+# path = Path(f'regions/{file_stem}/{file_stem}')
+# # tri = Triangulation.read(path)
 
-file_stem = "test"
-path = Path(f'regions/{file_stem}/{file_stem}')
-
-#file_stem = 'No_3_fold_sym'
-#file_stem = '3_fold_sym'
-#file_stem = '3_fold_sym'
-
-#subprocess.run([
-#        'python',
-#        'draw_region.py'
-#    ])
-
-# tri = Triangulation.read(path)
-
-
-# domain = Region.region_from_components(
-#     [
-#         [
-#             (2.0, 0.0),
-#             (1.7320508075688774, 0.9999999999999999),
-#             (1.0000000000000002, 1.7320508075688772),
-#             (0.0, 2.0),
-#             (-0.9999999999999996, 1.7320508075688776),
-#             (-1.7320508075688774, 0.9999999999999999),
-#             (-2.0, 0.0),
-#             (-1.7320508075688776, -0.9999999999999996),
-#             (-1.0000000000000009, -1.7320508075688767),
-#             (0.0, -2.0),
-#             (1.0, -1.7320508075688772),
-#             (1.7320508075688767, -1.0000000000000009)
-#         ],
-#         [
-#             (-0.1, 0.0),
-#             (-0.08660254037844388, 0.049999999999999996),
-#             (-0.05000000000000002, 0.08660254037844387),
-#             (0.0, 0.1),
-#             (0.049999999999999996, 0.08660254037844388),
-#             (0.08660254037844385, 0.050000000000000024),
-#             (0.1, 0.0),
-#             (0.08660254037844388, -0.04999999999999999),
-#             (0.05000000000000004, -0.08660254037844385),
-#             (0.0, -0.1),
-#             (-0.04999999999999994, -0.0866025403784439),
-#             (-0.08660254037844385, -0.05000000000000004)
-#         ],
-#         [
-#             (0.40000000000000013, 0.8660254037844386),
-#             (0.4133974596215562, 0.9160254037844386),
-#             (0.45000000000000007, 0.9526279441628824),
-#             (0.5000000000000001, 0.9660254037844386),
-#             (0.5500000000000002, 0.9526279441628824),
-#             (0.586602540378444, 0.9160254037844386),
-#             (0.6000000000000001, 0.8660254037844386),
-#             (0.586602540378444, 0.8160254037844386),
-#             (0.5500000000000002, 0.7794228634059948),
-#             (0.5000000000000001, 0.7660254037844386),
-#             (0.4500000000000002, 0.7794228634059946),
-#             (0.4133974596215563, 0.8160254037844386)
-#         ],
-#         [
-#             (-0.6000000000000004, -0.8660254037844384),
-#             (-0.5866025403784443, -0.8160254037844383),
-#             (-0.5500000000000005, -0.7794228634059945),
-#             (-0.5000000000000004, -0.7660254037844384),
-#             (-0.45000000000000046, -0.7794228634059945),
-#             (-0.4133974596215566, -0.8160254037844383),
-#             (-0.40000000000000047, -0.8660254037844384),
-#             (-0.41339745962155655, -0.9160254037844384),
-#             (-0.4500000000000004, -0.9526279441628822),
-#             (-0.5000000000000004, -0.9660254037844384),
-#             (-0.5500000000000004, -0.9526279441628823),
-#             (-0.5866025403784443, -0.9160254037844384)
-#         ]
-#     ]
-# )
-
-# with open(f"regions/{file_stem}/{file_stem}.poly", 'w', encoding='utf-8') as f:
-#     domain.write(f)
-
-subprocess.run([
-    'julia',
-    'triangulate_via_julia.jl',
-    file_stem,
-    file_stem,
-    str(NUM_TRIANGLES)
-])
+# subprocess.run([
+#     'julia',
+#     'triangulate_via_julia.jl',
+#     file_stem,
+#     file_stem,
+#     str(NUM_TRIANGLES)
+# ])
 
 # if USE_WOLFRAM_SOLVER:
 #     subprocess.run([
@@ -133,27 +59,48 @@ subprocess.run([
 #         'solve_pde.wls'
 #     ])
 # else:
-t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-t.write(f'regions/{file_stem}/{file_stem}.output.poly')
+#     t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+#     t.write(f'regions/{file_stem}/{file_stem}.output.poly')
 
-subprocess.run([
-    'python',
-    'mesh_conversion/mesh_conversion.py',
-    '-p',
-    f'regions/{file_stem}/{file_stem}.output.poly',
-    '-n',
-    f'regions/{file_stem}/{file_stem}.node',
-    '-e',
-    f'regions/{file_stem}/{file_stem}.ele',
-])
+#     subprocess.run([
+#         'python',
+#         'mesh_conversion/mesh_conversion.py',
+#         '-p',
+#         f'regions/{file_stem}/{file_stem}.output.poly',
+#         '-n',
+#         f'regions/{file_stem}/{file_stem}.node',
+#         '-e',
+#         f'regions/{file_stem}/{file_stem}.ele',
+#     ])
 
-subprocess.run([
-    'python',
-    'mesh_conversion/fenicsx_solver.py',
-    file_stem,
-])
+# #     subprocess.run([
+# #         'python',
+# #         'mesh_conversion/fenicsx_solver.py',
+# #         file_stem,
+# #     ])
 
 # tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+
+# # TEMPORARY
+# tri.show(
+#     'test.png',
+#     show_level_curves=True,
+#     show_triangles=True,
+#     show_edges=True
+# )
+# plt.show()
+
+# from triangulation import triangle_area
+# area_values = [
+#     triangle_area(tri.triangle_coordinates[i]) for i in range(tri.num_triangles)
+# ]
+# np.max(area_values)
+# np.min(area_values)
+# np.max(area_values) / np.min(area_values)
+
+# # END TEMPORARY
+
+
 # singular_height_index = 0
 # intersecting_edges = tri.find_singular_intersecting_edges(singular_height_index)
 
@@ -174,7 +121,8 @@ subprocess.run([
 # tri.show(
 #     str(path.with_suffix('.png')),
 #     show_level_curves=False,
-#     show_singular_level_curves=False,
+#     show_edges=True,
+#     show_singular_level_curves=True,
 #     show_vertex_indices=False,
 #     dpi=300,
 #     num_level_curves=500,
@@ -185,16 +133,16 @@ subprocess.run([
 # add_edges_to_axes(boundary_edge_dict[1], axes, color=[1, 0, 0])
 # add_edges_to_axes(boundary_edge_dict[2], axes, color=[0, 1, 0])
 # add_edges_to_axes(boundary_edge_dict[3], axes, color=[0, 0, 1])
-# # plt.show()
+# plt.show()
 
 
-def flux_on_contributing_edges(edges):
-    flux = 0.0
-    for edge in edges:
-        flux += tri.conductance[edge] * np.abs(
-            tri.pde_values[edge[0]] - tri.pde_values[edge[1]]
-        )
-    return flux
+# def flux_on_contributing_edges(edges):
+#     flux = 0.0
+#     for edge in edges:
+#         flux += tri.conductance[edge] * np.abs(
+#             tri.pde_values[edge[0]] - tri.pde_values[edge[1]]
+#         )
+#     return flux
 
 
 # flux_on_contributing_edges(intersecting_edges)
@@ -231,34 +179,34 @@ def flux_on_contributing_edges(edges):
 
 # component_vertices_2 = lower_vertices[np.where(~already_used)[0]]
 
-# tri.show(
-#     str(path.with_suffix('.png')),
-#     show_level_curves=False,
-#     show_singular_level_curves=True,
-#     show_vertex_indices=False,
-#     dpi=500,
-#     num_level_curves=500,
-#     line_width=0.75
-# )
-# axes = plt.gca()
-# plt.scatter(
-#     tri.vertices[lower_vertices][:, 0],
-#     tri.vertices[lower_vertices][:, 1],
-#     s=25,
-#     color=[1, 0, 0]
-# )
-# plt.scatter(
-#     tri.vertices[component_vertices_1][:, 0],
-#     tri.vertices[component_vertices_1][:, 1],
-#     s=10,
-#     color=[0, 1, 0]
-# )
-# plt.scatter(
-#     tri.vertices[component_vertices_2][:, 0],
-#     tri.vertices[component_vertices_2][:, 1],
-#     s=10,
-#     color=[0, 0, 1]
-# )
+# # tri.show(
+# #     str(path.with_suffix('.png')),
+# #     show_level_curves=False,
+# #     show_singular_level_curves=True,
+# #     show_vertex_indices=False,
+# #     dpi=500,
+# #     num_level_curves=500,
+# #     line_width=0.75
+# # )
+# # axes = plt.gca()
+# # plt.scatter(
+# #     tri.vertices[lower_vertices][:, 0],
+# #     tri.vertices[lower_vertices][:, 1],
+# #     s=25,
+# #     color=[1, 0, 0]
+# # )
+# # plt.scatter(
+# #     tri.vertices[component_vertices_1][:, 0],
+# #     tri.vertices[component_vertices_1][:, 1],
+# #     s=10,
+# #     color=[0, 1, 0]
+# # )
+# # plt.scatter(
+# #     tri.vertices[component_vertices_2][:, 0],
+# #     tri.vertices[component_vertices_2][:, 1],
+# #     s=10,
+# #     color=[0, 0, 1]
+# # )
 # # plt.show()
 
 
@@ -278,68 +226,103 @@ def flux_on_contributing_edges(edges):
 # flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[3]])
 # flux_on_contributing_edges([tuple(edge) for edge in component_edges_2])
 
-# tri.show(
-#     str(path.with_suffix('.png')),
-#     show_level_curves=False,
-#     show_singular_level_curves=True,
-#     show_vertex_indices=False,
-#     dpi=500,
-#     num_level_curves=500,
-#     line_width=0.75
-# )
-# axes = plt.gca()
-# add_edges_to_axes(component_edges_1, axes, color=[1, 0, 0])
-# add_edges_to_axes(component_edges_2, axes, color=[0, 1, 1])
-# plt.scatter(
-#     tri.vertices[tri.singular_vertices][0][0],
-#     tri.vertices[tri.singular_vertices][0][1],
-#     s=10,
-#     color=[0, 0, 1]
-# )
+# # tri.show(
+# #     str(path.with_suffix('.png')),
+# #     show_level_curves=False,
+# #     show_singular_level_curves=True,
+# #     show_vertex_indices=False,
+# #     dpi=500,
+# #     num_level_curves=500,
+# #     line_width=0.75
+# # )
+# # axes = plt.gca()
+# # add_edges_to_axes(component_edges_1, axes, color=[1, 0, 0])
+# # add_edges_to_axes(component_edges_2, axes, color=[0, 1, 1])
+# # plt.scatter(
+# #     tri.vertices[tri.singular_vertices][0][0],
+# #     tri.vertices[tri.singular_vertices][0][1],
+# #     s=10,
+# #     color=[0, 0, 1]
+# # )
 # # plt.show()
 
 
 
 
-
-
-# # from region import Region
-# # domain = Region.region_from_components(
-# #     [
-# #         [
-# #             (2.0, 0.0),
-# #             (1.0000000000000002, 1.7320508075688772),
-# #             (-0.9999999999999996, 1.7320508075688776),
-# #             (-2.0, 2.4492935982947064e-16),
-# #             (-1.0000000000000009, -1.7320508075688767),
-# #             (1.0, -1.7320508075688772)
-# #         ],
-# #         [
-# #             (0.9000000000000001, 2.4492935982947065e-17),
-# #             (1.0, 0.17320508075688773),
-# #             (1.2000000000000002, 0.17320508075688776),
-# #             (1.3, 0.0),
-# #             (1.2000000000000002, -0.1732050807568877),
-# #             (1.0000000000000002, -0.1732050807568878)
-# #         ],
-# #         [
-# #             (-0.7499999999999998, 0.9526279441628828),
-# #             (-0.6499999999999999, 1.1258330249197706),
-# #             (-0.44999999999999984, 1.1258330249197706),
-# #             (-0.3499999999999998, 0.9526279441628828),
-# #             (-0.44999999999999973, 0.7794228634059951),
-# #             (-0.6499999999999997, 0.779422863405995)
-# #         ],
-# #         [
-# #             (-0.7500000000000004, -0.9526279441628823),
-# #             (-0.6500000000000006, -0.7794228634059945),
-# #             (-0.4500000000000005, -0.7794228634059945),
-# #             (-0.3500000000000005, -0.9526279441628823),
-# #             (-0.4500000000000004, -1.12583302491977),
-# #             (-0.6500000000000004, -1.12583302491977)
-# #         ]
-# #     ]
+# # # Uniformize each piece of the genus 2 surface by breaking into 3 triangulation objects
+# # plt.scatter(
+# #     tri.region.coordinates[:, 0],
+# #     tri.region.coordinates[:, 1]
 # # )
+# # plt.show()
+
+# # # Find connected components using the lower pde value for each intersecting edge
+# # upper_vertices = np.unique([edge[0] if tri.pde_values[edge[0]] >= tri.singular_heights[singular_height_index] else edge[1] for edge in intersecting_edges])
+# # if np.any(tri.vertex_boundary_markers[upper_vertices] != 0):
+# #     raise Exception('lower_vertices intersects the boundary, vertex topology will not be fully initialized')
+
+
+# # plt.scatter(
+# #     tri.region.coordinates[:, 0],
+# #     tri.region.coordinates[:, 1]
+# # )
+# # plt.scatter(
+# #     tri.vertices[upper_vertices][:, 0],
+# #     tri.vertices[upper_vertices][:, 1]
+# # )
+# # plt.show()
+
+# # upper_region = Region(
+# #     coordinates,
+# #     vertex_boundary_markers,
+# #     edges,
+# #     edge_boundary_markers,
+# #     points_in_holes,
+# #     components=None
+# # )
+# # upper_triangulation = Triangulation(region, vertices, vertex_boundary_markers, triangles, topology, pde_values)
+# # tri
+
+
+
+
+# # # from region import Region
+# # # domain = Region.region_from_components(
+# # #     [
+# # #         [
+# # #             (2.0, 0.0),
+# # #             (1.0000000000000002, 1.7320508075688772),
+# # #             (-0.9999999999999996, 1.7320508075688776),
+# # #             (-2.0, 2.4492935982947064e-16),
+# # #             (-1.0000000000000009, -1.7320508075688767),
+# # #             (1.0, -1.7320508075688772)
+# # #         ],
+# # #         [
+# # #             (0.9000000000000001, 2.4492935982947065e-17),
+# # #             (1.0, 0.17320508075688773),
+# # #             (1.2000000000000002, 0.17320508075688776),
+# # #             (1.3, 0.0),
+# # #             (1.2000000000000002, -0.1732050807568877),
+# # #             (1.0000000000000002, -0.1732050807568878)
+# # #         ],
+# # #         [
+# # #             (-0.7499999999999998, 0.9526279441628828),
+# # #             (-0.6499999999999999, 1.1258330249197706),
+# # #             (-0.44999999999999984, 1.1258330249197706),
+# # #             (-0.3499999999999998, 0.9526279441628828),
+# # #             (-0.44999999999999973, 0.7794228634059951),
+# # #             (-0.6499999999999997, 0.779422863405995)
+# # #         ],
+# # #         [
+# # #             (-0.7500000000000004, -0.9526279441628823),
+# # #             (-0.6500000000000006, -0.7794228634059945),
+# # #             (-0.4500000000000005, -0.7794228634059945),
+# # #             (-0.3500000000000005, -0.9526279441628823),
+# # #             (-0.4500000000000004, -1.12583302491977),
+# # #             (-0.6500000000000004, -1.12583302491977)
+# # #         ]
+# # #     ]
+# # # )
 
 
 # Annulus
@@ -361,16 +344,60 @@ import pyvista
 from matplotlib import collections as mc
 import numba
 import networkx as nx
+import itertools
 
-NUM_TRIANGLES = 200
-USE_WOLFRAM_SOLVER = True
-base_cell = 178
 
-file_stem = 'test'
-#"non_concentric_annulus"
+def flux_on_contributing_edges(edges):
+    flux = 0.0
+    for edge in edges:
+        flux += tri.conductance[edge] * np.abs(
+            tri.pde_values[edge[0]] - tri.pde_values[edge[1]]
+        )
+    return flux
+
+
+NUM_TRIANGLES = 1000
+USE_WOLFRAM_SOLVER = False
+
+base_cell = 149  # 178
+file_stem = "non_concentric_annulus"
+
+# subprocess.run([
+#     'julia',
+#     'triangulate_via_julia.jl',
+#     file_stem,
+#     file_stem,
+#     str(NUM_TRIANGLES)
+# ])
+
+# if USE_WOLFRAM_SOLVER:
+#     subprocess.run([
+#         'wolframscript',
+#         'solve_pde.wls'
+#     ])
+# else:
+#     t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+#     t.write(f'regions/{file_stem}/{file_stem}.output.poly')
+
+#     subprocess.run([
+#         'python',
+#         'mesh_conversion/mesh_conversion.py',
+#         '-p',
+#         f'regions/{file_stem}/{file_stem}.output.poly',
+#         '-n',
+#         f'regions/{file_stem}/{file_stem}.node',
+#         '-e',
+#         f'regions/{file_stem}/{file_stem}.ele',
+#     ])
+
+#     subprocess.run([
+#         'python',
+#         'mesh_conversion/fenicsx_solver.py',
+#         file_stem,
+#     ])
+
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-
 hole_x, hole_y = tri.region.points_in_holes[0]
 
 # Define base_point to use along with the point_in_hole to define the ray to determine the slit
@@ -440,7 +467,7 @@ contained_topology = [contained_topology_all[i] for i in tri.contained_to_origin
 # tri.show_voronoi_tesselation(
 #     'voronoi.png',
 #     show_vertex_indices=False,
-#     show_polygon_indices=True,
+#     show_polygon_indices=False,
 #     show_edges=True,
 #     # highlight_polygons=cell_path
 # )
@@ -502,34 +529,7 @@ poly_path_inward = poly_path_inward[1:]
 poly_path_inward.reverse()
 cell_path = poly_path_inward + poly_path_outward
 
-# # Create poly edge path to right of line
-# connected_component = []
-# perpendicular_edges = []
-# for cell_path_index, cell in enumerate(cell_path):
-#     flag = False
-#     edges = tri.make_polygon_edges(tri.contained_polygons[cell])
-#     num_edges = len(edges)
-#     edge_index = -1
-#     while True:
-#         edge_index = (edge_index + 1) % num_edges  # Next edge
-#         edge = edges[edge_index]
-#         if flag:
-#             if (not segment_intersects_line_negative(
-#                 tri.circumcenters[edge[0]],
-#                 tri.circumcenters[edge[1]]
-#             )):
-#                 if (contained_topology[cell][edge_index] != -1):  # Might remove this depending on which path is needed
-#                     connected_component.append(edge)
-#                     perpendicular_edges.append((cell, contained_topology[cell][edge_index]))
-#             else:
-#                 break
-#         if segment_intersects_line_positive(
-#             tri.circumcenters[edge[0]],
-#             tri.circumcenters[edge[1]]
-#         ):
-#             flag = True
-
-# Create poly edge path to left of line
+# Create poly edge path to left of line, starting at the outer boundary going to the inner boundary
 connected_component = []
 perpendicular_edges = []
 for cell_path_index, cell in enumerate(reversed(cell_path)):
@@ -569,8 +569,33 @@ edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), edges_to_weight)))
 
 # tri.show_voronoi_tesselation(
 #     'test.png',
-#     highlight_polygons=cell_path
+#     highlight_polygons=cell_path,
+#     show_polygon_indices=False,
+#     show_vertex_indices=False,
+#     show_edges=True
 # )
+# plt.scatter(
+#     [base_point[0]],
+#     [base_point[1]],
+#     c=[[0, 1, 1]],
+# )
+# plt.scatter(
+#     [hole_x],
+#     [hole_y],
+#     c=[[1, 0, 0]]
+# )
+# hole_point = np.array([hole_x, hole_y])
+# line_segment_end = 2 * (base_point - hole_point) + hole_point
+# lines = [
+#     [
+#         tuple(line_segment_end),
+#         tuple(hole_point)
+#     ]
+# ]
+# line_collection = mc.LineCollection(lines, linewidths=2)
+# line_collection.set(color=[1, 0, 0])
+# axes = plt.gca()
+# axes.add_collection(line_collection)
 # plt.show()
 
 
@@ -592,9 +617,10 @@ for edge in triangulation_edges_reindexed:
 
 # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
 # the circumcenter of the base_cell
+
 # TODO: rotate to avoid having the negative x-axis near the annulus slit
 slit_path = [edge[0] for edge in connected_component]
-slit_path.append(connected_component[-1][1])
+slit_path.append(connected_component[-1][1])  # TODO: Why?
 # Connected component goes from outer boundary to inner boundary. Reverse after making slit
 slit_path = list(reversed(slit_path))
 angles = np.array([
@@ -627,12 +653,6 @@ def add_voronoi_edges_to_axes(edge_list, axes, color):
 # )
 # axes = plt.gca()
 # add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
-# plt.scatter(
-#     tri.circumcenters[omega_0][0],
-#     tri.circumcenters[omega_0][1],
-#     s=25,
-#     color=[1, 0, 0]
-# )
 # hole_point = np.array([hole_x, hole_y])
 # line_segment_end = 2 * (base_point - hole_point) + hole_point
 # lines = [
@@ -654,14 +674,14 @@ def add_voronoi_edges_to_axes(edge_list, axes, color):
 # edges_to_weight_collection = mc.LineCollection(edges_to_weight_coordinates, linewidths=2)
 # edges_to_weight_collection.set(color=[247/255, 165/255, 131/255])
 # axes.add_collection(edges_to_weight_collection)
+# plt.scatter(
+#     tri.circumcenters[omega_0][0],
+#     tri.circumcenters[omega_0][1],
+#     s=25,
+#     color=[0, 0.5, 0.5],
+#     zorder=5
+# )
 # plt.show()
-
-# DEPRECATED
-# edges_to_weight_with_inf = []
-# for edge in tri.voronoi_edges:
-#     if (edge[0] in slit_path) or (edge[1] in slit_path):
-#         edges_to_weight_with_inf.append(edge)
-
 
 # Create graph of circumcenters (Lambda[0])
 lambda_graph = nx.Graph()
@@ -716,14 +736,7 @@ shortest_paths = nx.single_source_dijkstra(lambda_graph, omega_0, target=None, c
 
 # Find the perpendicular edges to the lambda path
 def build_path_edges(vertices):
-    edges = []
-    for i in range(len(vertices) - 1):
-        edge = [
-            vertices[i],
-            vertices[i + 1]
-        ]
-        edges.append(edge)
-    return edges
+    return [[vertices[i], vertices[i + 1]] for i in range(len(vertices) - 1)]
 
 
 # # Make poly_to_right_of_edge dict
@@ -755,12 +768,16 @@ num_contained_polygons = len(tri.contained_polygons)
 g_star_bar = np.zeros(tri.num_triangles, dtype=np.float64)
 perpendicular_edges_dict = {}
 for omega in range(tri.num_triangles):
-    edges = build_path_edges(shortest_paths[omega])
+    if omega in shortest_paths:
+        edges = build_path_edges(shortest_paths[omega])
+    else:
+        edges = []
     flux_contributing_edges = []
     for edge in edges:
         flux_contributing_edges.append(tuple(get_perpendicular_edge(edge)))
     perpendicular_edges_dict[omega] = flux_contributing_edges
     g_star_bar[omega] = flux_on_contributing_edges(flux_contributing_edges)
+
 
 def compute_period():
     omega_0_cross_ray_edge_position = position(True, np.array([(omega_0 in edge) for edge in edges_to_weight]))
@@ -777,6 +794,36 @@ def compute_period():
         )
     )
     return closed_loop_flux
+
+
+# # Show shortest paths for a particular circumcenter
+# omega = 419
+# fig, axes = plt.subplots()
+# tri.show_voronoi_tesselation(
+#     'voronoi.png',
+#     show_vertex_indices=False,
+#     show_polygon_indices=False,
+#     show_edges=True,
+#     highlight_vertices=shortest_paths[omega],
+#     show_polygons=False,
+#     fig=fig,
+#     axes=axes
+# )
+# # axes = plt.gca()
+# add_voronoi_edges_to_axes(build_path_edges(shortest_paths[omega]), axes, color=[1, 0, 0])
+# tri.show(
+#     show_vertex_indices=False,
+#     show_triangle_indices=False,
+#     show_edges=True,
+#     show_triangles=False,
+#     fig=fig,
+#     axes=axes,
+# )
+# add_edges_to_axes(perpendicular_edges_dict[omega], axes, [0, 1, 0])
+# axes = plt.gca()
+# add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
+# plt.show()
+
 
 # Interpolate the value of pde_solution to get its values on the omegas
 @numba.njit
@@ -801,6 +848,86 @@ def barycentric_interpolation(x, y, x_1, y_1, x_2, y_2, x_3, y_3, f_1, f_2, f_3)
     lambda_3 = 1 - lambda_1 - lambda_2
     return lambda_1 * f_1 + lambda_2 * f_2 + lambda_3 * f_3
 
+
+# # START BARY TO CART TESTING
+# root_3_over_2 = np.sqrt(3) / 2
+# r_1 = np.array([0.0, 1.0])
+# r_2 = np.array([-root_3_over_2, -0.5])
+# r_3 = np.array([root_3_over_2, -0.5])
+# n = 5
+# barycentric_coor_grid = np.vstack([np.array([i, j]) / (n - 1) for i in range(n) for j in range(n - i)])
+# plt.scatter(
+#     barycentric_coor_grid[:, 0],
+#     barycentric_coor_grid[:, 1]
+# )
+# plt.show()
+
+# cartesian_coor_tri_grid = np.vstack(
+#     [
+#         lambda_1 * r_1 + lambda_2 * r_2 + (1 - lambda_1 - lambda_2) * r_3
+#         for lambda_1, lambda_2 in barycentric_coor_grid
+#     ]
+# )
+# plt.scatter(
+#     cartesian_coor_tri_grid[:, 0],
+#     cartesian_coor_tri_grid[:, 1]
+# )
+# plt.scatter(
+#     [r_1[0], r_2[0], r_3[0]],
+#     [r_1[1], r_2[1], r_3[1]],
+#     c='r',
+#     alpha=0.5
+# )
+# plt.show()
+
+# for lambda_1, lambda_2 in barycentric_coor_grid:
+#     lambda_3 = 1 - lambda_1 - lambda_2
+#     print(f'Barycentric coordinates are: ({lambda_1}, {lambda_2}, {lambda_3})')
+#     x, y = barycentric_to_cartesian(lambda_1, lambda_2, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
+#     print(f'Cartesian coordinates are: ({x}, {y})')
+#     lambda_hat_1, lambda_hat_2 = cartesian_to_barycentric(x, y, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
+#     lambda_hat_3 = lambda_hat_1 + lambda_hat_2
+#     print(f'Recovered barycentric coordinates are: ({lambda_hat_1}, {lambda_hat_2}, {lambda_hat_3})')
+#     print()
+# END BARY TO CART TESTING
+
+# # Test barycentric interpolation
+# root_3_over_2 = np.sqrt(3) / 2
+# r_1 = np.array([0.0, 1.0])
+# r_2 = np.array([-root_3_over_2, -0.5])
+# r_3 = np.array([root_3_over_2, -0.5])
+# n = 10
+# barycentric_coor_grid = np.vstack([np.array([i, j]) / (n - 1) for i in range(n) for j in range(n - i)])
+# cartesian_coor_tri_grid = np.vstack(
+#     [
+#         barycentric_to_cartesian(lambda_1, lambda_2, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
+#         for lambda_1, lambda_2 in barycentric_coor_grid
+#     ]
+# )
+
+# z_values = np.array([
+#     barycentric_interpolation(
+#         x, y,
+#         r_1[0], r_1[1],
+#         r_2[0], r_2[1],
+#         r_3[0], r_3[1],
+#         15.0,
+#         0.0,
+#         30.0
+#     )
+#     for x, y in cartesian_coor_tri_grid
+# ])
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.scatter(
+#     cartesian_coor_tri_grid[:, 0],
+#     cartesian_coor_tri_grid[:, 1],
+#     z_values,
+# )
+# plt.show()
+# # END TEST OF BARYCENTRIC INTERPOLATION
+
+
 pde_on_omega_values = [
     barycentric_interpolation(
         tri.circumcenters[i][0], tri.circumcenters[i][1],
@@ -813,44 +940,106 @@ pde_on_omega_values = [
     ) for i in range(tri.num_triangles)
 ]
 
-# # Show shortest paths for a particular circumcenter
-# omega = 172
-# fig, axes = plt.subplots()
+# # Plot the interpolated PDE values
 # tri.show_voronoi_tesselation(
-#     'voronoi.png',
-#     show_vertex_indices=False,
-#     show_polygon_indices=False,
-#     show_edges=True,
-#     highlight_vertices=shortest_paths[omega],
-#     show_polygons=False,
-#     fig=fig,
-#     axes=axes
+#     'test.png',
+#     show_vertex_indices=False
 # )
-# # axes = plt.gca()
-# add_voronoi_edges_to_axes(build_path_edges(shortest_paths[omega]), axes, color=[1, 0, 0])
-# tri.show(
-#     show_vertex_indices=False,
-#     show_triangle_indices=False,
-#     show_edges=True,
-#     show_triangles=False,
-#     fig=fig,
-#     axes=axes,
+# plt.scatter(
+#     tri.circumcenters[:, 0],
+#     tri.circumcenters[:, 1],
+#     c=pde_on_omega_values,
+#     s=100
 # )
-# add_edges_to_axes(perpendicular_edges_dict[omega], axes, [0, 1, 0])
+# plt.colorbar()
 # plt.show()
 
+i = 57
+tri.show(
+    'test.png',
+    show_edges=True,
+    show_triangles=False,
+    show_vertex_indices=True,
+    highlight_triangles=[i]
+)
+tri.show_voronoi_tesselation(
+    'test.png',
+    show_edges=True,
+    show_polygons=False,
+    highlight_vertices=[i],
+    fig=plt.gcf(),
+    axes=plt.gca()
+)
+plt.scatter(
+    tri.circumcenters[:, 0],
+    tri.circumcenters[:, 1],
+    c=pde_on_omega_values,
+    s=100
+)
+plt.show()
+tri.triangles[i]
+tri.pde_values[
+    tri.triangles[i]
+]
+np.mean(
+    tri.pde_values[
+        tri.triangles[i]
+    ]
+)
+pde_on_omega_values[i]
 
-# Interpolate the value of pde_solution to get its values on the omegas
-pde_on_omega_values = [np.mean(tri.pde_values[tri.triangles[i]]) for i in range(tri.num_triangles)]
-period_gsb = np.max(g_star_bar)  # TODO: allow the last edge so we get all the
+# Test barycentric interpolation on ith triangle with pde values
+tri.triangle_coordinates[i]
+r_1 = tri.triangle_coordinates[i][0]
+r_2 = tri.triangle_coordinates[i][1]
+r_3 = tri.triangle_coordinates[i][2]
+n = 10
+barycentric_coor_grid = np.vstack([np.array([i, j]) / (n - 1) for i in range(n) for j in range(n - i)])
+cartesian_coor_tri_grid = np.vstack(
+    [
+        barycentric_to_cartesian(lambda_1, lambda_2, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
+        for lambda_1, lambda_2 in barycentric_coor_grid
+    ]
+)
+z_values = np.array([
+    barycentric_interpolation(
+        x, y,
+        r_1[0], r_1[1],
+        r_2[0], r_2[1],
+        r_3[0], r_3[1],
+        tri.pde_values[tri.triangles[i][0]],
+        tri.pde_values[tri.triangles[i][1]],
+        tri.pde_values[tri.triangles[i][2]]
+    )
+    for x, y in cartesian_coor_tri_grid
+])
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(
+    np.concatenate([cartesian_coor_tri_grid[:, 0], np.array([tri.circumcenters[i][0]])]),
+    np.concatenate([cartesian_coor_tri_grid[:, 1], np.array([tri.circumcenters[i][1]])]),
+    np.concatenate([z_values, np.array([pde_on_omega_values[i]])]),
+)
+plt.show()
+# END TEST OF BARYCENTRIC INTERPOLATION
+
+
+period_gsb = compute_period()
 uniformization = np.exp(2 * np.pi / period_gsb * (pde_on_omega_values + 1j * g_star_bar))
 
-# plt.scatter(
-#     np.real(uniformization),
-#     np.imag(uniformization),
-#     s=500
-# )
-# plt.gca().set_aspect('equal')
+
+plt.clf()
+plt.cla()
+plt.scatter(
+    np.real(uniformization),
+    np.imag(uniformization),
+    s=50
+)
+plt.title('Conformal Model')
+plt.xlabel('Real')
+plt.ylabel('Imaginary')
+plt.gca().set_aspect('equal')
+plt.savefig(path.with_suffix('.png'))
 # plt.show()
 
 # flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
