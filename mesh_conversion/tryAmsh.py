@@ -1,5 +1,6 @@
 """
 An example with two holes--one singular vertex
+
 """
 
 import pyvista
@@ -36,7 +37,8 @@ proc = MPI.COMM_WORLD.rank
 
 if proc == 0:
     # Read in mesh
-    msh = meshio.read("regions/test3/test3.output.msh")
+    #msh = meshio.read("regions/test3/test3.output.msh")
+    msh = meshio.read("regions/vertex18/vertex18.output.msh")
     
     
     # Create and save one file for the mesh, and one file for the facets 
@@ -98,7 +100,7 @@ uh = problem.solve()
 
 # Write the solution, uh, to a file, entry per line
 
-with open('regions/test3/solution_fenicsx.txt','w') as output_file:
+with open('regions/vertex18/solution_fenicsx.txt','w') as output_file:
      for entry in uh.x.array:
 #         output_file.write(str(entry) + '\n')
           output_file.write(f"{entry}\n")
@@ -110,7 +112,7 @@ with open('regions/test3/solution_fenicsx.txt','w') as output_file:
 
 # TODO: add a try here and a message!
 try:
-      file_of_solution = open('regions/test3/solution_fenicsx.txt','r')
+      file_of_solution = open('regions/vertex18/solution_fenicsx.txt','r')
 except:
        print("This file can't be found. Check the folder!\n")
 else:
