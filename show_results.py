@@ -1593,10 +1593,16 @@ class show_results:
     # Additionally you should show the actual angle between them, computed with trig
 
     @staticmethod
+    @numba.njit
     def findAngle(pointOne, pointTwo, center):
+        print(pointOne, pointTwo, center)
         oppositeAngleLength = np.sqrt((pointOne[1] - pointTwo[1]) ** 2 + (pointOne[0] - pointTwo[0]) ** 2)
+        print(oppositeAngleLength)
         oneSideLength = np.sqrt((center[1] - pointOne[1]) ** 2 + (center[0] - pointOne[0]) ** 2)
+        print(oneSideLength)
         twoSideLength = np.sqrt((center[1] - pointTwo[1]) ** 2 + (center[0] - pointTwo[0]) ** 2)
+        print(twoSideLength)
+        print((oneSideLength ** 2 + twoSideLength ** 2 - oppositeAngleLength ** 2) / (2 * oneSideLength * twoSideLength))
         angle = np.arccos((oneSideLength ** 2 + twoSideLength ** 2 - oppositeAngleLength ** 2) / (2 * oneSideLength * twoSideLength))
         return angle
     
@@ -1631,21 +1637,87 @@ class show_results:
         self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "")
         cellOne = self.determinePolygon(self.selectedPoints[0][0], self.selectedPoints[0][1])
         cellTwo = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1])
+        print(self.selectedPoints)
         totalFlux = 0
+        max = 0
+        maxIndex1 = 0
         for index in self.tri.contained_polygons[cellOne]:
             totalFlux += self.g_star_bar[index]
+            if self.g_star_bar[index] > max:
+                maxIndex1 = index
+                max = self.g_star_bar[index]
             print(self.g_star_bar[index])
         averageOne = totalFlux / len(self.tri.contained_polygons[cellOne])
         print("First Average", averageOne)
         totalFlux = 0
+        max = 0
+        maxIndex2 = 0
         for index in self.tri.contained_polygons[cellTwo]:
             totalFlux += self.g_star_bar[index]
+            if self.g_star_bar[index] > max:
+                maxIndex2 = index
+                max = self.g_star_bar[index]
             print(self.g_star_bar[index])
         averageTwo = totalFlux / len(self.tri.contained_polygons[cellTwo])
         print("Second average", averageTwo)
         difference = abs(averageOne - averageTwo)
         combiAngle = ((2 * np.pi) / self.period_gsb) * difference
-        actualAngle = self.findAngle(self.tri.vertices[cellOne], self.tri.vertices[cellTwo], self.pointInHole)
+        centerOne = self.tri.vertices[self.tri.contained_to_original_index[cellOne]]
+        centerTwo = self.tri.vertices[self.tri.contained_to_original_index[cellTwo]]
+
+        shiftAngle = self.findAngle(self.tri.circumcenters[self.omega_0], [1,0], self.pointInHole)
+        print("The shift", shiftAngle)
+        shiftedPoints = [[self.selectedPoints[0][0] * np.cos(0 - shiftAngle) - self.selectedPoints[0][1] * np.sin(0 - shiftAngle), 
+                          self.selectedPoints[0][0] * np.sin(0 - shiftAngle) + self.selectedPoints[0][1] * np.cos(0 - shiftAngle)],
+                         [self.selectedPoints[1][0] * np.cos(0 - shiftAngle) - self.selectedPoints[1][1] * np.sin(0 - shiftAngle), 
+                          self.selectedPoints[1][0] * np.sin(0 - shiftAngle) + self.selectedPoints[1][1] * np.cos(0 - shiftAngle)]]
+        print(self.base_point[0] * np.cos(0 - shiftAngle) - self.base_point[1] * np.sin(0 - shiftAngle), self.base_point[0] * np.sin(0 - shiftAngle) + self.base_point[1] * np.cos(0 - shiftAngle))
+        whichQuad1 = 0
+        print("shifted", shiftedPoints)
+        if np.sign(shiftedPoints[0][0]) > 0:
+            if np.sign(shiftedPoints[0][1]) > 0:
+                whichQuad1 = 1
+            else:
+                whichQuad1 = 4
+        else:
+            if np.sign(shiftedPoints[0][1]) > 0:
+                whichQuad1 = 2
+            else:
+                whichQuad1 = 3
+        whichquad2 = 0
+        if np.sign(shiftedPoints[1][0]) > 0:
+            if np.sign(shiftedPoints[1][1]) > 0:
+                whichQuad2 = 1
+            else:
+                whichQuad2 = 4
+        else:
+            if np.sign(shiftedPoints[1][1]) > 0:
+                whichQuad2 = 2
+            else:
+                whichQuad2 = 3
+        print(whichQuad1, whichQuad2)
+        if whichQuad1 == whichQuad2 or whichQuad1 + 1 == whichQuad2 or whichQuad1 == whichQuad2 + 1:
+            actualAngle = self.findAngle(centerOne, centerTwo, self.pointInHole)
+        elif whichQuad1 + 3 == whichQuad2 or whichQuad1 == whichQuad2 + 3:
+            actualAngle = 2 * np.pi - self.findAngle(centerOne, centerTwo, self.pointInHole)
+        else:
+            if whichQuad1 < whichquad2:
+                m = (shiftedPoints[0][1] - self.pointInHole[1]) / (shiftedPoints[0][0] - self.pointInHole[0])
+                y0 = m * (shiftedPoints[1][0] - shiftedPoints[0][0]) + shiftedPoints[0][1]
+                print("1<2", y0)
+                if (shiftedPoints[0][1] < y0 and whichQuad1 == 1) or (shiftedPoints[0][1] > y0 and whichQuad1 == 2):
+                    actualAngle = 2 * np.pi - self.findAngle(centerOne, centerTwo, self.pointInHole)
+                else:
+                    actualAngle = self.findAngle(centerOne, centerTwo, self.pointInHole)
+            else:
+                m = (shiftedPoints[1][1] - self.pointInHole[1]) / (shiftedPoints[1][0] - self.pointInHole[0])
+                y0 = m * (shiftedPoints[0][0] - shiftedPoints[1][0]) + shiftedPoints[1][1]
+                print("2<1", y0)
+                if (shiftedPoints[1][1] < y0 and whichQuad2 == 1) or (shiftedPoints[1][1] > y0 and whichQuad2 == 2):
+                    actualAngle = 2 * np.pi - self.findAngle(centerOne, centerTwo, self.pointInHole)
+                else:
+                    actualAngle = self.findAngle(centerOne, centerTwo, self.pointInHole)
+
         print("actual Angle", actualAngle)
         print("In degrees", actualAngle * (360 / (np.pi * 2)))
         combiAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Combinatorial Angle = " + str(combiAngle), bg=BG_COLOR)
@@ -1653,11 +1725,11 @@ class show_results:
         actualAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Actual Angle in Radians = " + str(actualAngle), bg=BG_COLOR)
         actualAngleLabel.grid(column = 0, row = 3)
         self.show()
-        centerOne = self.tri.vertices[self.tri.contained_to_original_index[cellOne]]
-        centerTwo = self.tri.vertices[self.tri.contained_to_original_index[cellTwo]]
         plt.plot(centerOne[0], centerOne[1], 'bo', markersize = 2)
         plt.plot(centerTwo[0], centerTwo[1], 'bo', markersize = 2)
-        plt.draw()
+        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[maxIndex1]), self.axes, color=[1, 0, 0])
+        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[maxIndex2]), self.axes, color=[1, 0, 0])
+        self.canvas.draw()
 
 class GifConfig():
 
