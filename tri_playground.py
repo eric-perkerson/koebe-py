@@ -360,41 +360,43 @@ NUM_TRIANGLES = 1000
 USE_WOLFRAM_SOLVER = False
 
 base_cell = 149  # 178
-file_stem = "non_concentric_annulus"
+file_stem = "problem"
 
-# subprocess.run([
-#     'julia',
-#     'triangulate_via_julia.jl',
-#     file_stem,
-#     file_stem,
-#     str(NUM_TRIANGLES)
-# ])
+subprocess.run([
+    'julia',
+    'triangulate_via_julia.jl',
+    file_stem,
+    "",
+    file_stem,
+    str(NUM_TRIANGLES)
+])
 
-# if USE_WOLFRAM_SOLVER:
-#     subprocess.run([
-#         'wolframscript',
-#         'solve_pde.wls'
-#     ])
-# else:
-#     t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-#     t.write(f'regions/{file_stem}/{file_stem}.output.poly')
+if USE_WOLFRAM_SOLVER:
+    subprocess.run([
+        'wolframscript',
+        'solve_pde.wls'
+    ])
+else:
+    t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+    t.write(f'regions/{file_stem}/{file_stem}.output.poly')
 
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/mesh_conversion.py',
-#         '-p',
-#         f'regions/{file_stem}/{file_stem}.output.poly',
-#         '-n',
-#         f'regions/{file_stem}/{file_stem}.node',
-#         '-e',
-#         f'regions/{file_stem}/{file_stem}.ele',
-#     ])
+    subprocess.run([
+        'python',
+        'mesh_conversion/mesh_conversion.py',
+        '-p',
+        f'regions/{file_stem}/{file_stem}.output.poly',
+        '-n',
+        f'regions/{file_stem}/{file_stem}.node',
+        '-e',
+        f'regions/{file_stem}/{file_stem}.ele',
+    ])
 
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/fenicsx_solver.py',
-#         file_stem,
-#     ])
+    subprocess.run([
+        'python',
+        'mesh_conversion/fenicsx_solver.py',
+        file_stem,
+        ""
+    ])
 
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')

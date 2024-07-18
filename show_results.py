@@ -292,6 +292,7 @@ class show_results:
         self.selectedIndex = None # index of the edge closest to the click when editing flux
         self.averageChange = None # Average change in g bar across the whole graph
         self.enteredInfo = None # Records information about all the files contained under the current root
+        self.edges_to_weight = None # Something idk TODO
         self.gui, self.canvas_width, self.canvas_height, = self.basicGui()
         self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
         self.modulus = tk.StringVar()
@@ -339,38 +340,21 @@ class show_results:
         self.controls.rowconfigure(0, weight=1)
         self.controls.grid(column=0, row=0)
         self.stopFlag = False
-        self.flags = False
         text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.", bg=BG_COLOR)
         text.grid(column=0, row=0)
         self.fileRoot = self.enteredFileRoot.get()
         self.fileName = self.enteredFileName.get()
         if self.fileRoot == '':
             self.tri = Triangulation.read(f'regions/{self.fileName}/{self.fileName}.poly')
-            #self.fileNo = None
         else:
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{self.fileName}/{self.fileName}.poly')
-            #self.fileNo = self.enteredFileName.get()[-1]
+        self.pointInHole = self.tri.region.points_in_holes[0]
         self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.matCanvas = self.canvas.get_tk_widget()
         self.matCanvas.pack()
         self.graphConfigs.setSlit(False)
         self.show(True)
         self.graphConfigs.setSlit(True)
-        # self.tri.show(
-        #     show_edges=False,
-        #     show_triangles=False,
-        #     fig=self.fig,
-        #     axes=self.axes
-        # )
-        # self.tri.show_voronoi_tesselation(
-        #     show_vertex_indices=False,
-        #     show_polygons=True,
-        #     show_edges= True,
-        #     fig=self.fig,
-        #     axes=self.axes
-        # )
-        # self.axes.set_aspect('equal')
-        # self.canvas.draw() 
     
     def basicTkinter(self):
         fig, axes = plt.subplots()
@@ -397,23 +381,15 @@ class show_results:
 
     def plotPoint(self, x, y, noShow = False):
         if (not self.stopFlag):
-            if (self.flags):
-                self.base_cell = self.determinePolygon(x, y)
-                self.base_point = self.tri.vertices[self.tri.contained_to_original_index[self.base_cell]]
-            else:
-                self.pointInHole = [x, y]
-                plt.plot(x,y, 'bo', markersize = 2)
-                plt.draw()
+            self.base_cell = self.determinePolygon(x, y)
+            self.base_point = self.tri.vertices[self.tri.contained_to_original_index[self.base_cell]]
+            plt.plot(x,y, 'bo', markersize = 2)
+            plt.draw()
 
         if (not self.stopFlag):
-            if (self.flags):
-                plt.plot([self.base_point[0],self.pointInHole[0]],[self.base_point[1],self.pointInHole[1]],'bo-', markersize = 2, linewidth = 1)
-                plt.draw()
-                self.stopFlag = True
-                if not noShow:
-                    self.showSlitPath()
-
-        self.flags = True
+            if not noShow:
+                self.showSlitPath()
+        self.stopFlag = True
 
     def showResults(self):
         tk.mainloop()
@@ -595,10 +571,7 @@ class show_results:
         # Connected component goes from outer boundary to inner boundary. Reverse after making slit
         slit_path = list(reversed(slit_path))
         angles = np.array([ # builds an array of angles between the circumcenter and line
-            np.arctan2(
-                self.tri.circumcenters[vertex][1] - self.pointInHole[0],
-                self.tri.circumcenters[vertex][0] - self.pointInHole[1]
-            )
+            self.findAngle(self.tri.circumcenters[vertex], self.base_point, self.pointInHole)
             for vertex in slit_path
         ])
         self.omega_0 = slit_path[np.argmin(angles)] # makes omega_0 the minimum of this
@@ -613,6 +586,7 @@ class show_results:
     def redraw(self):
         self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click a point inside the hole, then click a point outside the graph to choose the line.")
         self.flags = False
+        self.pointInHole = self.tri.region.points_in_holes[0]
         self.stopFlag = False
         self.show()
 
@@ -637,12 +611,12 @@ class show_results:
 
     def compute_period(self):
         omega_0_cross_ray_edge_position = self.position(True, np.array([(self.omega_0 in edge) for edge in self.edges_to_weight]))
+        omega_0_cross_ray_edge_position = self.position(True, np.array([(self.omega_0 in edge) for edge in self.edges_to_weight]))
         omega_0_cross_ray_edge = tuple(self.edges_to_weight[omega_0_cross_ray_edge_position])
         if omega_0_cross_ray_edge[1] == self.omega_0:
             omega_0_clockwise_neighbor = omega_0_cross_ray_edge[0]
         else:
             omega_0_clockwise_neighbor = omega_0_cross_ray_edge[1]
-
         last_flux_contributing_edge = tuple(self.get_perpendicular_edge(omega_0_cross_ray_edge))
         closed_loop_flux = self.g_star_bar[omega_0_clockwise_neighbor] + (
             self.tri.conductance[last_flux_contributing_edge] * np.abs(
@@ -651,21 +625,13 @@ class show_results:
         )
         return closed_loop_flux
 
-    #@numba.njit
-    def cartesian_to_barycentric(self, x, y, x_1, y_1, x_2, y_2, x_3, y_3):
+    @staticmethod
+    @numba.njit
+    def cartesian_to_barycentric(x, y, x_1, y_1, x_2, y_2, x_3, y_3):
         det_T_inverse = 1 / ((x_1 - x_3) * (y_2 - y_3) + (x_3 - x_2) * (y_1 - y_3))
         lambda_1 = ((y_2 - y_3) * (x - x_3) + (x_3 - x_2) * (y - y_3)) * det_T_inverse
         lambda_2 = ((y_3 - y_1) * (x - x_3) + (x_1 - x_3) * (y - y_3)) * det_T_inverse
         return lambda_1, lambda_2
-
-
-    # @numba.njit
-    # def barycentric_to_cartesian(lambda_1, lambda_2, x_1, y_1, x_2, y_2, x_3, y_3):
-    #     lambda_3 = 1 - lambda_1 - lambda_2
-    #     x = lambda_1 * x_1 + lambda_2 * x_2 + lambda_3 * x_3
-    #     y = lambda_1 * y_1 + lambda_2 * y_2 + lambda_3 * y_3
-    #     return x, y
-
 
     #@numba.njit
     def barycentric_interpolation(self, x, y, x_1, y_1, x_2, y_2, x_3, y_3, f_1, f_2, f_3):
@@ -984,6 +950,9 @@ class show_results:
         else:
             self.canvas.draw()
         if not first:
+            for start, end in self.edges_to_weight:
+                plt.plot(self.tri.circumcenters[start][0], self.tri.circumcenters[start][1], "bo", markersize = 10)
+                plt.plot(self.tri.circumcenters[end][0], self.tri.circumcenters[end][1], "bo", markersize = 10)
             self.toolbar.push_current()
             self.axes.set_xlim(xZoom)
             self.axes.set_ylim(yZoom)
@@ -1000,6 +969,8 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
+        plt.plot(self.tri.circumcenters[self.omega_0][0], self.tri.circumcenters[self.omega_0][1], 'gx', markersize = 15)
+        plt.axline((self.pointInHole[0], self.pointInHole[1]), (self.base_point[0], self.base_point[1]))
         self.canvas.draw()
         self.toolbar.push_current()
         self.axes.set_xlim(xZoom)
@@ -1044,6 +1015,9 @@ class show_results:
 
         numericalButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Load a new Figure", command = self.loadNew, bg=BG_COLOR)
         numericalButton.grid(column=2, row=1)
+
+        angleButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See angle approximation", command = self.showAngles, bg=BG_COLOR)
+        angleButton.grid(column=3, row=1)
         
 
 
@@ -1052,7 +1026,6 @@ class show_results:
     def loadNew(self):
         self.controls.grid_remove()
         self.stopFlag = False
-        self.flags = False
         self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
 
     def showSlitPath(self):
@@ -1229,9 +1202,8 @@ class show_results:
         self.fileName = name
         self.flags = False
         self.stopFlag = False
-        hole_x, hole_y = self.tri.region.points_in_holes[0]
-        self.plotPoint(hole_x, hole_y)
-        self.plotPoint(hole_x + 1000, hole_y)
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
@@ -1259,9 +1231,8 @@ class show_results:
         self.fileName = name
         self.flags = False
         self.stopFlag = False
-        hole_x, hole_y = self.tri.region.points_in_holes[0]
-        self.plotPoint(hole_x, hole_y)
-        self.plotPoint(hole_x + 1000, hole_y)
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
@@ -1300,9 +1271,8 @@ class show_results:
                     self.enteredInfo.append(line)
         self.flags = False
         self.stopFlag = False
-        hole_x, hole_y = self.tri.region.points_in_holes[0]
-        self.plotPoint(hole_x, hole_y)
-        self.plotPoint(hole_x + 1000, hole_y)
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.show()
         self.updateLambdaGraph()
@@ -1429,9 +1399,8 @@ class show_results:
         self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), triCount, int(self.drawRegion.getInnerEdgeNo()), int(self.drawRegion.getOuterEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
         self.flags = False
         self.stopFlag = False
-        hole_x, hole_y = self.tri.region.points_in_holes[0]
-        self.plotPoint(hole_x, hole_y)
-        self.plotPoint(hole_x + 1000, hole_y)
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.show(first=True)
 
@@ -1524,14 +1493,13 @@ class show_results:
     def showNSave(self, name=None):
         self.flags = False
         self.stopFlag = False
-        hole_x, hole_y = self.tri.region.points_in_holes[0]
-        self.plotPoint(hole_x, hole_y)
-        self.plotPoint(hole_x + 1000, hole_y)
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
         self.showUniformization(uniformization, True)
-        self.ax2.axis('off')
+        self.ax2.axis('on')
         if name == None:
             name = self.fileName
         path = "outputImg/" + name
@@ -1619,14 +1587,77 @@ class show_results:
         self.fileName = firstFileName
         self.fileRoot = self.gifConfig.getFileRoot()
         self.showIntermediate()
-            
 
-##################
-# GOAL
-# Want to let user input: Initial Edge count, final edge count, Outer radius, Initial inner radius, final internal radius, number of steps in between
-# After this is implemented I should also see if I can add support for moving the hole around, different internal external edge counts
-# So I should create a new class that deals with these inputs, like drawregion and show. This will then allow my program access to these values, so when the button to start begins it can 
-# be plugged into a for loop. Definitly should include a warning about how long it will take. 
+    # Need a program that will let the user pick two points or enter two points, it will then take those two points (display the coordinate) and find the flux for both.
+    # Then take the difference in flux, convert to radians, and display.
+    # Additionally you should show the actual angle between them, computed with trig
+
+    @staticmethod
+    def findAngle(pointOne, pointTwo, center):
+        oppositeAngleLength = np.sqrt((pointOne[1] - pointTwo[1]) ** 2 + (pointOne[0] - pointTwo[0]) ** 2)
+        oneSideLength = np.sqrt((center[1] - pointOne[1]) ** 2 + (center[0] - pointOne[0]) ** 2)
+        twoSideLength = np.sqrt((center[1] - pointTwo[1]) ** 2 + (center[0] - pointTwo[0]) ** 2)
+        angle = np.arccos((oneSideLength ** 2 + twoSideLength ** 2 - oppositeAngleLength ** 2) / (2 * oneSideLength * twoSideLength))
+        return angle
+    
+    def angleDifferenceFinder(self, event):
+        x = event.xdata
+        y = event.ydata
+        if len(self.selectedPoints) == 0:
+            self.selectedPoints[0] = [x, y]
+        if len(self.selectedPoints) == 1:
+            self.selectedPoints[1] = [x, y]
+        if len(self.selectedPoints) == 2:
+            self.selectedPoints[1] = self.selectedPoints[0]
+            self.selectedPoints[0] = [x, y]
+        self.show()
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.angleDifferenceFinder)
+        for point in self.selectedPoints:
+            if point is not None:
+                plt.plot(point[0], point[1], 'bo', markersize = 2)
+        plt.draw()
+
+    def showAngles(self):
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click two points on the graph to see the difference in angles between them")
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+        self.updateLambdaGraph()
+        self.calculateUniformization()
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.angleDifferenceFinder)
+        self.selectedPoints = [None, None]
+        confirmButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Confirm", command = self.displayAngles, bg=BG_COLOR)
+        confirmButton.grid(row = 1, column = 1)
+
+    def displayAngles(self):
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "")
+        cellOne = self.determinePolygon(self.selectedPoints[0][0], self.selectedPoints[0][1])
+        cellTwo = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1])
+        totalFlux = 0
+        for index in self.tri.contained_polygons[cellOne]:
+            totalFlux += self.g_star_bar[index]
+            print(self.g_star_bar[index])
+        averageOne = totalFlux / len(self.tri.contained_polygons[cellOne])
+        print("First Average", averageOne)
+        totalFlux = 0
+        for index in self.tri.contained_polygons[cellTwo]:
+            totalFlux += self.g_star_bar[index]
+            print(self.g_star_bar[index])
+        averageTwo = totalFlux / len(self.tri.contained_polygons[cellTwo])
+        print("Second average", averageTwo)
+        difference = abs(averageOne - averageTwo)
+        combiAngle = ((2 * np.pi) / self.period_gsb) * difference
+        actualAngle = self.findAngle(self.tri.vertices[cellOne], self.tri.vertices[cellTwo], self.pointInHole)
+        print("actual Angle", actualAngle)
+        print("In degrees", actualAngle * (360 / (np.pi * 2)))
+        combiAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Combinatorial Angle = " + str(combiAngle), bg=BG_COLOR)
+        combiAngleLabel.grid(column=0, row = 2)
+        actualAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Actual Angle in Radians = " + str(actualAngle), bg=BG_COLOR)
+        actualAngleLabel.grid(column = 0, row = 3)
+        self.show()
+        centerOne = self.tri.vertices[self.tri.contained_to_original_index[cellOne]]
+        centerTwo = self.tri.vertices[self.tri.contained_to_original_index[cellTwo]]
+        plt.plot(centerOne[0], centerOne[1], 'bo', markersize = 2)
+        plt.plot(centerTwo[0], centerTwo[1], 'bo', markersize = 2)
+        plt.draw()
 
 class GifConfig():
 
@@ -1722,7 +1753,6 @@ class GifConfig():
 
         return controls
 
-    
     def getInitEdge(self):
         return self.initEdge.get()
     def getFinEdge(self):
