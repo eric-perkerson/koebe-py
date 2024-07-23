@@ -17,6 +17,7 @@ import draw_region
 import subprocess
 import random
 import os
+import shutil
 from pathlib import Path
 import math
 
@@ -263,7 +264,7 @@ class show_results:
 
     def __init__(self):
         # The following is my list of instance variables, embarrassing.
-        self.flags = False # Switches the call back from determining point in hole to base point
+        self.flags = False # Switches between displaying angles
         self.stopFlag = False # Stops the call back from adding further points
         self.matCanvas = None # This holds the tk canvas widget
         self.ax2 = None # This will eventually hold the uniformization
@@ -293,6 +294,10 @@ class show_results:
         self.averageChange = None # Average change in g bar across the whole graph
         self.enteredInfo = None # Records information about all the files contained under the current root
         self.edges_to_weight = None # Something idk TODO
+        self.selectedPoints = None
+        self.xVar = None
+        self.yVar = None
+        #tk.Tk.report_callback_exception = self.errorMessage
         self.gui, self.canvas_width, self.canvas_height, = self.basicGui()
         self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
         self.modulus = tk.StringVar()
@@ -300,6 +305,10 @@ class show_results:
 
         self.graphConfigs = GraphConfig(width=self.canvas_width, height=self.canvas_height)
         self.gifConfig = GifConfig(self.canvas_height, self.canvas_width)
+
+    # def errorMessage(self, exc, val, tb):
+    #     print(str(val))
+    #     self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
 
     def basicGui(self):
         gui = tk.Tk() # initialized Tk
@@ -315,22 +324,33 @@ class show_results:
         gui.protocol("WM_DELETE_WINDOW", exit)
         return gui, canvas_width, canvas_height
     
-    def initializeFigure(self):
+    def initializeFigure(self, error = False):
         controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height/2, relief="ridge", bg=BG_COLOR)
         controls.columnconfigure(0, weight=1)
         controls.rowconfigure(0, weight=1)
         controls.grid(column=0, row=0)
-        rootText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Enter a file root, leave blank for none", bg=BG_COLOR)
-        rootText.grid(column=0, row=0)
         fileRoot = tk.StringVar()
-        tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileRoot, bg=BLACK).grid(column=1, row=0)
-        nameText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/10), text="Enter a file name, should be in the following format to see varying levels of approximations: fileRoot_edgeNumber_triCount_steps", bg=BG_COLOR)
-        nameText.grid(column=0, row=1)
         fileName = tk.StringVar()
-        tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileName, bg=BLACK).grid(column=1, row=1)
-        tk.Button(controls, height=1, width=int(self.canvas_width/50), command=self.loadFigure, text="Load", bg=BG_COLOR).grid(column=0,row=2)
+        if not error:
+            rootText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Enter a file root, leave blank for none", bg=BG_COLOR)
+            rootText.grid(column=0, row=0)
+            tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileRoot, bg=BLACK).grid(column=1, row=0)
+            nameText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/10), text="Enter a file name, should be in the following format to see varying levels of approximations: fileRoot_edgeNumber_triCount_steps", bg=BG_COLOR)
+            nameText.grid(column=0, row=1)
+            tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileName, bg=BLACK).grid(column=1, row=1)
+            tk.Button(controls, height=1, width=int(self.canvas_width/50), command=self.loadFigure, text="Load", bg=BG_COLOR).grid(column=0,row=2)
+        else:
+            errorText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="File not Found", bg=BG_COLOR)
+            errorText.grid(column=0, row=0)
+            rootText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Enter a file root, leave blank for none", bg=BG_COLOR)
+            rootText.grid(column=0, row=1)
+            tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileRoot, bg=BLACK).grid(column=1, row=1)
+            nameText = tk.Label(controls, height=int(self.canvas_height/224), width=int(self.canvas_height/10), text="Enter a file name, should be in the following format to see varying levels of approximations: fileRoot_edgeNumber_triCount_steps", bg=BG_COLOR)
+            nameText.grid(column=0, row=2)
+            tk.Entry(controls, width=int(self.canvas_width/50), textvariable=fileName, bg=BLACK).grid(column=1, row=2)
+            tk.Button(controls, height=1, width=int(self.canvas_width/50), command=self.loadFigure, text="Load", bg=BG_COLOR).grid(column=0,row=3)
         return controls, fileRoot, fileName
-    
+
     def loadFigure(self):
         self.controls.destroy()
         if self.matCanvas is not None:
@@ -344,10 +364,13 @@ class show_results:
         text.grid(column=0, row=0)
         self.fileRoot = self.enteredFileRoot.get()
         self.fileName = self.enteredFileName.get()
-        if self.fileRoot == '':
-            self.tri = Triangulation.read(f'regions/{self.fileName}/{self.fileName}.poly')
-        else:
-            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{self.fileName}/{self.fileName}.poly')
+        try:
+            if self.fileRoot == '':
+                self.tri = Triangulation.read(f'regions/{self.fileName}/{self.fileName}.poly')
+            else:
+                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{self.fileName}/{self.fileName}.poly')
+        except FileNotFoundError:
+            self.loadNew()
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.fig, self.axes, self.graphHolder, self.canvas, self.toolbar, self.graphHolder, self.callbackName = self.basicTkinter()
         self.matCanvas = self.canvas.get_tk_widget()
@@ -535,9 +558,10 @@ class show_results:
                         self.tri.circumcenters[edge[0]],
                         self.tri.circumcenters[edge[1]]
                     )):
-                        if (contained_topology[cell][edge_index] != -1):  # This most likely checks to make sure the edge is not on the outside of the figure
-                            connected_component.append(edge) # add the edge as a connected component
-                            perpendicular_edges.append((cell, contained_topology[cell][edge_index])) # This adds a tuplet with the original cell, and the vertex of that cells current index, not sure what for, its never used
+                        #print("is boundary", contained_topology[cell][edge_index])
+                        #if (contained_topology[cell][edge_index] != -1):  # This most likely checks to make sure the edge is not on the outside of the figure
+                        connected_component.append(edge) # add the edge as a connected component
+                        perpendicular_edges.append((cell, contained_topology[cell][edge_index])) # This adds a tuplet with the original cell, and the vertex of that cells current index, not sure what for, its never used
                     else:
                         break # this is the only way to break the while loop, it happens if a previous edge has a tail to the right, and we've now gotten to an edge that has a head to the right of the line
                 if self.segment_intersects_line_negative( # if the current edge has a tail to the right of the line, set flag true
@@ -571,10 +595,14 @@ class show_results:
         # Connected component goes from outer boundary to inner boundary. Reverse after making slit
         slit_path = list(reversed(slit_path))
         angles = np.array([ # builds an array of angles between the circumcenter and line
-            self.findAngle(self.tri.circumcenters[vertex], self.base_point, self.pointInHole)
+            np.arctan2(
+                self.tri.circumcenters[vertex][1] - self.pointInHole[1],
+                self.tri.circumcenters[vertex][0] - self.pointInHole[0]
+            )
             for vertex in slit_path
         ])
         self.omega_0 = slit_path[np.argmin(angles)] # makes omega_0 the minimum of this
+
         # Create graph of circumcenters (Lambda[0])
         self.lambda_graph = nx.Graph() # creates empty graph
         self.lambda_graph.add_nodes_from(range(len(self.tri.circumcenters))) # adds all circumcenters, not really maintaining structure just adding a node for each
@@ -585,7 +613,6 @@ class show_results:
 
     def redraw(self):
         self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click a point inside the hole, then click a point outside the graph to choose the line.")
-        self.flags = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.stopFlag = False
         self.show()
@@ -769,7 +796,18 @@ class show_results:
         self.fig.tight_layout()
         self.ax2.axis('on')
         self.axes.axis('on')
-        self.canvas.draw()
+        if self.graphConfigs.getSlit():
+            slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
+            # This is causing problems?
+            self.tri.show_voronoi_tesselation(
+                highlight_polygons=self.cell_path,
+                highlight_vertices=list(slit_cell_vertices),
+                fig=self.fig,
+                axes=self.axes
+            )
+            self.canvas.draw()
+        else:
+            self.canvas.draw()
         if animationFlag is False:
             self.toolbar.push_current() # Allows the home button to center the figure to original, yay!
             self.axes.set_xlim(xZoom)
@@ -969,7 +1007,7 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
-        plt.plot(self.tri.circumcenters[self.omega_0][0], self.tri.circumcenters[self.omega_0][1], 'gx', markersize = 15)
+        plt.plot(self.tri.circumcenters[self.omega_0][0], self.tri.circumcenters[self.omega_0][1], 'rx', markersize = 20)
         plt.axline((self.pointInHole[0], self.pointInHole[1]), (self.base_point[0], self.base_point[1]))
         self.canvas.draw()
         self.toolbar.push_current()
@@ -1026,7 +1064,13 @@ class show_results:
     def loadNew(self):
         self.controls.grid_remove()
         self.stopFlag = False
-        self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
+        while True:
+            try:
+                self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
+            except FileNotFoundError:
+                print("File not found")
+            else:
+                break
 
     def showSlitPath(self):
         # displays slit path and takes to the main menu
@@ -1187,20 +1231,27 @@ class show_results:
         edgeNum = int(edge)
         stepNum = int(step)
         triNum = int(triCount)
-        if edgeNum < int(self.enteredInfo[3]):
-            edgeNum += 1
-        elif triNum < int(self.enteredInfo[8]):
-            triNum += int(int(self.enteredInfo[8]) / int(self.enteredInfo[9]))
-        else:
-            stepNum += 1
-        name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+        while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]):
+            if edgeNum < int(self.enteredInfo[3]):
+                edgeNum += 1
+            elif triNum < int(self.enteredInfo[8]):
+                triNum += 1
+            else:
+                stepNum += 1
+            name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+            try:
+                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+            except FileNotFoundError:
+                #print("File Not Found: ", name)
+                None
+            else:
+                break
         try:
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
         except FileNotFoundError:
-            print("File Not Found: ", name)
+            print("File Truly Not Found: ", name)
             return
         self.fileName = name
-        self.flags = False
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
@@ -1216,20 +1267,27 @@ class show_results:
         edgeNum = int(edge)
         stepNum = int(step)
         triNum = int(triCount)
-        if stepNum > 0:
-            stepNum -= 1
-        elif triNum > int(self.enteredInfo[7]):
-            triNum -= int(int(self.enteredInfo[8]) / int(self.enteredInfo[9]))
-        elif edgeNum > int(self.enteredInfo[2]):
-            edgeNum -= 1
-        name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+        while edgeNum > int(self.enteredInfo[2]) or triNum > 0 or stepNum > 0:
+            if stepNum > 0:
+                stepNum -= 1
+            elif triNum > int(self.enteredInfo[7]):
+                triNum -= 1
+            elif edgeNum > int(self.enteredInfo[2]):
+                edgeNum -= 1
+            name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+            try:
+                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+            except FileNotFoundError:
+                #print("File Not Found: ", name)
+                None
+            else:
+                break
         try:
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
         except FileNotFoundError:
-            print("File Not Found: ", name)
+            print("File Truly Not Found: ", name)
             return
         self.fileName = name
-        self.flags = False
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
@@ -1248,12 +1306,16 @@ class show_results:
         buttonHolder.grid(column=0, row=2)
         nextButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Next Graph", command = self.nextGraph, bg=BG_COLOR)
         nextButton.grid(column=2, row=0)
-        pictureButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Save Photo", command = self.showNSave, bg=BG_COLOR)
+        pictureButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Save Photo", command = self.takePhoto, bg=BG_COLOR)
         pictureButton.grid(column=1, row=0)
         previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Previous Graph", command = self.prevGraph, bg=BG_COLOR)
         previousButton.grid(column=0, row=0)
         modulusLabel = tk.Label(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text=self.modulus.get(), bg=BG_COLOR)
         modulusLabel.grid(column=0, row=3, columnspan=3)
+
+    def takePhoto(self):
+        self.showNSave()
+        self.updateMod()
     
     def showIntermediate(self):
         if self.fileRoot == '':
@@ -1269,7 +1331,6 @@ class show_results:
             for i, line in enumerate(file):
                 if i != 0:
                     self.enteredInfo.append(line)
-        self.flags = False
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
@@ -1397,14 +1458,13 @@ class show_results:
         self.fileName = self.drawRegion.getFileName()
         self.fileRoot = self.drawRegion.getFileRoot()
         self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), triCount, int(self.drawRegion.getInnerEdgeNo()), int(self.drawRegion.getOuterEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
-        self.flags = False
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.show(first=True)
 
-    def createNew(self, freeDraw, fileRoot, fileName, triCount, inEdgeNum, outEdgeNum, inRad = None, outRad = None, randomOrNot = False):
+    def createNew(self, freeDraw, fileRoot, fileName, triCount, inEdgeNum, outEdgeNum, inRad = None, outRad = None, randomOrNot = False, prevTriCount = None):
         if freeDraw:
             if fileRoot != None:
                 subprocess.run([
@@ -1434,9 +1494,19 @@ class show_results:
         if fileRoot != None:
             t = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
             t.write(f'regions/{fileRoot}/{fileName}/{fileName}.output.poly')
+            directory = Path(f'regions/{fileRoot}/{fileName}')
         else:
             t = Triangulation.read(f'regions/{fileName}/{fileName}.poly')
             t.write(f'regions/{fileName}/{fileName}.output.poly')
+            directory = Path(f'regions/{fileName}')
+        if prevTriCount != None:
+            if prevTriCount >= t.num_triangles:
+                print("It happened!")
+                print(directory)
+                if directory.is_dir():
+                    print("removed")
+                    shutil.rmtree(directory)
+                return
         print("made output.poly")
         if fileRoot != None:
             subprocess.run([
@@ -1480,6 +1550,7 @@ class show_results:
             self.tri = Triangulation.read(f'regions/{fileRoot}/{fileName}/{fileName}.poly')
         else:
             self.tri = Triangulation.read(f'regions/{fileName}/{fileName}.poly')
+        self.showNSave(fileName)
         print("finished")
 
     def animationConfig(self):
@@ -1491,7 +1562,6 @@ class show_results:
         backButton.grid(column=5, row=4)
 
     def showNSave(self, name=None):
-        self.flags = False
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
@@ -1507,8 +1577,9 @@ class show_results:
         self.canvas.draw()
 
     def createAnimation(self):
-        firstFileName = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()) + "_" + str(int(self.gifConfig.getTriCountInit())) + "_0"
+        firstFileName = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()) + "_" + str(0) + "_0"
         # The following is the steps increasing edge count
+        prevTriCount = 0
         for i in range(self.gifConfig.getFinEdge() - self.gifConfig.getInitEdge()):
             name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getInitEdge()+i) + "_" + str(int(self.gifConfig.getTriCountInit())) + "_0"
             #print(name)
@@ -1523,14 +1594,16 @@ class show_results:
                            int(self.gifConfig.getInitEdge()+i), 
                            int(self.gifConfig.getInitEdge()+i), 
                            self.gifConfig.getInitInRad(), 
-                           self.gifConfig.getOutRad()
+                           self.gifConfig.getOutRad(),
+                           prevTriCount = prevTriCount
                            )
-            self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
-            self.showNSave(name)
+            prevTriCount = self.tri.num_triangles
+            #self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
+            #self.showNSave(name)
         # The following is the steps refining triangulation
         for i in range(self.gifConfig.getTriCountSteps()):
             triCount = int(int(self.gifConfig.getTriCountInit()) + i * (int(self.gifConfig.getTriCountFinal()) - int(self.gifConfig.getTriCountInit())) / self.gifConfig.getTriCountSteps())
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(int(triCount)) + "_0"
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(i) + "_0"
             #print(name)
             if triCount < int(self.gifConfig.getFinEdge()) * 3:
                 triCount = int(self.gifConfig.getFinEdge()) * 3 + 10
@@ -1542,13 +1615,19 @@ class show_results:
                 int(self.gifConfig.getFinEdge()), 
                 int(self.gifConfig.getFinEdge()), 
                 self.gifConfig.getInitInRad(), 
-                self.gifConfig.getOutRad()
+                self.gifConfig.getOutRad(),
+                prevTriCount = prevTriCount
                 )
-            self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
-            self.showNSave(name)
+            prevTriCount = self.tri.num_triangles
+            #self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
+            #self.showNSave(name)
         # The following is the steps shrinking the inner radius
+        if self.gifConfig.getTriCountSteps() == 0:
+                num = 0
+        else:
+            num = self.gifConfig.getTriCountSteps() - 1
         for i in range(self.gifConfig.getStepCount()):
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(int(self.gifConfig.getTriCountFinal())) + "_" + str(i)
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(num) + "_" + str(i)
             #print(name)
             if int(self.gifConfig.getTriCountFinal()) < int(self.gifConfig.getFinEdge()) * 3:
                 triCount = int(self.gifConfig.getFinEdge()) * 3 + 10
@@ -1562,10 +1641,12 @@ class show_results:
                 int(self.gifConfig.getFinEdge()), 
                 int(self.gifConfig.getFinEdge()), 
                 self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()), 
-                self.gifConfig.getOutRad()
+                self.gifConfig.getOutRad(),
+                prevTriCount = prevTriCount
                 )
-            self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
-            self.showNSave(name)
+            #self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
+            prevTriCount = self.tri.num_triangles
+            #self.showNSave(name)
         directory = Path('regions/' + self.gifConfig.getFileRoot())
         directory_info = directory / (self.gifConfig.getFileRoot() + "_info.txt")
         if not directory.is_dir():
@@ -1587,24 +1668,6 @@ class show_results:
         self.fileName = firstFileName
         self.fileRoot = self.gifConfig.getFileRoot()
         self.showIntermediate()
-
-    # Need a program that will let the user pick two points or enter two points, it will then take those two points (display the coordinate) and find the flux for both.
-    # Then take the difference in flux, convert to radians, and display.
-    # Additionally you should show the actual angle between them, computed with trig
-
-    @staticmethod
-    @numba.njit
-    def findAngle(pointOne, pointTwo, center):
-        print(pointOne, pointTwo, center)
-        oppositeAngleLength = np.sqrt((pointOne[1] - pointTwo[1]) ** 2 + (pointOne[0] - pointTwo[0]) ** 2)
-        print(oppositeAngleLength)
-        oneSideLength = np.sqrt((center[1] - pointOne[1]) ** 2 + (center[0] - pointOne[0]) ** 2)
-        print(oneSideLength)
-        twoSideLength = np.sqrt((center[1] - pointTwo[1]) ** 2 + (center[0] - pointTwo[0]) ** 2)
-        print(twoSideLength)
-        print((oneSideLength ** 2 + twoSideLength ** 2 - oppositeAngleLength ** 2) / (2 * oneSideLength * twoSideLength))
-        angle = np.arccos((oneSideLength ** 2 + twoSideLength ** 2 - oppositeAngleLength ** 2) / (2 * oneSideLength * twoSideLength))
-        return angle
     
     def angleDifferenceFinder(self, event):
         x = event.xdata
@@ -1624,112 +1687,203 @@ class show_results:
         plt.draw()
 
     def showAngles(self):
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click two points on the graph to see the difference in angles between them")
+        self.controls.grid_remove()
+        self.controls = tk.Frame(self.gui, height=int(self.canvas_height/540), width=int(self.canvas_height/40), bg=BG_COLOR)
+        self.controls.grid(row = 0, column = 0)
+        self.controls.columnconfigure(0, weight=1)
+        self.controls.rowconfigure(0, weight=1)
+        #"Click two points on the graph to see the difference in angles between them")
+        tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/10), text="Click, or enter below, two points on the graph and press confirm to see the difference in angles between them", bg=BG_COLOR).grid(row = 0, column = 0, columnspan=5)
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         self.updateLambdaGraph()
         self.calculateUniformization()
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.angleDifferenceFinder)
-        self.selectedPoints = [None, None]
+        if self.selectedPoints == None:
+            #print(self.selectedPoints)
+            self.selectedPoints = [None, None]
+        self.xVar = tk.DoubleVar()
+        self.yVar = tk.DoubleVar()
+        xEntry = tk.Entry(self.controls, width=int(self.canvas_height/40), textvariable = self.xVar, bg=BG_COLOR)
+        xEntry.grid(row = 1, column = 0)
+        yEntry = tk.Entry(self.controls, width=int(self.canvas_height/40), textvariable = self.yVar, bg=BG_COLOR)
+        yEntry.grid(row = 1, column = 1)
+        plotButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Plot Point", command = self.plotPointAngle, bg=BG_COLOR)
+        plotButton.grid(row = 1, column = 2)
         confirmButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Confirm", command = self.displayAngles, bg=BG_COLOR)
-        confirmButton.grid(row = 1, column = 1)
+        confirmButton.grid(row = 5, column = 2)
+        failFlag = False
+        if self.fileRoot == '':
+            failFlag = True
+        directory = Path('regions/' + self.fileRoot)
+        directory_info = directory / (self.fileRoot + "_info.txt")
+        if (not directory.is_dir()) or (not directory_info.is_file()):
+            failFlag = True
+        previousButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="previous", command = self.previousAngleGraph, bg=BG_COLOR)
+        previousButton.grid(row = 3, column = 0)
+        nextButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="next", command = self.nextAngleGraph, bg=BG_COLOR)
+        nextButton.grid(row = 3, column = 2)
+        if failFlag == False:
+            self.enteredInfo = []
+            with open(directory_info, 'r', encoding='utf-8') as file:
+                for i, line in enumerate(file):
+                    if i != 0:
+                        self.enteredInfo.append(line)
+        else:
+            previousButton["state"] = tk.DISABLED
+            nextButton["state"] = tk.DISABLED
+        if self.flags == True:
+            combiAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Combinatorial Angle = " + str(self.combiAngle), bg=BG_COLOR)
+            combiAngleLabel.grid(column=0, row = 4, columnspan=2)
+            actualAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Actual Angle in Radians = " + str(self.actualAngle), bg=BG_COLOR)
+            actualAngleLabel.grid(column = 2, row = 4, columnspan=2)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.disconnectAndReturn, bg=BG_COLOR)
+        backButton.grid(row = 5, column = 0)
+
+    def previousAngleGraph(self):
+        root, edge, triCount, step = self.fileName.split("_")
+        edgeNum = int(edge)
+        stepNum = int(step)
+        triNum = int(triCount)
+        name = ''
+        while edgeNum > int(self.enteredInfo[2]) or triNum > 0 or stepNum > 0:
+            if stepNum > 0:
+                stepNum -= 1
+            elif triNum > int(self.enteredInfo[7]):
+                triNum -= 1
+            elif edgeNum > int(self.enteredInfo[2]):
+                edgeNum -= 1
+            name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+            try:
+                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+            except FileNotFoundError:
+                #print("File Not Found: ", name)
+                None
+            else:
+                break
+        try:
+            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+        except FileNotFoundError:
+            print("File Not Found: ", name)
+            return
+        self.fileName = name
+        self.stopFlag = False
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.base_point[0], self.base_point[1])
+        self.slitPathCalculate()
+        self.updateLambdaGraph()
+        self.calculateUniformization()
+        if self.flags == True:
+            self.displayAngles()
+        self.showAngles()
+
+    def nextAngleGraph(self):
+        root, edge, triCount, step = self.fileName.split("_")
+        edgeNum = int(edge)
+        stepNum = int(step)
+        triNum = int(triCount)
+        name = ''
+        while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]):
+            if edgeNum < int(self.enteredInfo[3]):
+                edgeNum += 1
+            elif triNum < int(self.enteredInfo[8]):
+                triNum += 1
+            else:
+                stepNum += 1
+            name = root + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+            try:
+                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+            except FileNotFoundError:
+                #print("File Not Found: ", name)
+                None
+            else:
+                break
+        try:
+            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+        except FileNotFoundError:
+            print("File Not Found: ", name)
+            return
+        self.fileName = name
+        self.stopFlag = False
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.base_point[0], self.base_point[1])
+        self.slitPathCalculate()
+        self.updateLambdaGraph()
+        self.calculateUniformization()
+        if self.flags == True:
+            self.displayAngles()
+        self.showAngles()
+
+    def plotPointAngle(self):
+        self.show()
+        if self.selectedPoints[0] == None:
+            self.selectedPoints[0] = [self.xVar.get(), self.yVar.get()]
+        elif self.selectedPoints == None:
+            self.selectedPoints[1] = [self.xVar.get(), self.yVar.get()]
+        else:
+            self.selectedPoints[1] = self.selectedPoints[0]
+            self.selectedPoints[0] = [self.xVar.get(), self.yVar.get()]
+        for point in self.selectedPoints:
+            if point is not None:
+                plt.plot(point[0], point[1], 'bo', markersize = 2)
+        plt.draw()
+        #print(self.selectedPoints)
 
     def displayAngles(self):
+        self.flags = True
         self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "")
         cellOne = self.determinePolygon(self.selectedPoints[0][0], self.selectedPoints[0][1])
         cellTwo = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1])
-        print(self.selectedPoints)
+        #print(self.selectedPoints)
         totalFlux = 0
-        max = 0
-        maxIndex1 = 0
+        min = math.inf
+        minIndex1 = 0
         for index in self.tri.contained_polygons[cellOne]:
             totalFlux += self.g_star_bar[index]
-            if self.g_star_bar[index] > max:
-                maxIndex1 = index
-                max = self.g_star_bar[index]
-            print(self.g_star_bar[index])
+            if self.g_star_bar[index] < min:
+                minIndex1 = index
+                min = self.g_star_bar[index]
+            #print(self.g_star_bar[index])
+        #print(min, minIndex1)
         averageOne = totalFlux / len(self.tri.contained_polygons[cellOne])
-        print("First Average", averageOne)
+        #print("First Average", averageOne)
         totalFlux = 0
-        max = 0
-        maxIndex2 = 0
+        min = math.inf
+        minIndex2 = 0
         for index in self.tri.contained_polygons[cellTwo]:
             totalFlux += self.g_star_bar[index]
-            if self.g_star_bar[index] > max:
-                maxIndex2 = index
-                max = self.g_star_bar[index]
-            print(self.g_star_bar[index])
+            if self.g_star_bar[index] < min:
+                minIndex2 = index
+                min = self.g_star_bar[index]
+            #print(self.g_star_bar[index])
+        #print(min, minIndex2)
         averageTwo = totalFlux / len(self.tri.contained_polygons[cellTwo])
-        print("Second average", averageTwo)
+        #print("Second average", averageTwo)
         difference = abs(averageOne - averageTwo)
         combiAngle = ((2 * np.pi) / self.period_gsb) * difference
         centerOne = self.tri.vertices[self.tri.contained_to_original_index[cellOne]]
         centerTwo = self.tri.vertices[self.tri.contained_to_original_index[cellTwo]]
-
-        shiftAngle = self.findAngle(self.tri.circumcenters[self.omega_0], [1,0], self.pointInHole)
-        print("The shift", shiftAngle)
-        shiftedPoints = [[self.selectedPoints[0][0] * np.cos(0 - shiftAngle) - self.selectedPoints[0][1] * np.sin(0 - shiftAngle), 
-                          self.selectedPoints[0][0] * np.sin(0 - shiftAngle) + self.selectedPoints[0][1] * np.cos(0 - shiftAngle)],
-                         [self.selectedPoints[1][0] * np.cos(0 - shiftAngle) - self.selectedPoints[1][1] * np.sin(0 - shiftAngle), 
-                          self.selectedPoints[1][0] * np.sin(0 - shiftAngle) + self.selectedPoints[1][1] * np.cos(0 - shiftAngle)]]
-        print(self.base_point[0] * np.cos(0 - shiftAngle) - self.base_point[1] * np.sin(0 - shiftAngle), self.base_point[0] * np.sin(0 - shiftAngle) + self.base_point[1] * np.cos(0 - shiftAngle))
-        whichQuad1 = 0
-        print("shifted", shiftedPoints)
-        if np.sign(shiftedPoints[0][0]) > 0:
-            if np.sign(shiftedPoints[0][1]) > 0:
-                whichQuad1 = 1
-            else:
-                whichQuad1 = 4
-        else:
-            if np.sign(shiftedPoints[0][1]) > 0:
-                whichQuad1 = 2
-            else:
-                whichQuad1 = 3
-        whichquad2 = 0
-        if np.sign(shiftedPoints[1][0]) > 0:
-            if np.sign(shiftedPoints[1][1]) > 0:
-                whichQuad2 = 1
-            else:
-                whichQuad2 = 4
-        else:
-            if np.sign(shiftedPoints[1][1]) > 0:
-                whichQuad2 = 2
-            else:
-                whichQuad2 = 3
-        print(whichQuad1, whichQuad2)
-        if whichQuad1 == whichQuad2 or whichQuad1 + 1 == whichQuad2 or whichQuad1 == whichQuad2 + 1:
-            actualAngle = self.findAngle(centerOne, centerTwo, self.pointInHole)
-        elif whichQuad1 + 3 == whichQuad2 or whichQuad1 == whichQuad2 + 3:
-            actualAngle = 2 * np.pi - self.findAngle(centerOne, centerTwo, self.pointInHole)
-        else:
-            if whichQuad1 < whichquad2:
-                m = (shiftedPoints[0][1] - self.pointInHole[1]) / (shiftedPoints[0][0] - self.pointInHole[0])
-                y0 = m * (shiftedPoints[1][0] - shiftedPoints[0][0]) + shiftedPoints[0][1]
-                print("1<2", y0)
-                if (shiftedPoints[0][1] < y0 and whichQuad1 == 1) or (shiftedPoints[0][1] > y0 and whichQuad1 == 2):
-                    actualAngle = 2 * np.pi - self.findAngle(centerOne, centerTwo, self.pointInHole)
-                else:
-                    actualAngle = self.findAngle(centerOne, centerTwo, self.pointInHole)
-            else:
-                m = (shiftedPoints[1][1] - self.pointInHole[1]) / (shiftedPoints[1][0] - self.pointInHole[0])
-                y0 = m * (shiftedPoints[0][0] - shiftedPoints[1][0]) + shiftedPoints[1][1]
-                print("2<1", y0)
-                if (shiftedPoints[1][1] < y0 and whichQuad2 == 1) or (shiftedPoints[1][1] > y0 and whichQuad2 == 2):
-                    actualAngle = 2 * np.pi - self.findAngle(centerOne, centerTwo, self.pointInHole)
-                else:
-                    actualAngle = self.findAngle(centerOne, centerTwo, self.pointInHole)
-
-        print("actual Angle", actualAngle)
-        print("In degrees", actualAngle * (360 / (np.pi * 2)))
-        combiAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Combinatorial Angle = " + str(combiAngle), bg=BG_COLOR)
-        combiAngleLabel.grid(column=0, row = 2)
-        actualAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Actual Angle in Radians = " + str(actualAngle), bg=BG_COLOR)
-        actualAngleLabel.grid(column = 0, row = 3)
+        shiftAngle = np.arctan2(self.tri.circumcenters[self.omega_0][1] - self.pointInHole[1], self.tri.circumcenters[self.omega_0][0] - self.pointInHole[0])
+        #print("The shift", shiftAngle)
+        shiftedPoints = [[self.selectedPoints[0][0] * np.cos(0 - shiftAngle - np.pi) - self.selectedPoints[0][1] * np.sin(0 - shiftAngle - np.pi), 
+                          self.selectedPoints[0][0] * np.sin(0 - shiftAngle - np.pi) + self.selectedPoints[0][1] * np.cos(0 - shiftAngle - np.pi)],
+                         [self.selectedPoints[1][0] * np.cos(0 - shiftAngle - np.pi) - self.selectedPoints[1][1] * np.sin(0 - shiftAngle - np.pi), 
+                          self.selectedPoints[1][0] * np.sin(0 - shiftAngle - np.pi) + self.selectedPoints[1][1] * np.cos(0 - shiftAngle - np.pi)]]
+        #print(self.base_point[0] * np.cos(0 - shiftAngle) - self.base_point[1] * np.sin(0 - shiftAngle), self.base_point[0] * np.sin(0 - shiftAngle) + self.base_point[1] * np.cos(0 - shiftAngle))
+        angle1 = np.arctan2(shiftedPoints[0][1] - self.pointInHole[1], shiftedPoints[0][0] - self.pointInHole[0])
+        angle2 = np.arctan2(shiftedPoints[1][1] - self.pointInHole[1], shiftedPoints[1][0] - self.pointInHole[0])
+        actualAngle = abs(angle1 - angle2)
+        # print("actual Angle", actualAngle)
+        # print("Actual in degrees", actualAngle * (360 / (np.pi * 2)))
+        # print("combi in degrees", combiAngle * (360 / (np.pi * 2)))
+        self.combiAngle = combiAngle
+        self.actualAngle = actualAngle
         self.show()
         plt.plot(centerOne[0], centerOne[1], 'bo', markersize = 2)
         plt.plot(centerTwo[0], centerTwo[1], 'bo', markersize = 2)
-        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[maxIndex1]), self.axes, color=[1, 0, 0])
-        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[maxIndex2]), self.axes, color=[1, 0, 0])
+        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex1]), self.axes, color=[1, 0, 0])
+        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex2]), self.axes, color=[1, 0, 0])
         self.canvas.draw()
+        self.showAngles()
 
 class GifConfig():
 
