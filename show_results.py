@@ -2,6 +2,7 @@ from region import Region
 from triangulation import (
     Triangulation,
     point_to_right_of_line_compiled,
+    tri_level_sets
 )
 import numpy as np
 import matplotlib.pyplot as plt
@@ -87,6 +88,8 @@ class GraphConfig(tk.Frame):
         self.show_triangle_indices_tri=tk.BooleanVar()
         self.show_level_curves_tri=tk.BooleanVar()
         self.show_singular_level_curves_tri=tk.BooleanVar()
+        self.show_g_bar_level_curves = tk.BooleanVar()
+        self.show_g_bar_level_curves.set(False)
 
         self.show_vertex_indices_vor=tk.BooleanVar()
         self.show_vertex_indices_vor.set(False)
@@ -109,7 +112,7 @@ class GraphConfig(tk.Frame):
 
     def getConfigsTri(self):
         """ vertex, edges, triangles, vertex indices, triangle indices, level curves, singular level curves"""
-        return self.show_vertices_tri.get(), self.show_edges_tri.get(), self.show_triangles_tri.get(), self.show_vertex_indices_tri.get(), self.show_triangle_indices_tri.get(), self.show_level_curves_tri.get(), self.show_singular_level_curves_tri.get()
+        return self.show_vertices_tri.get(), self.show_edges_tri.get(), self.show_triangles_tri.get(), self.show_vertex_indices_tri.get(), self.show_triangle_indices_tri.get(), self.show_level_curves_tri.get(), self.show_singular_level_curves_tri.get(), self.show_g_bar_level_curves.get()
     
     def getSlit(self):
         return self.showSlitBool.get()
@@ -148,12 +151,10 @@ class GraphConfig(tk.Frame):
         checkButtonVor5.grid(column=4, row=1)
         checkButtonVor6 = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Region Vor", variable=self.show_region_vor, bg=BG_COLOR)
         checkButtonVor6.grid(column=5, row=1)
-        # drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show)
-        # drawButton.grid(column=6, row=1)
         slitButton = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show Slit", variable=self.showSlitBool, bg=BG_COLOR)
         slitButton.grid(column=6, row=1)
-        # backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu)
-        # backButton.grid(column=1, row=2)
+        gBarButton = tk.Checkbutton(self, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Show g Bar level curves", variable=self.show_g_bar_level_curves, bg=BG_COLOR)
+        gBarButton.grid(column=0, row=2)
         return self
 
 class DrawRegion(tk.Frame):
@@ -295,12 +296,15 @@ class show_results:
         self.enteredInfo = None # Records information about all the files contained under the current root
         self.edges_to_weight = None # Something idk TODO
         self.selectedPoints = None
-        self.xVar = None
-        self.yVar = None
+        self.radius = None
+        self.line_collection = None
         #tk.Tk.report_callback_exception = self.errorMessage
         self.gui, self.canvas_width, self.canvas_height, = self.basicGui()
         self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
         self.modulus = tk.StringVar()
+        self.xVar = tk.DoubleVar()
+        self.yVar = tk.DoubleVar()
+        self.keep = tk.BooleanVar()
 
 
         self.graphConfigs = GraphConfig(width=self.canvas_width, height=self.canvas_height)
@@ -625,8 +629,10 @@ class show_results:
         uniformization = self.calculateUniformization()
         self.modulus.set("Modulus: " + str(self.findModulus(uniformization)))
         self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Back", self.modulus.get())
+        keepOrDefaultButton = tk.Checkbutton(self.controls, height=int(self.canvas_height/600), width=int(self.canvas_height/50), text="Keep selected slit?", variable=self.keep, bg=BG_COLOR)
+        keepOrDefaultButton.grid(column=0, row=2)
         approxButton = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See Approximations", command = self.showIntermediate, bg=BG_COLOR)
-        approxButton.grid(column=0, row=2)
+        approxButton.grid(column=0, row=3)
         # disconnects the ability to click normally
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds the same back?? Idk why I did this but I'll keep it this way for now.
@@ -714,7 +720,29 @@ class show_results:
         contained_triangle_indicator = np.all(self.tri.vertex_boundary_markers[self.tri.triangles] == 0, axis=1)
         contained_triangles = np.where(contained_triangle_indicator)[0]
         slit_cell_vertices = set(self.flatten_list_of_lists([self.tri.contained_polygons[cell] for cell in self.cell_path]))
-        contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
+        self.contained_triangle_minus_slit = list(set(contained_triangles).difference(slit_cell_vertices))
+        level_set = []
+        for i in range(len(self.contained_triangle_minus_slit)):
+            triangle = self.tri.triangles[self.contained_triangle_minus_slit[i]]
+            level_set_triangle = tri_level_sets(
+                self.tri.vertices[triangle],
+                g_star_bar_interpolated_interior[self.tri.original_to_contained_index[triangle]],
+                heights
+            )
+            level_set.append(level_set_triangle)
+
+        level_set_flattened = self.flatten_list_of_lists(level_set)
+        level_set_filtered = [
+            line_segment for line_segment in level_set_flattened if len(line_segment) > 0
+        ]
+        lines = [
+            [
+                tuple(line_segment[0]),
+                tuple(line_segment[1])
+            ] for line_segment in level_set_filtered
+        ]
+        self.line_collection = mc.LineCollection(lines, linewidths=1)
+        self.line_collection.set(color=[1, 0, 0])
         #print(uniformization)
         return uniformization
     
@@ -760,7 +788,13 @@ class show_results:
         # self.axes.add_patch(Circle(point0, radius =innerRad,fill = False, edgecolor = 'g',
         #             linestyle = '--',linewidth = 1.25))
 
-        vert, edge, triangle, vInd, tInd, level, singLevel = self.graphConfigs.getConfigsTri()
+        vert, edge, triangle, vInd, tInd, level, singLevel, gBar = self.graphConfigs.getConfigsTri()
+        triHigh = None
+        if gBar:
+            self.updateLambdaGraph()
+            self.calculateUniformization()
+            triHigh = self.contained_triangle_minus_slit
+            self.axes.add_collection(self.line_collection)
         self.tri.show(
             show_vertices=vert,
             show_edges=edge,
@@ -769,6 +803,7 @@ class show_results:
             show_triangle_indices=tInd,
             show_level_curves=level,
             #show_singular_level_curves=self.show_singular_level_curves_tri,
+            highlight_triangles=triHigh,
             highlight_vertices=None,
             fig=self.fig,
             axes=self.axes
@@ -957,7 +992,13 @@ class show_results:
 
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
         
-        vert, edge, triangle, vInd, tInd, level, singLevel = self.graphConfigs.getConfigsTri()
+        vert, edge, triangle, vInd, tInd, level, singLevel, gBar = self.graphConfigs.getConfigsTri()
+        triHigh = None
+        if gBar:
+            self.updateLambdaGraph()
+            self.calculateUniformization()
+            triHigh = self.contained_triangle_minus_slit
+            self.axes.add_collection(self.line_collection)
         self.tri.show(
             show_vertices=vert,
             show_edges=edge,
@@ -967,6 +1008,7 @@ class show_results:
             show_level_curves=level,
             #show_singular_level_curves=self.show_singular_level_curves_tri,
             highlight_vertices=None,
+            highlight_triangles=triHigh,
             fig=self.fig,
             axes=self.axes
         )
@@ -988,9 +1030,9 @@ class show_results:
         else:
             self.canvas.draw()
         if not first:
-            for start, end in self.edges_to_weight:
-                plt.plot(self.tri.circumcenters[start][0], self.tri.circumcenters[start][1], "bo", markersize = 10)
-                plt.plot(self.tri.circumcenters[end][0], self.tri.circumcenters[end][1], "bo", markersize = 10)
+            # for start, end in self.edges_to_weight:
+            #     plt.plot(self.tri.circumcenters[start][0], self.tri.circumcenters[start][1], "bo", markersize = 10)
+            #     plt.plot(self.tri.circumcenters[end][0], self.tri.circumcenters[end][1], "bo", markersize = 10)
             self.toolbar.push_current()
             self.axes.set_xlim(xZoom)
             self.axes.set_ylim(yZoom)
@@ -1013,8 +1055,6 @@ class show_results:
         self.toolbar.push_current()
         self.axes.set_xlim(xZoom)
         self.axes.set_ylim(yZoom)
-
-
 
     def mainMenu(self):
         self.show()
@@ -1194,7 +1234,7 @@ class show_results:
         drawButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Display Graph", command = self.show, bg=BG_COLOR)
         drawButton.grid(column=6, row=2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu, bg=BG_COLOR)
-        backButton.grid(column=0, row=2)
+        backButton.grid(column=1, row=2)
 
     # actual controller for displaying paths, sets what happens when you click
     def pathSelector(self, event):
@@ -1254,7 +1294,10 @@ class show_results:
         self.fileName = name
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
+        if self.keep.get():
+            self.plotPoint(self.base_point[0], self.base_point[1])
+        else:
+            self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
@@ -1290,7 +1333,10 @@ class show_results:
         self.fileName = name
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
+        if self.keep.get():
+            self.plotPoint(self.base_point[0], self.base_point[1])
+        else:
+            self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         uniformization = self.calculateUniformization()
@@ -1333,7 +1379,10 @@ class show_results:
                     self.enteredInfo.append(line)
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
+        if self.keep.get():
+            self.plotPoint(self.base_point[0], self.base_point[1])
+        else:
+            self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.show()
         self.updateLambdaGraph()
@@ -1350,52 +1399,49 @@ class show_results:
         ])
         return self.tri.contained_polygons[polygon][np.argmin(distanceToVertices)]
     
-    def voroniFinder(self, event):
-        if (self.fig.canvas.toolbar.mode != ''):
-            #print(self.fig.canvas.toolbar.mode)
-            return
+    def voronoiFinder(self):
         self.show()
-        x = event.xdata
-        y = event.ydata
+        x = self.xVar.get()
+        y = self.yVar.get()
         if x is None or y is None:
             self.showFunction()
         voronoiIndex = self.determinePolygon(x, y)
         vertexIndex = self.nearestVertexInPoly(x, y, voronoiIndex)
         cell = self.tri.vertices[self.tri.contained_to_original_index[voronoiIndex]]
         vertex = self.tri.circumcenters[vertexIndex]
+        self.selectedCells = [cell, vertex]
         plt.plot(vertex[0], vertex[1], 'bo', markersize = 2)
         plt.plot(cell[0], cell[1], 'bo', markersize = 2)
-        # for vertex in self.tri.contained_polygons[voronoiIndex]:
-        #     plt.plot(self.tri.circumcenters[vertex][0], self.tri.circumcenters[vertex][1], 'bo', markersize = 2)
-        # COME BACK TO TODO, not finding period thats on eric, though displaying the rest is fine, even if the difference will be handled elsewhere (with sample of 100 random vertices).
         xZoom = self.axes.get_xlim()
         yZoom = self.axes.get_ylim()
         plt.draw()
         self.toolbar.push_current()
         self.axes.set_xlim(xZoom)
         self.axes.set_ylim(yZoom)
+        self.radius = np.sqrt((cell[0] - self.pointInHole[0]) ** 2 + (cell[1] - self.pointInHole[1]) ** 2)
         self.currentGValue = self.tri.pde_values[self.tri.contained_to_original_index[voronoiIndex]]
         self.currentGBarValue = self.g_star_bar[vertexIndex]
         if vertexIndex in self.tri.contained_polygons[voronoiIndex]:
             adjacentBarInd = self.tri.contained_polygons[voronoiIndex].index(vertexIndex) + 1
-            # print(adjacentBarInd)
             if adjacentBarInd >= len(self.tri.contained_polygons[voronoiIndex]):
                 adjacentBarInd = 0
-            # print(self.tri.contained_polygons[voronoiIndex][adjacentBarInd])
             self.changeGBar = abs(self.g_star_bar[vertexIndex] - self.g_star_bar[self.tri.contained_polygons[voronoiIndex][adjacentBarInd]])
         else:
             self.changeGBar = None
-        # print("Hopefully correct polygon: ", self.tri.contained_polygons[voronoiIndex], self.tri.contained_to_original_index[voronoiIndex])
-        # print("Using Circumcenters: ", self.tri.circumcenters[vertexIndex])
-        # print("Hopefully correct center: ", cell, voronoiIndex)
-        # print("Hopefully correct vertex, using circumcenters: ", vertex, vertexIndex)
         self.showGBarAfter()
+
+    def voronoiCallback(self, event):
+        if (self.fig.canvas.toolbar.mode != ''):
+            return
+        self.xVar.set(event.xdata)
+        self.yVar.set(event.ydata)
+        self.voronoiFinder()
     
     def showFunction(self):
         self.updateLambdaGraph()
         self.calculateUniformization()
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voroniFinder)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voronoiCallback)
         self.controls.grid_remove()
         self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         self.controls.grid(column=0, row=0)
@@ -1416,12 +1462,18 @@ class show_results:
         self.averageChange = np.mean(changeArray)
         instructionLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Click on a vertex to display function information")
         instructionLabel.grid(column=0, row=1)
+        xEntry = tk.Entry(self.controls, width=int(self.canvas_height/40), textvariable = self.xVar, bg=BG_COLOR)
+        xEntry.grid(row = 2, column = 0)
+        yEntry = tk.Entry(self.controls, width=int(self.canvas_height/40), textvariable = self.yVar, bg=BG_COLOR)
+        yEntry.grid(row = 2, column = 1)
+        plotButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Plot Point", command = self.voronoiFinder, bg=BG_COLOR)
+        plotButton.grid(row = 2, column = 2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="back", command = self.disconnectAndReturn, bg=BG_COLOR)
-        backButton.grid(column=0, row=2)
+        backButton.grid(column=0, row=3)
     
     def showGBarAfter(self):
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voroniFinder)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voronoiCallback)
         self.controls.grid_remove()
         self.controls = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         self.controls.grid(column=0, row=0)
@@ -1429,17 +1481,24 @@ class show_results:
         self.controls.rowconfigure(0, weight=1)
         gLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="g = " + str(self.currentGValue), bg=BG_COLOR)
         gLabel.grid(column=0, row=1)
+        radiusLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="radius = " + str(self.radius), bg=BG_COLOR)
+        radiusLabel.grid(column=2, row=1)
         gBarLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="g bar = " + str(self.currentGBarValue), bg=BG_COLOR)
-        gBarLabel.grid(column=2, row=1)
+        gBarLabel.grid(column=2, row=2)
         changeLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="Change in g bar = " + str(self.changeGBar), bg=BG_COLOR)
         changeLabel.grid(column=0, row=2)
         averageChangeLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Average change in g bar = " + str(self.averageChange), bg=BG_COLOR)
-        averageChangeLabel.grid(column=2, row=2)
+        averageChangeLabel.grid(column=2, row=3)
         periodLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/30), text="Period of g bar = " + str(self.period_gsb), bg=BG_COLOR)
         periodLabel.grid(column=0, row=3)
 
+        cellPointLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Cell Point: (" + str(self.selectedCells[0][0]) + ", " + str(self.selectedCells[0][1]) + ")", bg=BG_COLOR)
+        cellPointLabel.grid(column=0, row=4, columnspan = 1)
+        vertexPointLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Vertex Point: (" + str(self.selectedCells[1][0]) + ", " + str(self.selectedCells[1][1]) + ")", bg=BG_COLOR)
+        vertexPointLabel.grid(column=2, row=4, columnspan = 1)
+
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="back", command = self.disconnectAndReturn, bg=BG_COLOR)
-        backButton.grid(column=1, row=4)
+        backButton.grid(column=1, row=5)
 
     def showDraw(self):
         self.controls.grid_remove()
@@ -1670,6 +1729,8 @@ class show_results:
         self.showIntermediate()
     
     def angleDifferenceFinder(self, event):
+        if (self.fig.canvas.toolbar.mode != ''):
+            return
         x = event.xdata
         y = event.ydata
         if len(self.selectedPoints) == 0:
@@ -1681,9 +1742,11 @@ class show_results:
             self.selectedPoints[0] = [x, y]
         self.show()
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.angleDifferenceFinder)
+        print(self.selectedPoints)
         for point in self.selectedPoints:
             if point is not None:
-                plt.plot(point[0], point[1], 'bo', markersize = 2)
+                if point[0] is not None and point[1] is not None:
+                    plt.plot(point[0], point[1], 'bo', markersize = 2)
         plt.draw()
 
     def showAngles(self):
@@ -1699,10 +1762,7 @@ class show_results:
         self.calculateUniformization()
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.angleDifferenceFinder)
         if self.selectedPoints == None:
-            #print(self.selectedPoints)
             self.selectedPoints = [None, None]
-        self.xVar = tk.DoubleVar()
-        self.yVar = tk.DoubleVar()
         xEntry = tk.Entry(self.controls, width=int(self.canvas_height/40), textvariable = self.xVar, bg=BG_COLOR)
         xEntry.grid(row = 1, column = 0)
         yEntry = tk.Entry(self.controls, width=int(self.canvas_height/40), textvariable = self.yVar, bg=BG_COLOR)
@@ -1710,7 +1770,7 @@ class show_results:
         plotButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Plot Point", command = self.plotPointAngle, bg=BG_COLOR)
         plotButton.grid(row = 1, column = 2)
         confirmButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Confirm", command = self.displayAngles, bg=BG_COLOR)
-        confirmButton.grid(row = 5, column = 2)
+        confirmButton.grid(row = 6, column = 2)
         failFlag = False
         if self.fileRoot == '':
             failFlag = True
@@ -1736,8 +1796,12 @@ class show_results:
             combiAngleLabel.grid(column=0, row = 4, columnspan=2)
             actualAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Actual Angle in Radians = " + str(self.actualAngle), bg=BG_COLOR)
             actualAngleLabel.grid(column = 2, row = 4, columnspan=2)
+            pointOneLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point One: (" + str(self.selectedCells[0][0]) + ", " + str(self.selectedCells[0][1]) + ")", bg=BG_COLOR)
+            pointOneLabel.grid(column=0, row = 5, columnspan=2)
+            pointTwoLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point Two: (" + str(self.selectedCells[1][0]) + ", " + str(self.selectedCells[1][1]) + ")", bg=BG_COLOR)
+            pointTwoLabel.grid(column = 2, row = 5, columnspan=2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.disconnectAndReturn, bg=BG_COLOR)
-        backButton.grid(row = 5, column = 0)
+        backButton.grid(row = 6, column = 0)
 
     def previousAngleGraph(self):
         root, edge, triCount, step = self.fileName.split("_")
@@ -1862,6 +1926,7 @@ class show_results:
         combiAngle = ((2 * np.pi) / self.period_gsb) * difference
         centerOne = self.tri.vertices[self.tri.contained_to_original_index[cellOne]]
         centerTwo = self.tri.vertices[self.tri.contained_to_original_index[cellTwo]]
+        self.selectedCells = [centerOne, centerTwo]
         shiftAngle = np.arctan2(self.tri.circumcenters[self.omega_0][1] - self.pointInHole[1], self.tri.circumcenters[self.omega_0][0] - self.pointInHole[0])
         #print("The shift", shiftAngle)
         shiftedPoints = [[self.selectedPoints[0][0] * np.cos(0 - shiftAngle - np.pi) - self.selectedPoints[0][1] * np.sin(0 - shiftAngle - np.pi), 
