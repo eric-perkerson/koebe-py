@@ -75,22 +75,53 @@ Using the ray $r$, we construct a slit path of Voronoi cells $S_\rho$ in $\tilde
 	\LinesNumbered
 	\DontPrintSemicolon
 	\SetArgSty{textnormal}
-	\KwIn{A region object \texttt{R} with genus two}
-	\KwOut{The singular level curve of the region object \texttt{R}}
-	T = triangulate\_acute(R)\;
+	\KwIn{Voronoi polygon topology $A_\rho$, the index of the base cell $\omega$, the ray $r$ defining the slit of the plane}
+	\KwOut{The slit path}
+	$p \leftarrow \omega$\;
 	f = solve\_pdf(T)\;
 	% $\Lambda$ = build\_lambda(T)\;
 	singular\_vertex = find\_singular\_vertex(T)\;
 	singular\_height = f(singular\_vertex)\;
 	singular\_level\_curve = compute\_level\_curve(T, singular\_height)\;
-	\caption{Algorithm to Compute the Singular Level Curve}
+	\caption{Algorithm to Compute the Slit Cell Path}
 \end{algorithm}
 
 Note: it is simpler (and avoids a possible issue with having the base cell not in the first connected component of the cells intersected by the ray $r$) to restrict the selection of the base cell $\rho_\omega$ to the cells with are hit first by the ray $r$.
 
 \section{Computation of the Harmonic Conjugate}
 
+The harmonic conjugate function $g^*$ is approximated by the combinatorial harmonic conjugate function $g^*_n$ which is initially defined on $\Lambda_0$. For each $\omega \in \Lambda_0$, we compute a discrete path $\gamma$ from $\omega_0$ to $\omega$, represented as a list where the first element $\gamma_0$ is $\omega_0$ and the last element $\gamma_{n_\gamma}$ is $\omega$, where $n_\gamma$ is the number of elements of the path. To be a path, $\gamma$ must have $(\gamma_i, \gamma_{i + 1}) \in \Lambda_1$ or $(\gamma_{i + 1}, \gamma_i) \in \Lambda_1$ for all $i = 1, 2, \dots, n_\gamma - 1$. The path $\gamma$ is computed by constructing a weighted graph where the edges of $\Lambda_1$ that intersect the slit have weight infinity, and then finding the shortest path from $\omega_0$ to $\omega$ on the path. Since $\omega_0$ was chosen to have the smallest angle of all $\omega \in \lambda_0$, this ensures that the path $\gamma$ is counter-clockwise in the sense that $\theta(\omega) > \theta(\omega_0)$, where $\theta$ is the angle of the point with respect to the slit. The function that computes this path will be denoted \texttt{shortest\_cck\_path}, since it computes the shortest counter-clockwise path from $\omega_0$ to $\omega$.
+
+To compute the values of the harmonic conjugate function $g^*$ on each $\omega \in \Lambda_0$, we need to compute the flux contributing edges along the path $\gamma = \texttt{shortest\_cck\_path} (\omega_0, \omega)$. For each edge $e \in \Lambda_0 \times \Lambda_0$ in the path $\gamma$, we compute the perpendicular edge $e^\perp \in T_0 \times T_0$. This can be quickly computed using the information stored in the topology objects. The perpendicular edges $\gamma^\perp = \{ e^\perp_i \}_{i = 1}^{n_\gamma}$ corresponding to the edges $\gamma = \{ e_i \}_{i = 1}^{n_\gamma}$ are the flux contributing edges for the path $\gamma$.
+
+The flux itself gives the value $g^* (\omega)$, and is computed given the flux contributing edges $\gamma^\perp$ by the formula:
+\[
+	\sum_{e^\perp \in \gamma^\perp} c(e^\perp) | g(e^\perp_0) - g(e^\perp_1) |
+\]
+Note that this formula for the flux uses the absolute value of the difference in $g$ along the edge $e^\perp$ to avoid the unnecessary step of orienting all of the flux contributing edges in the same way. Recall that $c$ denotes the conductance of an edge.
+
+\begin{algorithm}%[H]
+	\SetAlgoLined
+	\LinesNumbered
+	\DontPrintSemicolon
+	\SetArgSty{textnormal}
+	\KwIn{$\Lambda_0$}
+	\KwOut{A function $g^*_n$ defined on the indices $\omega \in \Lambda_0$}
+	$g^*_n (\omega) \leftarrow 0$\;
+	\For{$\omega \in \Lambda_0$}{
+		$\gamma$ = \texttt{shortest\_cck\_path}($\omega_0$, $\omega$)\;
+		\For{$e \in \gamma$}{
+			$e^\perp$ = \texttt{perpendicular\_edge}($e$)\;
+			$g^*_n (\omega) \leftarrow g^*_n (\omega) + c(e^\perp) |g(e^\perp_0) - g(e^\perp_1)|$\;
+		}
+	\Return{$g^*_n$}
+	}
+	\caption{Algorithm to Compute the Discrete Harmonic Conjugate on $\Lambda_0$}
+\end{algorithm}
+
 \section{Computation of the Period}
+
+
 
 \section{Construction of the Uniformizing Function}
 

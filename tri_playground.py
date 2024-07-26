@@ -356,45 +356,45 @@ def flux_on_contributing_edges(edges):
     return flux
 
 
-NUM_TRIANGLES = 1000
+NUM_TRIANGLES = 2000
 USE_WOLFRAM_SOLVER = True
 
 base_cell = 149  # 178
 file_stem = "concentric_annulus"
 
-# subprocess.run([
-#     'julia',
-#     'triangulate_via_julia.jl',
-#     file_stem,
-#     file_stem,
-#     str(NUM_TRIANGLES)
-# ])
+subprocess.run([
+    'julia',
+    'triangulate_via_julia.jl',
+    file_stem,
+    file_stem,
+    str(NUM_TRIANGLES)
+])
 
-# if USE_WOLFRAM_SOLVER:
-#     subprocess.run([
-#         'wolframscript',
-#         'solve_pde.wls'
-#     ])
-# else:
-#     t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-#     t.write(f'regions/{file_stem}/{file_stem}.output.poly')
+if USE_WOLFRAM_SOLVER:
+    subprocess.run([
+        'wolframscript',
+        'solve_pde.wls'
+    ])
+else:
+    t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+    t.write(f'regions/{file_stem}/{file_stem}.output.poly')
 
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/mesh_conversion.py',
-#         '-p',
-#         f'regions/{file_stem}/{file_stem}.output.poly',
-#         '-n',
-#         f'regions/{file_stem}/{file_stem}.node',
-#         '-e',
-#         f'regions/{file_stem}/{file_stem}.ele',
-#     ])
+    subprocess.run([
+        'python',
+        'mesh_conversion/mesh_conversion.py',
+        '-p',
+        f'regions/{file_stem}/{file_stem}.output.poly',
+        '-n',
+        f'regions/{file_stem}/{file_stem}.node',
+        '-e',
+        f'regions/{file_stem}/{file_stem}.ele',
+    ])
 
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/fenicsx_solver.py',
-#         file_stem,
-#     ])
+    subprocess.run([
+        'python',
+        'mesh_conversion/fenicsx_solver.py',
+        file_stem,
+    ])
 
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
@@ -545,9 +545,8 @@ for cell_path_index, cell in enumerate(reversed(cell_path)):
                 tri.circumcenters[edge[0]],
                 tri.circumcenters[edge[1]]
             )):
-                if (contained_topology[cell][edge_index] != -1):  # Might remove this depending on which path is needed
-                    connected_component.append(edge)
-                    perpendicular_edges.append((cell, contained_topology[cell][edge_index]))
+                connected_component.append(edge)
+                perpendicular_edges.append((cell, contained_topology[cell][edge_index]))
             else:
                 break
         if segment_intersects_line_negative(
@@ -617,6 +616,8 @@ for edge in triangulation_edges_reindexed:
 
 # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
 # the circumcenter of the base_cell
+
+
 
 # TODO: rotate to avoid having the negative x-axis near the annulus slit
 slit_path = [edge[0] for edge in connected_component]
@@ -954,74 +955,75 @@ pde_on_omega_values = [
 # plt.colorbar()
 # plt.show()
 
-i = 57
-tri.show(
-    'test.png',
-    show_edges=True,
-    show_triangles=False,
-    show_vertex_indices=True,
-    highlight_triangles=[i]
-)
-tri.show_voronoi_tesselation(
-    'test.png',
-    show_edges=True,
-    show_polygons=False,
-    highlight_vertices=[i],
-    fig=plt.gcf(),
-    axes=plt.gca()
-)
-plt.scatter(
-    tri.circumcenters[:, 0],
-    tri.circumcenters[:, 1],
-    c=pde_on_omega_values,
-    s=100
-)
-plt.show()
-tri.triangles[i]
-tri.pde_values[
-    tri.triangles[i]
-]
-np.mean(
-    tri.pde_values[
-        tri.triangles[i]
-    ]
-)
-pde_on_omega_values[i]
+# i = 57
+# tri.show(
+#     'test.png',
+#     show_edges=True,
+#     show_triangles=False,
+#     show_vertex_indices=True,
+#     highlight_triangles=[i]
+# )
+# tri.show_voronoi_tesselation(
+#     'test.png',
+#     show_edges=True,
+#     show_polygons=False,
+#     highlight_vertices=[i],
+#     fig=plt.gcf(),
+#     axes=plt.gca()
+# )
+# plt.scatter(
+#     tri.circumcenters[:, 0],
+#     tri.circumcenters[:, 1],
+#     c=pde_on_omega_values,
+#     s=100
+# )
+# plt.show()
 
-# Test barycentric interpolation on ith triangle with pde values
-tri.triangle_coordinates[i]
-r_1 = tri.triangle_coordinates[i][0]
-r_2 = tri.triangle_coordinates[i][1]
-r_3 = tri.triangle_coordinates[i][2]
-n = 10
-barycentric_coor_grid = np.vstack([np.array([i, j]) / (n - 1) for i in range(n) for j in range(n - i)])
-cartesian_coor_tri_grid = np.vstack(
-    [
-        barycentric_to_cartesian(lambda_1, lambda_2, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
-        for lambda_1, lambda_2 in barycentric_coor_grid
-    ]
-)
-z_values = np.array([
-    barycentric_interpolation(
-        x, y,
-        r_1[0], r_1[1],
-        r_2[0], r_2[1],
-        r_3[0], r_3[1],
-        tri.pde_values[tri.triangles[i][0]],
-        tri.pde_values[tri.triangles[i][1]],
-        tri.pde_values[tri.triangles[i][2]]
-    )
-    for x, y in cartesian_coor_tri_grid
-])
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(
-    np.concatenate([cartesian_coor_tri_grid[:, 0], np.array([tri.circumcenters[i][0]])]),
-    np.concatenate([cartesian_coor_tri_grid[:, 1], np.array([tri.circumcenters[i][1]])]),
-    np.concatenate([z_values, np.array([pde_on_omega_values[i]])]),
-)
-plt.show()
-# END TEST OF BARYCENTRIC INTERPOLATION
+# tri.triangles[i]
+# tri.pde_values[
+#     tri.triangles[i]
+# ]
+# np.mean(
+#     tri.pde_values[
+#         tri.triangles[i]
+#     ]
+# )
+# pde_on_omega_values[i]
+
+# # Test barycentric interpolation on ith triangle with pde values
+# tri.triangle_coordinates[i]
+# r_1 = tri.triangle_coordinates[i][0]
+# r_2 = tri.triangle_coordinates[i][1]
+# r_3 = tri.triangle_coordinates[i][2]
+# n = 10
+# barycentric_coor_grid = np.vstack([np.array([i, j]) / (n - 1) for i in range(n) for j in range(n - i)])
+# cartesian_coor_tri_grid = np.vstack(
+#     [
+#         barycentric_to_cartesian(lambda_1, lambda_2, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
+#         for lambda_1, lambda_2 in barycentric_coor_grid
+#     ]
+# )
+# z_values = np.array([
+#     barycentric_interpolation(
+#         x, y,
+#         r_1[0], r_1[1],
+#         r_2[0], r_2[1],
+#         r_3[0], r_3[1],
+#         tri.pde_values[tri.triangles[i][0]],
+#         tri.pde_values[tri.triangles[i][1]],
+#         tri.pde_values[tri.triangles[i][2]]
+#     )
+#     for x, y in cartesian_coor_tri_grid
+# ])
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.scatter(
+#     np.concatenate([cartesian_coor_tri_grid[:, 0], np.array([tri.circumcenters[i][0]])]),
+#     np.concatenate([cartesian_coor_tri_grid[:, 1], np.array([tri.circumcenters[i][1]])]),
+#     np.concatenate([z_values, np.array([pde_on_omega_values[i]])]),
+# )
+# plt.show()
+# # END TEST OF BARYCENTRIC INTERPOLATION
 
 
 period_gsb = compute_period()
@@ -1040,7 +1042,7 @@ plt.xlabel('Real')
 plt.ylabel('Imaginary')
 plt.gca().set_aspect('equal')
 plt.savefig(path.with_suffix('.png'))
-# plt.show()
+plt.show()
 
 # flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
 # for i in range(num_contained_polygons):
@@ -1169,7 +1171,6 @@ plt.show()
 
 
 # Conjugate level curves with color
-fig, axes = plt.subplots()
 def subsample_color_map(colormap, num_samples, start_color=0, end_color=255, reverse=False):
     sample_points_float = np.linspace(start_color, end_color, num_samples)
     sample_points = np.floor(sample_points_float).astype(np.int64)
@@ -1178,6 +1179,8 @@ def subsample_color_map(colormap, num_samples, start_color=0, end_color=255, rev
         all_colors = np.flip(all_colors, axis=0)
     return all_colors[sample_points]
 
+
+fig, axes = plt.subplots()
 # graded_level_curve_color_map = cm.lajolla
 conjugate_level_curve_color_map = cm.buda
 conjugate_level_curve_colors = subsample_color_map(
@@ -1218,3 +1221,129 @@ tri.show(
 )
 axes.add_collection(line_collection)
 plt.show()
+
+
+# Calculate the gsb_+ values (multivalued gsb for vertices on the vertex slit path)
+gsb_plus = {}
+for omega in slit_path:
+    omega_cross_ray_edge_position = position(True, np.array([(omega in edge) for edge in edges_to_weight]))
+    if omega_cross_ray_edge_position == -1:
+        print(f'No edge found for omega = {omega}, skipping')
+    omega_cross_ray_edge = tuple(edges_to_weight[omega_cross_ray_edge_position])
+    if omega_cross_ray_edge[1] == omega:
+        omega_clockwise_neighbor = omega_cross_ray_edge[0]
+    else:
+        omega_clockwise_neighbor = omega_cross_ray_edge[1]
+
+    last_flux_contributing_edge = tuple(get_perpendicular_edge(omega_cross_ray_edge))
+    gsb_plus[omega] = g_star_bar[omega_clockwise_neighbor] + (
+        tri.conductance[last_flux_contributing_edge] * np.abs(
+            tri.pde_values[last_flux_contributing_edge[0]] - tri.pde_values[last_flux_contributing_edge[1]]
+        )
+    )
+
+# uniformization = np.exp(2 * np.pi / period_gsb * (pde_on_omega_values + 1j * g_star_bar))
+uniformization
+len(pde_on_omega_values)
+len(g_star_bar)
+len(tri.circumcenters)
+added_omegas = np.array(list(gsb_plus.keys()))
+added_g_star_bars = np.array(list(gsb_plus.values()))
+added_pde_on_omega_values = np.array(pde_on_omega_values)[added_omegas]
+uniformization_addendum = np.exp(2 * np.pi / period_gsb * (added_pde_on_omega_values + 1j * added_g_star_bars))
+
+v_match = []
+for v_index, v in enumerate(uniformization_addendum):
+    min_ = np.inf
+    argmin = -1
+    argmin_u = -1
+    for u_index, u in enumerate(uniformization):
+        test = np.abs(u - v)
+        if test < min_:
+            argmin = v_index
+            argmin_u = u_index
+            min_ = np.abs(u - v)
+    v_match.append(min_)
+    print(argmin, argmin_u, min_)
+
+uniformization[190]
+uniformization_addendum[8]
+
+uniformization
+
+plt.clf()
+plt.cla()
+fig, axes = plt.subplots(nrows=1, ncols=2, sharex=True, sharey=True)
+axes[0].scatter(
+    np.real(uniformization),
+    np.imag(uniformization),
+    s=100,
+    c='b',
+    alpha=0.5
+)
+axes[1].scatter(
+    np.real(uniformization),
+    np.imag(uniformization),
+    s=100,
+    c='b',
+    alpha=0.5
+)
+axes[1].scatter(
+    np.real(np.concatenate([uniformization_addendum])),
+    np.imag(np.concatenate([uniformization_addendum])),
+    s=100,
+    c='r',
+    alpha=0.5
+)
+plt.title('Conformal Model')
+plt.xlabel('Real')
+plt.ylabel('Imaginary')
+plt.gca().set_aspect('equal')
+plt.savefig(path.with_suffix('.png'))
+plt.show()
+
+
+
+for omega_0 in slit_path:
+    # Create graph of circumcenters (Lambda[0])
+    lambda_graph = nx.Graph()
+    lambda_graph.add_nodes_from(range(len(tri.circumcenters)))
+    lambda_graph.add_edges_from(tri.voronoi_edges)
+    nx.set_edge_attributes(lambda_graph, values=1, name='weight')
+    for edge in edges_to_weight:
+        lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
+    shortest_paths = nx.single_source_dijkstra(lambda_graph, omega_0, target=None, cutoff=None, weight='weight')[1]
+
+    num_contained_polygons = len(tri.contained_polygons)
+    g_star_bar = np.zeros(tri.num_triangles, dtype=np.float64)
+    perpendicular_edges_dict = {}
+    for omega in range(tri.num_triangles):
+        if omega in shortest_paths:
+            edges = build_path_edges(shortest_paths[omega])
+        else:
+            edges = []
+        flux_contributing_edges = []
+        for edge in edges:
+            flux_contributing_edges.append(tuple(get_perpendicular_edge(edge)))
+        perpendicular_edges_dict[omega] = flux_contributing_edges
+        g_star_bar[omega] = flux_on_contributing_edges(flux_contributing_edges)
+
+
+    def compute_period():
+        omega_0_cross_ray_edge_position = position(True, np.array([(omega_0 in edge) for edge in edges_to_weight]))
+        omega_0_cross_ray_edge = tuple(edges_to_weight[omega_0_cross_ray_edge_position])
+        if omega_0_cross_ray_edge[1] == omega_0:
+            omega_0_clockwise_neighbor = omega_0_cross_ray_edge[0]
+        else:
+            omega_0_clockwise_neighbor = omega_0_cross_ray_edge[1]
+
+        last_flux_contributing_edge = tuple(get_perpendicular_edge(omega_0_cross_ray_edge))
+        closed_loop_flux = g_star_bar[omega_0_clockwise_neighbor] + (
+            tri.conductance[last_flux_contributing_edge] * np.abs(
+                tri.pde_values[last_flux_contributing_edge[0]] - tri.pde_values[last_flux_contributing_edge[1]]
+            )
+        )
+        return closed_loop_flux
+
+    print(f'omega_0: {omega_0} \t Period: {compute_period()}')
+

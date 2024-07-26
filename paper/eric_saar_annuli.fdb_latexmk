@@ -1,10 +1,10 @@
 # Fdb version 3
-["xdvipdfmx"] 1720984126 "eric_saar_annuli.xdv" "eric_saar_annuli.pdf" "eric_saar_annuli" 1720984126
-  "eric_saar_annuli.xdv" 1720984126 42444 3ec234647bfb729a0f04a5862489cd93 "xelatex"
+["xdvipdfmx"] 1721592197 "eric_saar_annuli.xdv" "eric_saar_annuli.pdf" "eric_saar_annuli" 1721592198
+  "eric_saar_annuli.xdv" 1721592197 61724 8dd70c659215524bfdef2de27bea21b4 "xelatex"
   (generated)
   "eric_saar_annuli.pdf"
-["xelatex"] 1720984125 "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" "eric_saar_annuli.xdv" "eric_saar_annuli" 1720984126
-  "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" 1720984125 6497 6fb210f0c6cd3d9d881b3aad3fbaa583 ""
+["xelatex"] 1721592197 "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" "eric_saar_annuli.xdv" "eric_saar_annuli" 1721592198
+  "/Users/eric/Code/planar-domains/paper/eric_saar_annuli.tex" 1721592196 9475 a2131348d04e41dd22bf9b0504b59719 ""
   "/usr/local/texlive/2020/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2020/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex7.tfm" 1246382020 1004 54797486969f23fa377b128694d548df ""
   "/usr/local/texlive/2020/texmf-dist/fonts/tfm/public/amsfonts/symbols/msam10.tfm" 1246382020 916 f87d7c45f9c908e672703b83b72241a3 ""
@@ -46,9 +46,9 @@
   "/usr/local/texlive/2020/texmf-dist/web2c/texmf.cnf" 1583102494 39451 60d7debd9ef8ece44cbe965493576c2d ""
   "/usr/local/texlive/2020/texmf-var/web2c/xetex/xelatex.fmt" 1586288269 4769632 cea4f80911e5df070b1f6d7834d4faf8 ""
   "/usr/local/texlive/2020/texmf.cnf" 1586288231 577 d60164b4589a341208aff7a667fbbdcb ""
-  "eric_saar_annuli.aux" 1720984126 1113 6f682a3d117b669fa240d6d18822144e "xelatex"
-  "eric_saar_annuli.tex" 1720984125 6497 6fb210f0c6cd3d9d881b3aad3fbaa583 ""
+  "eric_saar_annuli.aux" 1721592197 1276 90cdd14ade46dbbd931bd3e87c9b6d41 "xelatex"
+  "eric_saar_annuli.tex" 1721592196 9475 a2131348d04e41dd22bf9b0504b59719 ""
   (generated)
   "eric_saar_annuli.aux"
-  "eric_saar_annuli.xdv"
   "eric_saar_annuli.log"
+  "eric_saar_annuli.xdv"
