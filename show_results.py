@@ -1030,9 +1030,9 @@ class show_results:
         else:
             self.canvas.draw()
         if not first:
-            # for start, end in self.edges_to_weight:
-            #     plt.plot(self.tri.circumcenters[start][0], self.tri.circumcenters[start][1], "bo", markersize = 10)
-            #     plt.plot(self.tri.circumcenters[end][0], self.tri.circumcenters[end][1], "bo", markersize = 10)
+            for start, end in self.edges_to_weight:
+                plt.plot(self.tri.circumcenters[start][0], self.tri.circumcenters[start][1], "bo", markersize = 10)
+                plt.plot(self.tri.circumcenters[end][0], self.tri.circumcenters[end][1], "bo", markersize = 10)
             self.toolbar.push_current()
             self.axes.set_xlim(xZoom)
             self.axes.set_ylim(yZoom)
@@ -1742,7 +1742,7 @@ class show_results:
             self.selectedPoints[0] = [x, y]
         self.show()
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.angleDifferenceFinder)
-        print(self.selectedPoints)
+        #print(self.selectedPoints)
         for point in self.selectedPoints:
             if point is not None:
                 if point[0] is not None and point[1] is not None:
@@ -1796,9 +1796,11 @@ class show_results:
             combiAngleLabel.grid(column=0, row = 4, columnspan=2)
             actualAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Actual Angle in Radians = " + str(self.actualAngle), bg=BG_COLOR)
             actualAngleLabel.grid(column = 2, row = 4, columnspan=2)
-            pointOneLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point One: (" + str(self.selectedCells[0][0]) + ", " + str(self.selectedCells[0][1]) + ")", bg=BG_COLOR)
+            differenceAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Difference between them is: " + str(abs(self.actualAngle - self.combiAngle)), bg=BG_COLOR)
+            differenceAngleLabel.grid(column = 4, row = 4, columnspan=2)
+            pointOneLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point One: (" + str(self.selectedPoints[0][0]) + ", " + str(self.selectedPoints[0][1]) + ")", bg=BG_COLOR)
             pointOneLabel.grid(column=0, row = 5, columnspan=2)
-            pointTwoLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point Two: (" + str(self.selectedCells[1][0]) + ", " + str(self.selectedCells[1][1]) + ")", bg=BG_COLOR)
+            pointTwoLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point Two: (" + str(self.selectedPoints[1][0]) + ", " + str(self.selectedPoints[1][1]) + ")", bg=BG_COLOR)
             pointTwoLabel.grid(column = 2, row = 5, columnspan=2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.disconnectAndReturn, bg=BG_COLOR)
         backButton.grid(row = 6, column = 0)
@@ -1890,65 +1892,109 @@ class show_results:
             if point is not None:
                 plt.plot(point[0], point[1], 'bo', markersize = 2)
         plt.draw()
-        #print(self.selectedPoints)
 
     def displayAngles(self):
-        self.flags = True
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "")
+        self.flags = True # Let's program know there are calculated angles for it to display
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "") # Not sure if this is really necessary
         cellOne = self.determinePolygon(self.selectedPoints[0][0], self.selectedPoints[0][1])
-        cellTwo = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1])
-        #print(self.selectedPoints)
-        totalFlux = 0
-        min = math.inf
+        cellTwo = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1]) # Determines which cell the clicked points are in
+        # TODO: Add a check so it doesn't crash if the selected point is exactly a cell vertex
+        totalFlux1 = 0 # This will be the flux value for the first point
+        min = math.inf # used to determine where to draw the path to, should maybe draw it to the most important vertex instead
         minIndex1 = 0
-        for index in self.tri.contained_polygons[cellOne]:
-            totalFlux += self.g_star_bar[index]
+        self.show()
+        distanceFromPointArr = [] # This keeps track of distances between cell vertices and the input point
+        adjacencyDistance = [] # This keeps track of distances between adjacent cell vertices
+        i = -1
+        for index in self.tri.contained_polygons[cellOne]: # Fills in the distances for each vertex around the cell
+            adjacencyDistance.append(
+                np.sqrt((self.tri.circumcenters[index][0] - self.tri.circumcenters[self.tri.contained_polygons[cellOne][i]][0]) ** 2 + (self.tri.circumcenters[index][1] - self.tri.circumcenters[self.tri.contained_polygons[cellOne][i]][1]) ** 2)
+            )
+            distanceFromPointArr.append(
+                (self.selectedPoints[0][0] - self.tri.circumcenters[index][0]) ** 2 + (self.selectedPoints[0][1] - self.tri.circumcenters[index][1]) ** 2
+            )
+            i += 1
+        averageAdjDist = np.sum(adjacencyDistance) / len(self.tri.contained_polygons[cellOne]) # Finds the average adjacent difference
+        dValues = [] # These are the difference in coefficients determined by grouping, so if there are two cell vertices that are extremely close they will have a large dValue, which will diminish their importance
+        for value in adjacencyDistance:
+            if value >= averageAdjDist:
+                dValues.append(0)
+            else:
+                dValues.append(((averageAdjDist - value)/(averageAdjDist))/(2 * (len(self.tri.contained_polygons[cellOne]) - 1)))
+                # The dValue is calculated by first assuming that the vertices lie on top of each other, so that removes one vertex. Then it weighs this by just how close they are together, and 0 if the distances are more than the average
+        distanceFromPointArr = np.divide(1, distanceFromPointArr) # Essentially just finds the intensity of the cell vertices on that point by inverse square law
+        for j in range(len(distanceFromPointArr)): # This applies the adjusted weighting based on how grouped up vertices are to the intensity from distance to input point
+            coef = 1
+            for k in range(len(dValues)):
+                if j == k or j == (k + 1) % len(dValues):
+                    coef -= dValues[k]
+                else:
+                    coef += 2 * dValues[k] / (len(dValues) - 2)
+            distanceFromPointArr[j] *= coef
+        distanceFromPointArr = np.divide(distanceFromPointArr, np.sum(distanceFromPointArr)) # normalizes so the total weights add up to 1
+        i = 0
+        for index in self.tri.contained_polygons[cellOne]: # Adds the flux on each vertex adjusted by its group-adjusted adjacency
+            totalFlux1 += self.g_star_bar[index] * distanceFromPointArr[i]
             if self.g_star_bar[index] < min:
                 minIndex1 = index
                 min = self.g_star_bar[index]
-            #print(self.g_star_bar[index])
-        #print(min, minIndex1)
-        averageOne = totalFlux / len(self.tri.contained_polygons[cellOne])
-        #print("First Average", averageOne)
-        totalFlux = 0
+            i += 1
+        totalFlux2 = 0 # Everything above is then repeated on the second point
         min = math.inf
         minIndex2 = 0
+        distanceFromPointArr = []
+        adjacencyDistance = []
+        i = -1
         for index in self.tri.contained_polygons[cellTwo]:
-            totalFlux += self.g_star_bar[index]
+            adjacencyDistance.append(
+                np.sqrt((self.tri.circumcenters[index][0] - self.tri.circumcenters[self.tri.contained_polygons[cellTwo][i]][0]) ** 2 + (self.tri.circumcenters[index][1] - self.tri.circumcenters[self.tri.contained_polygons[cellTwo][i]][1]) ** 2)
+            )
+            distanceFromPointArr.append(
+                (self.selectedPoints[1][0] - self.tri.circumcenters[index][0]) ** 2 + (self.selectedPoints[1][1] - self.tri.circumcenters[index][1]) ** 2
+            )
+            i += 1
+        dValues = []
+        for value in adjacencyDistance:
+            if value >= averageAdjDist:
+                dValues.append(0)
+            else:
+                dValues.append(((averageAdjDist - value)/(averageAdjDist))/(2 * (len(self.tri.contained_polygons[cellOne]) - 1)))
+        distanceFromPointArr = np.divide(1, distanceFromPointArr)
+        for j in range(len(distanceFromPointArr)):
+            coef = 1
+            for k in range(len(dValues)):
+                if j == k or j == (k + 1) % len(dValues):
+                    coef -= dValues[k]
+                else:
+                    coef += 2 * dValues[k] / (len(dValues) - 2)
+            distanceFromPointArr[j] *= coef
+        distanceFromPointArr = np.divide(distanceFromPointArr, np.sum(distanceFromPointArr))
+        i = 0
+        for index in self.tri.contained_polygons[cellTwo]:
+            totalFlux2 += self.g_star_bar[index] * distanceFromPointArr[i]
             if self.g_star_bar[index] < min:
                 minIndex2 = index
                 min = self.g_star_bar[index]
-            #print(self.g_star_bar[index])
-        #print(min, minIndex2)
-        averageTwo = totalFlux / len(self.tri.contained_polygons[cellTwo])
-        #print("Second average", averageTwo)
-        difference = abs(averageOne - averageTwo)
-        combiAngle = ((2 * np.pi) / self.period_gsb) * difference
-        centerOne = self.tri.vertices[self.tri.contained_to_original_index[cellOne]]
-        centerTwo = self.tri.vertices[self.tri.contained_to_original_index[cellTwo]]
-        self.selectedCells = [centerOne, centerTwo]
-        shiftAngle = np.arctan2(self.tri.circumcenters[self.omega_0][1] - self.pointInHole[1], self.tri.circumcenters[self.omega_0][0] - self.pointInHole[0])
-        #print("The shift", shiftAngle)
-        shiftedPoints = [[self.selectedPoints[0][0] * np.cos(0 - shiftAngle - np.pi) - self.selectedPoints[0][1] * np.sin(0 - shiftAngle - np.pi), 
-                          self.selectedPoints[0][0] * np.sin(0 - shiftAngle - np.pi) + self.selectedPoints[0][1] * np.cos(0 - shiftAngle - np.pi)],
-                         [self.selectedPoints[1][0] * np.cos(0 - shiftAngle - np.pi) - self.selectedPoints[1][1] * np.sin(0 - shiftAngle - np.pi), 
-                          self.selectedPoints[1][0] * np.sin(0 - shiftAngle - np.pi) + self.selectedPoints[1][1] * np.cos(0 - shiftAngle - np.pi)]]
-        #print(self.base_point[0] * np.cos(0 - shiftAngle) - self.base_point[1] * np.sin(0 - shiftAngle), self.base_point[0] * np.sin(0 - shiftAngle) + self.base_point[1] * np.cos(0 - shiftAngle))
-        angle1 = np.arctan2(shiftedPoints[0][1] - self.pointInHole[1], shiftedPoints[0][0] - self.pointInHole[0])
-        angle2 = np.arctan2(shiftedPoints[1][1] - self.pointInHole[1], shiftedPoints[1][0] - self.pointInHole[0])
-        actualAngle = abs(angle1 - angle2)
-        # print("actual Angle", actualAngle)
-        # print("Actual in degrees", actualAngle * (360 / (np.pi * 2)))
-        # print("combi in degrees", combiAngle * (360 / (np.pi * 2)))
+            i += 1
+        difference = abs(totalFlux1 - totalFlux2)
+        combiAngle = ((2 * np.pi) / self.period_gsb) * difference # This finds the difference between flux values and adjusts it to be a radian
+        shiftAngle = np.arctan2(self.tri.circumcenters[self.omega_0][1] - self.pointInHole[1], self.tri.circumcenters[self.omega_0][0] - self.pointInHole[0]) # Finds what radian we need to shift the slit by to put it on top of the -x axis
+        shiftedPoints = [[(self.selectedPoints[0][0] - self.pointInHole[0]) * np.cos(0 - shiftAngle - np.pi) - (self.selectedPoints[0][1] - self.pointInHole[1]) * np.sin(0 - shiftAngle - np.pi), 
+                          (self.selectedPoints[0][0] - self.pointInHole[0]) * np.sin(0 - shiftAngle - np.pi) + (self.selectedPoints[0][1] - self.pointInHole[1]) * np.cos(0 - shiftAngle - np.pi)],
+                         [(self.selectedPoints[1][0] - self.pointInHole[0]) * np.cos(0 - shiftAngle - np.pi) - (self.selectedPoints[1][1] - self.pointInHole[1]) * np.sin(0 - shiftAngle - np.pi), 
+                          (self.selectedPoints[1][0] - self.pointInHole[0]) * np.sin(0 - shiftAngle - np.pi) + (self.selectedPoints[1][1] - self.pointInHole[1]) * np.cos(0 - shiftAngle - np.pi)]]
+        # Applies shift to the inputted points
+        angle1 = np.arctan2(shiftedPoints[0][1], shiftedPoints[0][0])
+        angle2 = np.arctan2(shiftedPoints[1][1], shiftedPoints[1][0])
+        actualAngle = abs(angle1 - angle2) # finds each angle to positive x axis and finds difference
         self.combiAngle = combiAngle
         self.actualAngle = actualAngle
-        self.show()
-        plt.plot(centerOne[0], centerOne[1], 'bo', markersize = 2)
-        plt.plot(centerTwo[0], centerTwo[1], 'bo', markersize = 2)
+        plt.plot(self.selectedPoints[0][0], self.selectedPoints[0][1], 'bo', markersize = 2)
+        plt.plot(self.selectedPoints[1][0], self.selectedPoints[1][1], 'bo', markersize = 2) # Draws the selected points
         self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex1]), self.axes, color=[1, 0, 0])
-        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex2]), self.axes, color=[1, 0, 0])
+        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex2]), self.axes, color=[1, 0, 0]) # Draws paths to the selected points
         self.canvas.draw()
-        self.showAngles()
+        self.showAngles() # Displays calculated information
 
 class GifConfig():
 
