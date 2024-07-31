@@ -364,7 +364,7 @@ class show_results:
         self.controls.rowconfigure(0, weight=1)
         self.controls.grid(column=0, row=0)
         self.stopFlag = False
-        text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point inside the hole, then click a point outside the graph to choose the line.", bg=BG_COLOR)
+        text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_height/14), text="Click a point on the graph to choose the Base Cell.", bg=BG_COLOR)
         text.grid(column=0, row=0)
         self.fileRoot = self.enteredFileRoot.get()
         self.fileName = self.enteredFileName.get()
@@ -584,15 +584,6 @@ class show_results:
                     self.edges_to_weight.append(edge) # adds every edge that intersects the line
         self.edges_to_weight = list(set(map(lambda x: tuple(np.sort(x)), self.edges_to_weight))) # ok so best guess, this builds a list of tuples, each tuple being the edge sorted with lowest index first, idk why that is necessary
 
-        # Create contained_edges
-        # triangulation_edges_reindexed = self.tri.original_to_contained_index[self.tri.triangulation_edges]
-        # contained_edges = []
-        # for edge in triangulation_edges_reindexed:
-        #     if -1 not in edge:
-        #         contained_edges.append(list(edge))
-        # I think this just creates a list of all edges that don't have a vertex on a boundary
-
-                # Choose omega_0 as the slit vertex that has the smallest angle relative to the line from the point in hole through
         # the circumcenter of the base_cell
         slit_path = [edge[0] for edge in connected_component] # the slit path is the sequence of edges from inside to out
         slit_path.append(connected_component[-1][1]) # adds the final edge
@@ -616,7 +607,7 @@ class show_results:
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
     def redraw(self):
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click a point inside the hole, then click a point outside the graph to choose the line.")
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click a point on the graph to choose the Base Cell.")
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.stopFlag = False
         self.show()
@@ -1073,31 +1064,29 @@ class show_results:
         fluxButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Edit Flux", command = self.fluxConfig, bg=BG_COLOR)
         fluxButton.grid(column=1, row=0)
 
-        pathButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Paths", command = self.pathFinder, bg=BG_COLOR)
-        pathButton.grid(column=2, row=0)
-
         uniformButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Uniformization and Approximations", command = self.uniformizationPage, bg=BG_COLOR)
-        uniformButton.grid(column=3, row=0)
+        uniformButton.grid(column=2, row=0)
 
         redrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Choose another slit path", command = self.redraw, bg=BG_COLOR)
-        redrawButton.grid(column=4, row=0)
+        redrawButton.grid(column=3, row=0)
 
         newDrawButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Draw another figure", command = self.showDraw, bg=BG_COLOR)
-        newDrawButton.grid(column=5, row=0)
+        newDrawButton.grid(column=4, row=0)
 
         animButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Create Animation", command = self.animationConfig, bg=BG_COLOR)
-        animButton.grid(column=0, row=1)
+        animButton.grid(column=5, row=0)
 
         numericalButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Show Numerical Values", command = self.showFunction, bg=BG_COLOR)
-        numericalButton.grid(column=1, row=1)
+        numericalButton.grid(column=0, row=1)
 
         numericalButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Load a new Figure", command = self.loadNew, bg=BG_COLOR)
-        numericalButton.grid(column=2, row=1)
+        numericalButton.grid(column=1, row=1)
 
         angleButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="See angle approximation", command = self.showAngles, bg=BG_COLOR)
-        angleButton.grid(column=3, row=1)
+        angleButton.grid(column=2, row=1)
         
-
+        refineButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_height/60), text="Refine Current Triangulation", command = self.refine, bg=BG_COLOR)
+        refineButton.grid(column=3, row=1)
 
         self.controls = mainMenu
 
@@ -1236,41 +1225,12 @@ class show_results:
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/50), text="Back", command = self.mainMenu, bg=BG_COLOR)
         backButton.grid(column=1, row=2)
 
-    # actual controller for displaying paths, sets what happens when you click
-    def pathSelector(self, event):
-        if (self.fig.canvas.toolbar.mode != ''):
-            #print(self.fig.canvas.toolbar.mode)
-            return
-        self.show()
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
-        x = event.xdata
-        y = event.ydata
-
-        if x is None or y is None:
-            return
-        distanceToVerticies = np.array([ # builds an array of distance between click and edge midpoints
-            ((vertex[0] - x)**2 +
-            (vertex[1] - y)**2)
-            for vertex in self.tri.circumcenters
-        ])
-
-        omega = distanceToVerticies.argmin()
-        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[omega]), self.axes, color=[1, 0, 0])
-        self.canvas.draw()
-
-    # changes mode to display paths
-    def pathFinder(self):
-        self.updateLambdaGraph()
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click on a vertex to see the path from omega0 to that vertex.")
-        self.fig.canvas.callbacks.disconnect(self.callbackName)
-        # and adds a new click that finds nearest edge in the voronai graph
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.pathSelector)
-
     def nextGraph(self):
         root, edge, triCount, step = self.fileName.split("_")
         edgeNum = int(edge)
         stepNum = int(step)
         triNum = int(triCount)
+        name = ""
         while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]):
             if edgeNum < int(self.enteredInfo[3]):
                 edgeNum += 1
@@ -1310,6 +1270,7 @@ class show_results:
         edgeNum = int(edge)
         stepNum = int(step)
         triNum = int(triCount)
+        name = ''
         while edgeNum > int(self.enteredInfo[2]) or triNum > 0 or stepNum > 0:
             if stepNum > 0:
                 stepNum -= 1
@@ -1414,7 +1375,8 @@ class show_results:
         plt.plot(cell[0], cell[1], 'bo', markersize = 2)
         xZoom = self.axes.get_xlim()
         yZoom = self.axes.get_ylim()
-        plt.draw()
+        self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[vertexIndex]), self.axes, color=[1, 0, 0])
+        self.canvas.draw()
         self.toolbar.push_current()
         self.axes.set_xlim(xZoom)
         self.axes.set_ylim(yZoom)
@@ -1523,7 +1485,7 @@ class show_results:
         self.slitPathCalculate()
         self.show(first=True)
 
-    def createNew(self, freeDraw, fileRoot, fileName, triCount, inEdgeNum, outEdgeNum, inRad = None, outRad = None, randomOrNot = False, prevTriCount = None):
+    def createNew(self, freeDraw, fileRoot, fileName, triCount, inEdgeNum, outEdgeNum, inRad = None, outRad = None, randomOrNot = False):
         if freeDraw:
             if fileRoot != None:
                 subprocess.run([
@@ -1558,14 +1520,6 @@ class show_results:
             t = Triangulation.read(f'regions/{fileName}/{fileName}.poly')
             t.write(f'regions/{fileName}/{fileName}.output.poly')
             directory = Path(f'regions/{fileName}')
-        if prevTriCount != None:
-            if prevTriCount >= t.num_triangles:
-                print("It happened!")
-                print(directory)
-                if directory.is_dir():
-                    print("removed")
-                    shutil.rmtree(directory)
-                return
         print("made output.poly")
         if fileRoot != None:
             subprocess.run([
@@ -1654,15 +1608,15 @@ class show_results:
                            int(self.gifConfig.getInitEdge()+i), 
                            self.gifConfig.getInitInRad(), 
                            self.gifConfig.getOutRad(),
-                           prevTriCount = prevTriCount
                            )
-            prevTriCount = self.tri.num_triangles
-            #self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
-            #self.showNSave(name)
         # The following is the steps refining triangulation
-        for i in range(self.gifConfig.getTriCountSteps()):
-            triCount = int(int(self.gifConfig.getTriCountInit()) + i * (int(self.gifConfig.getTriCountFinal()) - int(self.gifConfig.getTriCountInit())) / self.gifConfig.getTriCountSteps())
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(i) + "_0"
+        prevTriCount = int(self.gifConfig.getTriCountInit()) - 1
+        triCount = 0
+        num = 0
+        while triCount <= int(self.gifConfig.getTriCountFinal()):
+            #triCount = int(int(self.gifConfig.getTriCountInit()) + i * (int(self.gifConfig.getTriCountFinal()) - int(self.gifConfig.getTriCountInit())) / self.gifConfig.getTriCountSteps())
+            triCount = prevTriCount + 1
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(num) + "_0"
             #print(name)
             if triCount < int(self.gifConfig.getFinEdge()) * 3:
                 triCount = int(self.gifConfig.getFinEdge()) * 3 + 10
@@ -1675,16 +1629,11 @@ class show_results:
                 int(self.gifConfig.getFinEdge()), 
                 self.gifConfig.getInitInRad(), 
                 self.gifConfig.getOutRad(),
-                prevTriCount = prevTriCount
                 )
             prevTriCount = self.tri.num_triangles
-            #self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
-            #self.showNSave(name)
+            num += 1
+        num -= 1
         # The following is the steps shrinking the inner radius
-        if self.gifConfig.getTriCountSteps() == 0:
-                num = 0
-        else:
-            num = self.gifConfig.getTriCountSteps() - 1
         for i in range(self.gifConfig.getStepCount()):
             name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(num) + "_" + str(i)
             #print(name)
@@ -1701,17 +1650,13 @@ class show_results:
                 int(self.gifConfig.getFinEdge()), 
                 self.gifConfig.getInitInRad() + i * ((self.gifConfig.getFinInRad() - self.gifConfig.getInitInRad()) / self.gifConfig.getStepCount()), 
                 self.gifConfig.getOutRad(),
-                prevTriCount = prevTriCount
                 )
-            #self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{name}/{name}.poly')
-            prevTriCount = self.tri.num_triangles
-            #self.showNSave(name)
         directory = Path('regions/' + self.gifConfig.getFileRoot())
         directory_info = directory / (self.gifConfig.getFileRoot() + "_info.txt")
         if not directory.is_dir():
             directory.mkdir(parents=True, exist_ok=True)
         with open(directory_info, 'w', encoding='utf-8') as file:
-            file.write("The lines (starting line 2) in order are: the root name for the sequence, how many steps to get after reaching final edge count, the beginning edge count, the final edge count, the outer radius, the beginning inner radius, the final inner radius, the triangle count at the beginning, the triangle count at the end, the number of steps to get from the beginning to end amount of triangles\n" +
+            file.write("The lines (starting line 2) in order are: the root name for the sequence, how many steps to get after reaching final edge count, the beginning edge count, the final edge count, the outer radius, the beginning inner radius, the final inner radius, the triangle count at the beginning, the triangle count at the end, the number of steps to used to get from the beginning to end amount of triangles\n" +
                 str(self.gifConfig.getFileRoot()) + "\n" +
                 str(self.gifConfig.getStepCount()) + "\n" +
                 str(self.gifConfig.getInitEdge()) + "\n" +
@@ -1721,7 +1666,7 @@ class show_results:
                 str(self.gifConfig.getFinInRad()) + "\n" +
                 str(self.gifConfig.getTriCountInit()) + "\n" +
                 str(self.gifConfig.getTriCountFinal()) + "\n" +
-                str(self.gifConfig.getTriCountSteps())
+                str(num)
             )
         self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{firstFileName}/{firstFileName}.poly')
         self.fileName = firstFileName
@@ -1792,18 +1737,22 @@ class show_results:
             previousButton["state"] = tk.DISABLED
             nextButton["state"] = tk.DISABLED
         if self.flags == True:
-            combiAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Combinatorial Angle = " + str(self.combiAngle), bg=BG_COLOR)
-            combiAngleLabel.grid(column=0, row = 4, columnspan=2)
-            actualAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Actual Angle in Radians = " + str(self.actualAngle), bg=BG_COLOR)
-            actualAngleLabel.grid(column = 2, row = 4, columnspan=2)
-            differenceAngleLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Difference between them is: " + str(abs(self.actualAngle - self.combiAngle)), bg=BG_COLOR)
-            differenceAngleLabel.grid(column = 4, row = 4, columnspan=2)
-            pointOneLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point One: (" + str(self.selectedPoints[0][0]) + ", " + str(self.selectedPoints[0][1]) + ")", bg=BG_COLOR)
-            pointOneLabel.grid(column=0, row = 5, columnspan=2)
-            pointTwoLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/20), text="Point Two: (" + str(self.selectedPoints[1][0]) + ", " + str(self.selectedPoints[1][1]) + ")", bg=BG_COLOR)
-            pointTwoLabel.grid(column = 2, row = 5, columnspan=2)
+            self.labelAndText(self.controls, "Combinatorial Angle: ", int(self.canvas_height/50), str(self.combiAngle), int(self.canvas_height/28)).grid(column = 0, row = 4, columnspan=2)
+            self.labelAndText(self.controls, "Actual Angle in Radians: ", int(self.canvas_height/50), str(self.actualAngle), int(self.canvas_height/28)).grid(column = 2, row = 4, columnspan=2)
+            self.labelAndText(self.controls, "Percent Difference: ", int(self.canvas_height/50), str(abs(self.actualAngle - self.combiAngle) / self.actualAngle), int(self.canvas_height/28)).grid(column = 4, row = 4, columnspan=2)
+            self.labelAndText(self.controls, "Point One: ", int(self.canvas_height/50), "(" + str(self.selectedPoints[0][0]) + ", " + str(self.selectedPoints[0][1]) + ")", int(self.canvas_height/20)).grid(column = 0, row = 5, columnspan=2)
+            self.labelAndText(self.controls, "Point Two: ", int(self.canvas_height/50), "(" + str(self.selectedPoints[1][0]) + ", " + str(self.selectedPoints[1][1]) + ")", int(self.canvas_height/20)).grid(column = 2, row = 5, columnspan=2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Back", command = self.disconnectAndReturn, bg=BG_COLOR)
         backButton.grid(row = 6, column = 0)
+
+    def labelAndText(self, parent, labelText, labelWidth, textText, textWidth):
+        frame = tk.Frame(parent, height=int(self.canvas_height/540), width=int(self.canvas_height/40), bg=BG_COLOR)
+        frameLabel = tk.Label(frame, height=int(self.canvas_height/540), width=labelWidth, text=labelText, bg=BG_COLOR)
+        frameLabel.grid(column=0, row = 0)
+        frameText = tk.Text(frame, height=int(self.canvas_height/540), width=textWidth, bg=BG_COLOR)
+        frameText.insert(tk.END, textText)
+        frameText.grid(column=1, row = 0)
+        return frame
 
     def previousAngleGraph(self):
         root, edge, triCount, step = self.fileName.split("_")
@@ -1895,87 +1844,27 @@ class show_results:
 
     def displayAngles(self):
         self.flags = True # Let's program know there are calculated angles for it to display
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "") # Not sure if this is really necessary
         cellOne = self.determinePolygon(self.selectedPoints[0][0], self.selectedPoints[0][1])
         cellTwo = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1]) # Determines which cell the clicked points are in
         # TODO: Add a check so it doesn't crash if the selected point is exactly a cell vertex
         totalFlux1 = 0 # This will be the flux value for the first point
         min = math.inf # used to determine where to draw the path to, should maybe draw it to the most important vertex instead
         minIndex1 = 0
-        self.show()
-        distanceFromPointArr = [] # This keeps track of distances between cell vertices and the input point
-        adjacencyDistance = [] # This keeps track of distances between adjacent cell vertices
-        i = -1
-        for index in self.tri.contained_polygons[cellOne]: # Fills in the distances for each vertex around the cell
-            adjacencyDistance.append(
-                np.sqrt((self.tri.circumcenters[index][0] - self.tri.circumcenters[self.tri.contained_polygons[cellOne][i]][0]) ** 2 + (self.tri.circumcenters[index][1] - self.tri.circumcenters[self.tri.contained_polygons[cellOne][i]][1]) ** 2)
-            )
-            distanceFromPointArr.append(
-                (self.selectedPoints[0][0] - self.tri.circumcenters[index][0]) ** 2 + (self.selectedPoints[0][1] - self.tri.circumcenters[index][1]) ** 2
-            )
-            i += 1
-        averageAdjDist = np.sum(adjacencyDistance) / len(self.tri.contained_polygons[cellOne]) # Finds the average adjacent difference
-        dValues = [] # These are the difference in coefficients determined by grouping, so if there are two cell vertices that are extremely close they will have a large dValue, which will diminish their importance
-        for value in adjacencyDistance:
-            if value >= averageAdjDist:
-                dValues.append(0)
-            else:
-                dValues.append(((averageAdjDist - value)/(averageAdjDist))/(2 * (len(self.tri.contained_polygons[cellOne]) - 1)))
-                # The dValue is calculated by first assuming that the vertices lie on top of each other, so that removes one vertex. Then it weighs this by just how close they are together, and 0 if the distances are more than the average
-        distanceFromPointArr = np.divide(1, distanceFromPointArr) # Essentially just finds the intensity of the cell vertices on that point by inverse square law
-        for j in range(len(distanceFromPointArr)): # This applies the adjusted weighting based on how grouped up vertices are to the intensity from distance to input point
-            coef = 1
-            for k in range(len(dValues)):
-                if j == k or j == (k + 1) % len(dValues):
-                    coef -= dValues[k]
-                else:
-                    coef += 2 * dValues[k] / (len(dValues) - 2)
-            distanceFromPointArr[j] *= coef
-        distanceFromPointArr = np.divide(distanceFromPointArr, np.sum(distanceFromPointArr)) # normalizes so the total weights add up to 1
-        i = 0
-        for index in self.tri.contained_polygons[cellOne]: # Adds the flux on each vertex adjusted by its group-adjusted adjacency
-            totalFlux1 += self.g_star_bar[index] * distanceFromPointArr[i]
+        for index in self.tri.contained_polygons[cellOne]: # Adds the flux on each vertex
+            totalFlux1 += self.g_star_bar[index]
             if self.g_star_bar[index] < min:
                 minIndex1 = index
                 min = self.g_star_bar[index]
-            i += 1
+        totalFlux1 /= len(self.tri.contained_polygons[cellOne]) # divides by 6 to get average
         totalFlux2 = 0 # Everything above is then repeated on the second point
         min = math.inf
         minIndex2 = 0
-        distanceFromPointArr = []
-        adjacencyDistance = []
-        i = -1
         for index in self.tri.contained_polygons[cellTwo]:
-            adjacencyDistance.append(
-                np.sqrt((self.tri.circumcenters[index][0] - self.tri.circumcenters[self.tri.contained_polygons[cellTwo][i]][0]) ** 2 + (self.tri.circumcenters[index][1] - self.tri.circumcenters[self.tri.contained_polygons[cellTwo][i]][1]) ** 2)
-            )
-            distanceFromPointArr.append(
-                (self.selectedPoints[1][0] - self.tri.circumcenters[index][0]) ** 2 + (self.selectedPoints[1][1] - self.tri.circumcenters[index][1]) ** 2
-            )
-            i += 1
-        dValues = []
-        for value in adjacencyDistance:
-            if value >= averageAdjDist:
-                dValues.append(0)
-            else:
-                dValues.append(((averageAdjDist - value)/(averageAdjDist))/(2 * (len(self.tri.contained_polygons[cellOne]) - 1)))
-        distanceFromPointArr = np.divide(1, distanceFromPointArr)
-        for j in range(len(distanceFromPointArr)):
-            coef = 1
-            for k in range(len(dValues)):
-                if j == k or j == (k + 1) % len(dValues):
-                    coef -= dValues[k]
-                else:
-                    coef += 2 * dValues[k] / (len(dValues) - 2)
-            distanceFromPointArr[j] *= coef
-        distanceFromPointArr = np.divide(distanceFromPointArr, np.sum(distanceFromPointArr))
-        i = 0
-        for index in self.tri.contained_polygons[cellTwo]:
-            totalFlux2 += self.g_star_bar[index] * distanceFromPointArr[i]
+            totalFlux2 += self.g_star_bar[index]
             if self.g_star_bar[index] < min:
                 minIndex2 = index
                 min = self.g_star_bar[index]
-            i += 1
+        totalFlux2 /= len(self.tri.contained_polygons[cellTwo])
         difference = abs(totalFlux1 - totalFlux2)
         combiAngle = ((2 * np.pi) / self.period_gsb) * difference # This finds the difference between flux values and adjusts it to be a radian
         shiftAngle = np.arctan2(self.tri.circumcenters[self.omega_0][1] - self.pointInHole[1], self.tri.circumcenters[self.omega_0][0] - self.pointInHole[0]) # Finds what radian we need to shift the slit by to put it on top of the -x axis
@@ -1995,6 +1884,65 @@ class show_results:
         self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex2]), self.axes, color=[1, 0, 0]) # Draws paths to the selected points
         self.canvas.draw()
         self.showAngles() # Displays calculated information
+
+    def refine(self):
+        # Take the current file and do the following:
+        # Find the .poly, error if none
+        # Create a new folder with the name of the file, and move the orginal folder into it
+        # Copy the .poly file into a new subfolder
+        # run createNew, without draw_region, on the .poly folder with the increased amount of triangles.
+        # I think ill have two options, generate next which will just be the next largest acute will do, or manual entry of min
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Refine the triangulation of the current region")
+        triCountLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), text="Minimum Number of Triangles", bg=BG_COLOR)
+        triCountLabel.grid(column=0, row = 2)
+        self.triCount = tk.IntVar()
+        self.triCount.set(self.tri.num_triangles)
+        triCountEntry = tk.Entry(self.controls, width=int(self.canvas_height/40), textvariable=self.triCount, bg=BG_COLOR)
+        triCountEntry.grid(column=1, row = 2)
+        createButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_height/40), command = self.refineDomain, bg=BG_COLOR)
+        createButton.grid(column=2, row = 2)
+
+    def refineDomain(self):
+        fileEndings = [
+                ".ele",
+                ".node",
+                ".output.facet.xdmf"
+                ".output.facet.h5",
+                ".output.h5",
+                ".output.msh",
+                ".output.poly",
+                ".output.xdmf",
+                ".pde",
+                ".poly",
+                ".topo.ele"
+            ]
+        if self.fileRoot == "":
+            newFileName = self.fileName + "_root_0_0_0"
+            newFileRoot = self.fileName + "_root"
+            directory = "regions/" + self.fileName
+            newRoot = Path("regions/" + self.fileName + "_root/" + newFileName)
+            shutil.move(directory, newRoot)
+            for end in fileEndings:
+                shutil.move("regions/" + newFileRoot + "/" + newFileName + "/" + self.fileName + end, 
+                            "regions/" + newFileRoot + "/" + newFileName + "/" + newFileName + end)
+            # newName = newRoot / (self.fileName + "_root_0_0_0")
+            # newRoot = newRoot / self.fileName
+            # shutil.move(newRoot, newName)
+            #shutil.move(destination, newRoot)
+            polyFileStart = newRoot / (newFileName + ".poly")
+            self.fileRoot = self.fileName + "_root"
+            self.fileName = self.fileName + "_root_0_0_1"
+            polyFileEnd = Path("regions/" + self.fileRoot + "/" + self.fileName)
+            if not polyFileEnd.is_dir():
+                polyFileEnd.mkdir(parents=True, exist_ok=True)
+            polyFileEnd = polyFileEnd / (self.fileName + ".poly")
+            shutil.copy(polyFileStart, polyFileEnd)
+            print(polyFileStart, polyFileEnd)
+        else:
+            directory = Path("regions/" + self.fileRoot)
+            polyDirectory = directory / self.fileName
+            polyFile = polyDirectory / (self.fileName + ".poly")
+            print(polyFile)
 
 class GifConfig():
 
@@ -2080,11 +2028,11 @@ class GifConfig():
         triCountFinEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.triCountFinal, bg=BLACK)
         triCountFinEntry.grid(column=5, row=3)
 
-        triCountStepsLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Triangle Count Steps", bg=BG_COLOR)
-        triCountStepsLabel.grid(column=0, row=4)
+        # triCountStepsLabel = tk.Label(controls, width=int(self.canvas_height/50), height=int(self.canvas_height/600), text="Triangle Count Steps", bg=BG_COLOR)
+        # triCountStepsLabel.grid(column=0, row=4)
 
-        triCountStepsEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.triCountSteps, bg=BLACK)
-        triCountStepsEntry.grid(column=1, row=4)
+        # triCountStepsEntry = tk.Entry(controls, width=int(self.canvas_height/50), textvariable=self.triCountSteps, bg=BLACK)
+        # triCountStepsEntry.grid(column=1, row=4)
 
         self.controls = controls
 
