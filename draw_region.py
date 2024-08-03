@@ -171,6 +171,9 @@ def draw_region(poly_file, poly_root=None):
     controls.columnconfigure(0, weight=1)
     controls.rowconfigure(0, weight=1)
     controls.grid(column=0, row=0)
+
+    canvas = tk.Canvas(gui, width=canvas_width, height=4/5 * canvas_height, bg=BG_COLOR) # puts a canvas into gui, having it fill the screen, and have that grey color
+    canvas.grid(column=0, row=1)
     
     def undo():
         """Undoes the last action taken by the user, repeatable.
@@ -246,7 +249,7 @@ def draw_region(poly_file, poly_root=None):
         else:
             print("How")
         return
-    
+
     def concentricPolygonRandom():
         # TODO
         # The circumscribing case, putting the circle in the polygon, is not quite flushed out. It needs 2 changes:
@@ -449,87 +452,147 @@ def draw_region(poly_file, poly_root=None):
         #         outline=''
         #     ) # creates a little oval to make the vertex more visible
         #     canvas.tag_raise(oval) # moves the oval to the top of the display list, I think its unnessecary though
+    
+    def ellipse():
+        xValue = int(canvas_width/2)
+        yValue = int(3*canvas_height/7)
+        angleCoef = (2*np.pi/int(edges.get()))
+        for theta in range(0, int(edges.get())):
+            paint(xValue + int(polyRadiusOne.get()) * np.cos(theta * angleCoef),
+                yValue + int(polyRadiusTwo.get()) * np.sin(theta * angleCoef)
+                )
+        components.append([])
+        for theta in range(0, int(edges.get())):
+            paint(xValue + ratio.get() * int(polyRadiusOne.get()) * np.cos(theta * angleCoef),
+                yValue + ratio.get() * int(polyRadiusTwo.get()) * np.sin(theta * angleCoef)
+                )
             
     def polygon():
         # TODO add inner != outer side numbers
-        if randomSet.get():
-            concentricPolygonRandom()
+        if shape.get() == 'circle':
+            if randomSet.get():
+                concentricPolygonRandom()
+            else:
+                concentricPolygon()
         else:
-            concentricPolygon()
-    
-        
-    
-    imgUndo = Image.open("draw_region_assets/UNDO.png")
-    resized_imageUndo = imgUndo.resize((int(canvas_height/7), int(canvas_height/7)), Image.Resampling.LANCZOS)
-    new_imgUndo = ImageTk.PhotoImage(resized_imageUndo, master=gui)
-    imgRedo = Image.open("draw_region_assets/REDO.png")
-    resized_imageRedo = imgRedo.resize((int(canvas_height/7), int(canvas_height/7)), Image.Resampling.LANCZOS)
-    new_imgRedo = ImageTk.PhotoImage(resized_imageRedo, master=gui)
-    imgFill = Image.open("draw_region_assets/FILLER.png")
-    resized_imageFill = imgFill.resize((int(canvas_height/7), int(canvas_height/7)), Image.Resampling.LANCZOS)
-    new_imgFill = ImageTk.PhotoImage(resized_imageFill, master=gui)
-    # resizes the images to fit correctly in the buttons
-    
-    undo_button = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgUndo, command=undo)
-    undo_button.grid(column=0, row=0)
-    
-    gridSelect = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_height/7))
-    gridSelect.columnconfigure(0, weight=1)
-    gridSelect.rowconfigure(0, weight=1)
-    gridSelect.grid(column=1, row=0)
-    
-    grid = tk.StringVar()
-    noGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/42), variable=grid, value='FreeForm', text="FreeForm Grid", state="active", command=gridSet)
-    noGrid.grid(column=0, row=0)
-    
-    squareGrid = tk.Radiobutton(gridSelect,  width=int(canvas_height/42), variable=grid, value="Square", text="Square Grid", state="normal", command=gridSet)
-    squareGrid.grid(column=0, row=1)
-    
-    triangleGrid = tk.Radiobutton(gridSelect, width=int(canvas_height/42), variable=grid, value="Triangle", text="Triangle Grid", state="normal", command=gridSet)
-    triangleGrid.grid(column=0, row=2)
-    # these are the selections for grid
-    
-    grid.set("FreeForm")
+            ellipse()
 
-    polygonBuilder = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_height/7))
+    global polygonBuilder
+    polygonBuilder = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_width/12))
     polygonBuilder.columnconfigure(0, weight=1)
     polygonBuilder.rowconfigure(0, weight=1)
     polygonBuilder.grid(column=2, row=0)
-
+    grid = tk.StringVar()
+    grid.set("FreeForm")
     edges = tk.StringVar()
     polyRadiusOne = tk.StringVar()
     polyRadiusTwo = tk.StringVar()
-    edgeLabel = tk.Label(polygonBuilder, width=int(canvas_height/56), text="Number of Edges")
-    edgeLabel.grid(column=0, row=0)
-    edgeEntry = tk.Entry(polygonBuilder, width=int(canvas_height/56), textvariable=edges)
-    edgeEntry.grid(column=1, row=0)
-    radiusOneLabel = tk.Label(polygonBuilder, width=int(canvas_height/56), text="Outer Radius")
-    radiusOneLabel.grid(column=0, row=1)
-    radiusOneEntry = tk.Entry(polygonBuilder, width=int(canvas_height/56), textvariable=polyRadiusOne)
-    radiusOneEntry.grid(column=1, row=1)
-    radiusTwoLabel = tk.Label(polygonBuilder, width=int(canvas_height/56), text="Inner Radius")
-    radiusTwoLabel.grid(column=0, row=2)
-    radiusTwoEntry = tk.Entry(polygonBuilder, width=int(canvas_height/56), textvariable=polyRadiusTwo)
-    radiusTwoEntry.grid(column=1, row=2)
-
-    createPolygon = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_height/64), text="Insert Polygon", command=polygon)
-    createPolygon.grid(column=3, row=0)
-
+    shape = tk.StringVar()
+    shape.set("circle")
     randomSet = tk.BooleanVar()
-    randomButton = tk.Checkbutton(controls, height=int(canvas_height/42), width=int(canvas_height/42), variable=randomSet, text='Randomize Vertices')
-    randomButton.grid(column=4, row=0)
     inOrOut = tk.BooleanVar()
-    inOutButton = tk.Checkbutton(controls, height=int(canvas_height/42), width=int(canvas_height/42), variable=inOrOut, text='Inscribed or Circumscribed')
-    inOutButton.grid(column=5, row=0)
-    
-    redo_button = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_height/7), image=new_imgRedo, command=redo)
-    redo_button.grid(column=6, row=0)
-    
-    # For now I have a bunch of pointless buttons I will implement if needed
-    
+    ratio = tk.DoubleVar()
+    imgUndo = Image.open("draw_region_assets/UNDO.png")
+    resized_imageUndo = imgUndo.resize((int(canvas_width/7), int(canvas_height/7)), Image.Resampling.LANCZOS)
+    new_imgUndo = ImageTk.PhotoImage(resized_imageUndo, master=gui)
+    imgRedo = Image.open("draw_region_assets/REDO.png")
+    resized_imageRedo = imgRedo.resize((int(canvas_width/7), int(canvas_height/7)), Image.Resampling.LANCZOS)
+    new_imgRedo = ImageTk.PhotoImage(resized_imageRedo, master=gui)
+    imgFill = Image.open("draw_region_assets/FILLER.png")
+    resized_imageFill = imgFill.resize((int(canvas_width/7), int(canvas_height/7)), Image.Resampling.LANCZOS)
+    new_imgFill = ImageTk.PhotoImage(resized_imageFill, master=gui)
+    # resizes the images to fit correctly in the buttons
 
-    canvas = tk.Canvas(gui, width=canvas_width, height=4/5 * canvas_height, bg=BG_COLOR) # puts a canvas into gui, having it fill the screen, and have that grey color
-    canvas.grid(column=0, row=1)
+    def configs():
+        
+        undo_button = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_width/10), image=new_imgUndo, command=undo)
+        undo_button.grid(column=0, row=0)
+        
+        gridSelect = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_width/10))
+        gridSelect.columnconfigure(0, weight=1)
+        gridSelect.rowconfigure(0, weight=1)
+        gridSelect.grid(column=1, row=0)
+        
+        noGrid = tk.Radiobutton(gridSelect, width=int(canvas_width/80), variable=grid, value='FreeForm', text="FreeForm Grid", state="active", command=gridSet)
+        noGrid.grid(column=0, row=0)
+        
+        squareGrid = tk.Radiobutton(gridSelect,  width=int(canvas_width/80), variable=grid, value="Square", text="Square Grid", state="normal", command=gridSet)
+        squareGrid.grid(column=0, row=1)
+        
+        triangleGrid = tk.Radiobutton(gridSelect, width=int(canvas_width/80), variable=grid, value="Triangle", text="Triangle Grid", state="normal", command=gridSet)
+        triangleGrid.grid(column=0, row=2)
+        # these are the selections for grid
+
+        global polygonBuilder
+        polygonBuilder.destroy()
+        polygonBuilder = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_width/12))
+        polygonBuilder.columnconfigure(0, weight=1)
+        polygonBuilder.rowconfigure(0, weight=1)
+        polygonBuilder.grid(column=2, row=0)
+
+        if shape.get() == 'circle':
+            edgeLabel = tk.Label(polygonBuilder, width=int(canvas_width/90), text="Number of Edges")
+            edgeLabel.grid(column=0, row=0)
+            edgeEntry = tk.Entry(polygonBuilder, width=int(canvas_width/100), textvariable=edges)
+            edgeEntry.grid(column=1, row=0)
+            radiusOneLabel = tk.Label(polygonBuilder, width=int(canvas_width/90), text="Outer Radius")
+            radiusOneLabel.grid(column=0, row=1)
+            radiusOneEntry = tk.Entry(polygonBuilder, width=int(canvas_width/100), textvariable=polyRadiusOne)
+            radiusOneEntry.grid(column=1, row=1)
+            radiusTwoLabel = tk.Label(polygonBuilder, width=int(canvas_width/90), text="Inner Radius")
+            radiusTwoLabel.grid(column=0, row=2)
+            radiusTwoEntry = tk.Entry(polygonBuilder, width=int(canvas_width/100), textvariable=polyRadiusTwo)
+            radiusTwoEntry.grid(column=1, row=2)
+        else:
+            edgeLabel = tk.Label(polygonBuilder, width=int(canvas_width/110), text="Number of Edges")
+            edgeLabel.grid(column=0, row=0, columnspan=2)
+            edgeEntry = tk.Entry(polygonBuilder, width=int(canvas_width/200), textvariable=edges)
+            edgeEntry.grid(column=0, row=1, columnspan=2)
+            radiusOneLabel = tk.Label(polygonBuilder, width=int(canvas_width/180), text="X Axis Size")
+            radiusOneLabel.grid(column=0, row=2)
+            radiusOneEntry = tk.Entry(polygonBuilder, width=int(canvas_width/200), textvariable=polyRadiusOne)
+            radiusOneEntry.grid(column=1, row=2)
+            radiusTwoLabel = tk.Label(polygonBuilder, width=int(canvas_width/180), text="Y Axis Size")
+            radiusTwoLabel.grid(column=2, row=2)
+            radiusTwoEntry = tk.Entry(polygonBuilder, width=int(canvas_width/200), textvariable=polyRadiusTwo)
+            radiusTwoEntry.grid(column=3, row=2)
+            ratioLabel = tk.Label(polygonBuilder, width=int(canvas_width/80), text="Fraction for Inner")
+            ratioLabel.grid(column=2, row=0, columnspan=2)
+            ratioEntry = tk.Entry(polygonBuilder, width=int(canvas_width/200), textvariable=ratio)
+            ratioEntry.grid(column=2, row=1, columnspan=2)
+
+        createPolygon = tk.Button(controls, height=int(canvas_height/56), width=int(canvas_width/80), text="Insert Polygon", command=polygon)
+        createPolygon.grid(column=3, row=0)
+
+        shapeSelect = tk.Frame(controls, height=int(canvas_height/10), width=int(canvas_width/10))
+        shapeSelect.columnconfigure(0, weight=1)
+        shapeSelect.rowconfigure(0, weight=1)
+        shapeSelect.grid(column=4, row=0)
+
+        circleShape = tk.Radiobutton(shapeSelect, width=int(canvas_width/80), variable=shape, value='circle', text="Circle", state="normal", command=configs)
+        circleShape.grid(column=0, row=0)
+        ellipseShape = tk.Radiobutton(shapeSelect, width=int(canvas_width/80), variable=shape, value='ellipse', text="Ellipse", state="normal", command=configs)
+        ellipseShape.grid(column=0, row=1)
+
+        checkButtonFrame = tk.Frame(controls, height=int(canvas_height/7), width=int(canvas_width/10))
+        checkButtonFrame.columnconfigure(0, weight=1)
+        checkButtonFrame.rowconfigure(0, weight=1)
+        checkButtonFrame.grid(column=5, row=0)
+        randomButton = tk.Checkbutton(checkButtonFrame, width=int(canvas_width/70), variable=randomSet, text='Randomize Vertices')
+        randomButton.grid(column=0, row=1)
+        inOutButton = tk.Checkbutton(checkButtonFrame, width=int(canvas_width/70), variable=inOrOut, text='Inscribed or Circumscribed')
+        inOutButton.grid(column=0, row=0)
+        if shape.get() != 'circle':
+            randomButton["state"] = tk.DISABLED
+            inOutButton["state"] = tk.DISABLED
+        else:
+            randomButton["state"] = tk.ACTIVE
+            inOutButton["state"] = tk.ACTIVE
+        
+        redo_button = tk.Button(controls, height=int(canvas_height/7), width=int(canvas_width/12), image=new_imgRedo, command=redo)
+        redo_button.grid(column=6, row=0)
+    
+    configs()
     
 
     def flatten_list(list_of_lists):
@@ -759,4 +822,4 @@ if __name__ == "__main__":
     if len(argv) > 1:
         draw_region(argv[1], argv[2])
     else:
-        draw_region()
+        draw_region("torst")
