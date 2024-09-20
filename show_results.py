@@ -296,17 +296,17 @@ class show_results:
         self.averageChange = None # Average change in g bar across the whole graph
         self.enteredInfo = None # Records information about all the files contained under the current root
         self.edges_to_weight = None # Something idk TODO
-        self.selectedPoints = None
+        self.selectedPoints = [None, None]
         self.radius = None
         self.line_collection = None
-        #tk.Tk.report_callback_exception = self.errorMessage
+        self.base_coordinates = None
+        self.pointsToShow = []
         self.gui, self.canvas_width, self.canvas_height, = self.basicGui()
-        self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
-        self.modulus = tk.DoubleVar()
         self.xVar = tk.DoubleVar()
         self.yVar = tk.DoubleVar()
+        self.controls, self.enteredFileRoot, self.enteredFileName = self.initializeFigure()
+        self.modulus = tk.DoubleVar()
         self.keep = tk.BooleanVar()
-
 
         self.graphConfigs = GraphConfig(width=self.canvas_width, height=self.canvas_height)
         self.gifConfig = GifConfig(self.canvas_height, self.canvas_width)
@@ -359,6 +359,10 @@ class show_results:
         self.stopFlag = False
         text = tk.Label(self.controls, height=int(self.canvas_height/224), width=int(self.canvas_width/18), text="Click a point on the graph to choose the Base Cell.", bg=BG_COLOR)
         text.grid(column=0, row=0)
+        tk.Label(self.controls, width=int(self.canvas_width/50), text="Coordinates of Base Cell", bg=BG_COLOR)
+        tk.Entry(self.controls, width=int(self.canvas_width/50), textvariable=self.xVar, bg=BLACK).grid(column = 0, row = 1)
+        tk.Entry(self.controls, width=int(self.canvas_width/50), textvariable=self.yVar, bg=BLACK).grid(column = 1, row = 1)
+        tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/70), text="Plot Point", command = self.newBaseCell, bg=BG_COLOR).grid(column=2, row = 1)
         self.fileRoot = self.enteredFileRoot.get()
         self.fileName = self.enteredFileName.get()
         try:
@@ -404,6 +408,7 @@ class show_results:
         if (not self.stopFlag):
             self.base_cell = self.determinePolygon(x, y)
             self.base_point = self.tri.vertices[self.tri.contained_to_original_index[self.base_cell]]
+            self.base_coordinates = [x, y]
             plt.plot(x,y, "ro", markersize = 2)
             plt.draw()
 
@@ -482,17 +487,31 @@ class show_results:
     @staticmethod
     def flatten_list_of_lists(list_of_lists): # takes 
         return [item for sublist in list_of_lists for item in sublist]
+    
+    @staticmethod
+    @numba.njit
+    def calcAllContainedTopology(otci, ctoi, vt):
+        contained_topology_all = [
+            [
+                otci[vertex]
+                if vertex in ctoi
+                else -1
+                for vertex in cell
+            ] for cell in vt
+        ]
+        return contained_topology_all
 
     def slitPathCalculate(self):
         # Create the contained topology
-        contained_topology_all = [
-            [
-                self.tri.original_to_contained_index[vertex]
-                if vertex in self.tri.contained_to_original_index
-                else -1
-                for vertex in cell
-            ] for cell in self.tri.vertex_topology
-        ]
+        # contained_topology_all = [
+        #     [
+        #         self.tri.original_to_contained_index[vertex]
+        #         if vertex in self.tri.contained_to_original_index
+        #         else -1
+        #         for vertex in cell
+        #     ] for cell in self.tri.vertex_topology
+        # ]
+        contained_topology_all = self.calcAllContainedTopology(self.tri.original_to_contained_index, self.tri.contained_to_original_index, self.tri.vertex_topology)
         # seems to add all indicies shared between otc and cto into lists, contained in a big dictionary. Each small list is for each cell
         contained_topology = [contained_topology_all[i] for i in self.tri.contained_to_original_index]
         # then he adds all of these that are contained in cells in the cto list to form his contained_topology
@@ -600,8 +619,15 @@ class show_results:
         for edge in self.edges_to_weight: # Sets every edge that intersects the line to have effectivly infinite weight
             self.lambda_graph.edges[edge[0], edge[1]]['weight'] = np.finfo(np.float32).max
 
+    def newBaseCell(self):
+        self.plotPoint(self.xVar.get(), self.yVar.get())
+
     def redraw(self):
-        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click a point on the graph to choose the Base Cell.")
+        self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click a point on the graph, or enter below to choose the Base Cell.")
+        tk.Label(self.controls, width=int(self.canvas_width/50), text="Coordinates of Base Cell", bg=BG_COLOR)
+        tk.Entry(self.controls, width=int(self.canvas_width/50), textvariable=self.xVar, bg=BLACK).grid(column = 0, row = 2)
+        tk.Entry(self.controls, width=int(self.canvas_width/50), textvariable=self.yVar, bg=BLACK).grid(column = 1, row = 2)
+        tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/70), text="Plot Point", command = self.newBaseCell, bg=BG_COLOR).grid(column=2, row = 2)
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.stopFlag = False
         self.show()
@@ -610,11 +636,9 @@ class show_results:
         self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
 
     def uniformizationPage(self):
-        self.updateLambdaGraph()
-        uniformization = self.calculateUniformization()
-        self.modulus.set(self.findModulus(uniformization))
+        self.modulus.set(self.findModulus(self.uniformization))
         self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Back", None)
-        self.labelAndText(self.controls, "Modulus: ", int(self.canvas_width/80), str(self.modulus.get()), int(self.canvas_width/60)).grid(column = 0, row = 1)
+        self.labelAndText(self.controls, "Maximum Radius over Minimum: ", int(self.canvas_width/68), str(self.modulus.get()), int(self.canvas_width/60)).grid(column = 0, row = 1)
         keepOrDefaultButton = tk.Checkbutton(self.controls, height=int(self.canvas_height/600), width=int(self.canvas_width/70), text="Keep selected slit?", variable=self.keep, bg=BG_COLOR)
         keepOrDefaultButton.grid(column=0, row=2)
         approxButton = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_width/80), text="See Approximations", command = self.showIntermediate, bg=BG_COLOR)
@@ -623,8 +647,8 @@ class show_results:
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         # and adds the same back?? Idk why I did this but I'll keep it this way for now.
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
-        self.showUniformization(uniformization, False)
-        #self.ax2.axis('on')
+        self.showUniformization(False)
+        self.ax2.axis('on')
 
         self.canvas.draw()
 
@@ -695,7 +719,7 @@ class show_results:
         self.period_gsb = self.compute_period()
         
         # TODO: allow the last edge so we get all the
-        uniformization = np.exp(2 * np.pi / self.period_gsb * (pde_on_omega_values + 1j * self.g_star_bar)) # Uniformizes the triangulation into an approximation of the annulus
+        self.uniformization = np.exp(2 * np.pi / self.period_gsb * (pde_on_omega_values + 1j * self.g_star_bar)) # Uniformizes the triangulation into an approximation of the annulus
 
         # Level curves for gsb
         g_star_bar_interpolated_interior = np.array([np.mean(self.g_star_bar[poly]) for poly in self.tri.contained_polygons]) # vector of the average fluxes for each contained cell
@@ -728,10 +752,9 @@ class show_results:
         ]
         self.line_collection = mc.LineCollection(lines, linewidths=1)
         self.line_collection.set(color=[1, 0, 0])
-        #print(uniformization)
-        return uniformization
     
     @staticmethod
+    @numba.njit
     def findModulus(uni):
         reals = np.real(uni)
         imags = np.imag(uni)
@@ -742,10 +765,10 @@ class show_results:
         averageSmall = (radii[0] + radii[1] + radii[2] + radii[3]) / 4
         averageLarge = (radii[-1] + radii[-2] + radii[-3] + radii[-4]) / 4
         #print(averageLarge, averageSmall)
-        modulus = (1 / (2 * np.pi)) * np.log10(averageLarge / averageSmall)
+        modulus = averageLarge / averageSmall # was log_10 but probably should be natural log, ask saar
         return modulus
 
-    def showUniformization(self, uniformization, animationFlag):
+    def showUniformization(self, animationFlag):
         # refreshes graph with updated information
         xZoom = self.axes.get_xlim()
         yZoom = self.axes.get_ylim()
@@ -776,8 +799,6 @@ class show_results:
         vert, edge, triangle, vInd, tInd, level, singLevel, gBar = self.graphConfigs.getConfigsTri()
         triHigh = None
         if gBar:
-            self.updateLambdaGraph()
-            self.calculateUniformization()
             triHigh = self.contained_triangle_minus_slit
             self.axes.add_collection(self.line_collection)
         self.tri.show(
@@ -807,8 +828,8 @@ class show_results:
         )
         self.axes.set_aspect('equal')
         self.ax2.scatter(
-            1 * np.real(uniformization),
-            1 * np.imag(uniformization),
+            1 * np.real(self.uniformization),
+            1 * np.imag(self.uniformization),
             s=50,
             linewidths = .1
         ) #Plots image of uniformization map
@@ -847,6 +868,7 @@ class show_results:
 
     # Find the perpendicular edges to the lambda path
     @staticmethod
+    @numba.njit
     def build_path_edges(vertices): # specifically this takes in a list of verticies, and creates a list of edges connecting the verticies in order that they are stored
         #print(vertices)
         edges = []
@@ -957,6 +979,64 @@ class show_results:
         radiusOut = math.sqrt(vertex[0] ** 2 + vertex[1] ** 2)
         return (radiusIn, radiusOut)
     
+    def previous(self):
+        nameItems = self.fileName.split("_")
+        edgeNum = int(nameItems[-3])
+        stepNum = int(nameItems[-1])
+        triNum = int(nameItems[-2])
+        nameStart = nameItems[0]
+        for i in range(len(nameItems) - 4):
+            nameStart = nameStart + "_" + nameItems[i + 1]
+        while edgeNum > int(self.enteredInfo[2]) or triNum > 0 or stepNum > 0:
+            if stepNum > 0:
+                stepNum -= 1
+            elif triNum > int(self.enteredInfo[7]):
+                triNum -= 1
+            elif edgeNum > int(self.enteredInfo[2]):
+                edgeNum -= 1
+            name = nameStart + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+            try:
+                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+            except FileNotFoundError:
+                None
+            else:
+                break
+        try:
+            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+        except FileNotFoundError:
+            print("File Not Found: ", name)
+            return
+        self.fileName = name
+
+    def next(self):
+        nameItems = self.fileName.split("_")
+        edgeNum = int(nameItems[-3])
+        stepNum = int(nameItems[-1])
+        triNum = int(nameItems[-2])
+        nameStart = nameItems[0]
+        for i in range(len(nameItems) - 4):
+            nameStart = nameStart + "_" + nameItems[i + 1]
+        while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]):
+            if edgeNum < int(self.enteredInfo[3]):
+                edgeNum += 1
+            elif triNum < int(self.enteredInfo[8]):
+                triNum += 1
+            else:
+                stepNum += 1
+            name = nameStart + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
+            try:
+                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+            except FileNotFoundError:
+                None
+            else:
+                break
+        try:
+            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
+        except FileNotFoundError:
+            print("File Truly Not Found: ", name)
+            return
+        self.fileName = name
+    
     def show(self, first = False): 
         xZoom = self.axes.get_xlim()
         yZoom = self.axes.get_ylim()
@@ -1010,6 +1090,7 @@ class show_results:
             axes=self.axes
         )
         self.axes.set_aspect('equal')
+        self.axes.axis('on')
         if self.graphConfigs.getSlit():
             self.showSlit()
         else:
@@ -1031,18 +1112,25 @@ class show_results:
             fig=self.fig,
             axes=self.axes
         )
-        plt.plot(self.tri.circumcenters[self.omega_0][0], self.tri.circumcenters[self.omega_0][1], 'rx', markersize = 20)
-        plt.axline((self.pointInHole[0], self.pointInHole[1]), (self.base_point[0], self.base_point[1]))
+        rad = self.findMaxRadius(1)
         self.canvas.draw()
         self.toolbar.push_current()
         self.axes.set_xlim(xZoom)
         self.axes.set_ylim(yZoom)
+        plt.scatter(self.tri.circumcenters[self.omega_0][0], self.tri.circumcenters[self.omega_0][1], marker = 'x', color = "yellow", s = 200, linewidth = 3, zorder = 5)
+        plt.arrow(self.pointInHole[0], self.pointInHole[1], rad*(self.base_point[0]-self.pointInHole[0]), rad*(self.base_point[1]-self.pointInHole[1]))
+        self.canvas.draw()
 
     def mainMenu(self):
         self.show()
         if self.graphConfigs.getSlit():
             self.showSlit()
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.markGraph)
         self.controls.grid_remove()
+        self.updateLambdaGraph()
+        self.calculateUniformization()
+        self.modulus.set(self.findModulus(self.uniformization))
         # adds buttons to various modes, currently just graph edit and edit flux
         mainMenu = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         mainMenu.columnconfigure(0, weight=1)
@@ -1078,6 +1166,13 @@ class show_results:
         
         refineButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_width/80), text="Refine Current Triangulation", command = self.refine, bg=BG_COLOR)
         refineButton.grid(column=3, row=1)
+
+        twoPathsButton = tk.Button(mainMenu, height=int(self.canvas_height/200), width=int(self.canvas_width/80), text="Two Paths", command = self.twoPaths, bg=BG_COLOR)
+        twoPathsButton.grid(column=3, row=1)
+
+        self.labelAndText(mainMenu, "Maximum Radius over Minimum: ", int(self.canvas_width/68), str(self.modulus.get()), int(self.canvas_width/60)).grid(column=0, row=2, columnspan=2)
+        self.labelAndText(mainMenu, "Period: ", int(self.canvas_width/80), str(self.period_gsb), int(self.canvas_width/60)).grid(column=2, row=2, columnspan=2)
+        self.labelAndText(mainMenu, "Slit Coordinates: ", int(self.canvas_width/120), "(" + str(self.base_coordinates[0]) + ", " + str(self.base_coordinates[1]) + ")", int(self.canvas_width/37)).grid(column=4, row=2, columnspan=2)
 
         self.controls = mainMenu
 
@@ -1128,6 +1223,91 @@ class show_results:
         
         return False
     
+    def twoPaths(self):
+        self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Back", "The first two clicks determine intermediate points for paths to travel to, and the third click sets a destination")
+        pathFind = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_width/80), text="Calculate", command = self.findTwoPaths, bg=BG_COLOR)
+        pathFind.grid(column=1, row=2)
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.plotPathPoints)
+        self.selectedPoints = [None, None, None]
+
+    def plotPathPoints(self, event):
+        if (self.fig.canvas.toolbar.mode != ''):
+            return
+        self.show()
+        self.fig.canvas.callbacks.disconnect(self.callbackName)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.plotPathPoints)
+        if self.selectedPoints[0] == None:
+            self.selectedPoints[0] = [event.xdata, event.ydata]
+        elif self.selectedPoints[1] == None:
+            self.selectedPoints[1] = [event.xdata, event.ydata]
+        elif self.selectedPoints[2] == None:
+            self.selectedPoints[2] = [event.xdata, event.ydata]
+        else:
+            self.selectedPoints[2] = self.selectedPoints[1]
+            self.selectedPoints[1] = self.selectedPoints[0]
+            self.selectedPoints[0] = [event.xdata, event.ydata]
+        i=0
+        if self.selectedPoints[0] is not None:
+            plt.scatter(self.selectedPoints[0][0], self.selectedPoints[0][1], marker = 'x', color = "red", s = 200, linewidth = 3, zorder = 5)
+        if self.selectedPoints[1] is not None:
+            plt.scatter(self.selectedPoints[1][0], self.selectedPoints[1][1], marker = 'x', color = "blue", s = 200, linewidth = 3, zorder = 5)
+        if self.selectedPoints[2] is not None:
+            plt.scatter(self.selectedPoints[2][0], self.selectedPoints[2][1], marker = 'x', color = "purple", s = 200, linewidth = 3, zorder = 5)
+        plt.draw()
+
+    def findTwoPaths(self):
+        self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Back", None)
+        if self.selectedPoints[0] is None or self.selectedPoints[1] is None or self.selectedPoints[2] is None:
+            return
+        voronoiIndex1 = self.determinePolygon(self.selectedPoints[0][0], self.selectedPoints[0][1])
+        vertexIndex1 = self.nearestVertexInPoly(self.selectedPoints[0][0], self.selectedPoints[0][1], voronoiIndex1)
+        voronoiIndex2 = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1])
+        vertexIndex2 = self.nearestVertexInPoly(self.selectedPoints[1][0], self.selectedPoints[1][1], voronoiIndex2)
+        voronoiIndex3 = self.determinePolygon(self.selectedPoints[2][0], self.selectedPoints[2][1])
+        vertexIndex3 = self.nearestVertexInPoly(self.selectedPoints[2][0], self.selectedPoints[2][1], voronoiIndex3)
+        connectingPath1 = nx.dijkstra_path(self.lambda_graph, vertexIndex3, vertexIndex1, weight='weight') 
+        connectingPath2 = nx.dijkstra_path(self.lambda_graph, vertexIndex2, vertexIndex3, weight='weight') 
+        startToBetwixt1 = nx.dijkstra_path(self.lambda_graph, vertexIndex1, self.omega_0, weight='weight') 
+        startToBetwixt2 = nx.dijkstra_path(self.lambda_graph, self.omega_0, vertexIndex2, weight='weight') 
+        #self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[vertexIndex1]), self.axes, color=[1, 0, 0])
+        connectingPath1Edges = self.build_path_edges(connectingPath1)
+        connectingPath2Edges = self.build_path_edges(connectingPath2)
+        startToBetwixt1Edges = self.build_path_edges(startToBetwixt1)
+        startToBetwixt2Edges = self.build_path_edges(startToBetwixt2)
+        longerPath1 = 0
+        flux_contributing_edges = []
+        for edge in connectingPath1Edges:
+            flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
+        longerPath1 += self.flux_on_contributing_edges(flux_contributing_edges) # Red, intermediate to end
+        flux_contributing_edges = []
+        for edge in startToBetwixt1Edges:
+            flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
+        longerPath1 += self.flux_on_contributing_edges(flux_contributing_edges) # Red, start to intermediate
+        longerPath2 = 0
+        flux_contributing_edges = []
+        for edge in connectingPath2Edges:
+            flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
+        longerPath2 += self.flux_on_contributing_edges(flux_contributing_edges) # Blue, intermediate to end
+        flux_contributing_edges = []
+        for edge in startToBetwixt2Edges:
+            flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
+        longerPath2 += self.flux_on_contributing_edges(flux_contributing_edges) # Blue, start to intermediate
+
+
+
+
+        self.add_voronoi_edges_to_axes(connectingPath1Edges, self.axes, color=[1, 0, 0]) # Red Path
+        self.add_voronoi_edges_to_axes(startToBetwixt1Edges, self.axes, color=[1, 0, 0]) # Red Path
+        self.add_voronoi_edges_to_axes(connectingPath2Edges, self.axes, color=[0, 0, 1]) # Blue Path
+        self.add_voronoi_edges_to_axes(startToBetwixt2Edges, self.axes, color=[0, 0, 1]) # Blue Path
+
+        self.labelAndText(self.controls, "Flux Along Path 1 (Red)", int(self.canvas_width/80), str(longerPath1), int(self.canvas_width/60)).grid(column=0, row=1)
+        self.labelAndText(self.controls, "Flux Along Path 2 (Blue)", int(self.canvas_width/80), str(longerPath2), int(self.canvas_width/60)).grid(column=0, row=2)
+        percentDifference = 100 * abs(longerPath2 - longerPath1) / max(longerPath1, longerPath2)
+        self.labelAndText(self.controls, "Percent Difference: ", int(self.canvas_width/80), str(percentDifference) + "%", int(self.canvas_width/60)).grid(column=0, row=3)
+        self.canvas.draw()
+
     def editFluxGraph(self):
         if self.editor.children['!entry'] is None:
             return
@@ -1175,7 +1355,7 @@ class show_results:
     def disconnectAndReturn(self):
         # disconnects weird callbacks and returns to main menu
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.callback)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.markGraph)
         self.mainMenu()
 
     def disconnectAndReturnAndShow(self):
@@ -1217,86 +1397,33 @@ class show_results:
         backButton.grid(column=1, row=2)
 
     def nextGraph(self):
-        nameItems = self.fileName.split("_")
-        #root, edge, triCount, step = self.fileName.split("_")
-        #print(self.fileName.split("_"))
-        edgeNum = int(nameItems[-3])
-        stepNum = int(nameItems[-1])
-        triNum = int(nameItems[-2])
-        name = ""
-        while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]):
-            if edgeNum < int(self.enteredInfo[3]):
-                edgeNum += 1
-            elif triNum < int(self.enteredInfo[8]):
-                triNum += 1
-            else:
-                stepNum += 1
-            name = nameItems[-4] + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
-            try:
-                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-            except FileNotFoundError:
-                #print("File Not Found: ", name)
-                None
-            else:
-                break
-        try:
-            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-        except FileNotFoundError:
-            print("File Truly Not Found: ", name)
-            return
-        self.fileName = name
+        self.next()
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         if self.keep.get():
-            self.plotPoint(self.base_point[0], self.base_point[1])
+            self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
         else:
             self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
-        uniformization = self.calculateUniformization()
-        self.showUniformization(uniformization, False)
-        self.modulus.set(self.findModulus(uniformization))
+        self.calculateUniformization()
+        self.showUniformization(False)
+        self.modulus.set(self.findModulus(self.uniformization))
         self.updateMod()
     
     def prevGraph(self):
-        #root, edge, triCount, step = self.fileName.split("_")
-        nameItems = self.fileName.split("_")
-        edgeNum = int(nameItems[-3])
-        stepNum = int(nameItems[-1])
-        triNum = int(nameItems[-2])
-        name = ''
-        while edgeNum > int(self.enteredInfo[2]) or triNum > 0 or stepNum > 0:
-            if stepNum > 0:
-                stepNum -= 1
-            elif triNum > int(self.enteredInfo[7]):
-                triNum -= 1
-            elif edgeNum > int(self.enteredInfo[2]):
-                edgeNum -= 1
-            name = nameItems[-4] + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
-            try:
-                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-            except FileNotFoundError:
-                #print("File Not Found: ", name)
-                None
-            else:
-                break
-        try:
-            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-        except FileNotFoundError:
-            print("File Truly Not Found: ", name)
-            return
-        self.fileName = name
+        self.previous()
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         if self.keep.get():
-            self.plotPoint(self.base_point[0], self.base_point[1])
+            self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
         else:
             self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
-        uniformization = self.calculateUniformization()
-        self.showUniformization(uniformization, False)
-        self.modulus.set(self.findModulus(uniformization))
+        self.calculateUniformization()
+        self.showUniformization(False)
+        self.modulus.set(self.findModulus(self.uniformization))
         self.updateMod()
 
     def updateMod(self):
@@ -1311,7 +1438,7 @@ class show_results:
         pictureButton.grid(column=1, row=0)
         previousButton = tk.Button(buttonHolder, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Previous Graph", command = self.prevGraph, bg=BG_COLOR)
         previousButton.grid(column=0, row=0)
-        self.labelAndText(buttonHolder, "Modulus: ", int(self.canvas_width/80), str(self.modulus.get()), int(self.canvas_width/50)).grid(column=0, row=3, columnspan=3)
+        self.labelAndText(buttonHolder, "Maximum Radius over Minimum: ", int(self.canvas_width/68), str(self.modulus.get()), int(self.canvas_width/50)).grid(column=0, row=3, columnspan=3)
 
     def takePhoto(self):
         self.showNSave()
@@ -1340,9 +1467,9 @@ class show_results:
         self.slitPathCalculate()
         self.show()
         self.updateLambdaGraph()
-        uniformization = self.calculateUniformization()
-        self.showUniformization(uniformization, False)
-        self.modulus.set(self.findModulus(uniformization))
+        self.calculateUniformization()
+        self.showUniformization(False)
+        self.modulus.set(self.findModulus(self.uniformization))
         self.updateMod()
 
     def nearestVertexInPoly(self, x, y, polygon):
@@ -1354,7 +1481,12 @@ class show_results:
         return self.tri.contained_polygons[polygon][np.argmin(distanceToVertices)]
     
     def voronoiFinder(self):
+        xZoom = self.axes.get_xlim()
+        yZoom = self.axes.get_ylim()
         self.show()
+        self.toolbar.push_current()
+        self.axes.set_xlim(xZoom)
+        self.axes.set_ylim(yZoom)
         x = self.xVar.get()
         y = self.yVar.get()
         if x is None or y is None:
@@ -1364,55 +1496,67 @@ class show_results:
         cell = self.tri.vertices[self.tri.contained_to_original_index[voronoiIndex]]
         vertex = self.tri.circumcenters[vertexIndex]
         self.selectedCells = [cell, vertex]
-        plt.plot(vertex[0], vertex[1], "gx", markersize = 4)
-        plt.plot(cell[0], cell[1], "rx", markersize = 2)
-        xZoom = self.axes.get_xlim()
-        yZoom = self.axes.get_ylim()
+        changeArray = []
+        for i in range(len(self.tri.contained_polygons[voronoiIndex])):
+            adjacentInd = (i + 1) % len(self.tri.contained_polygons[voronoiIndex])
+            if i >= len(self.tri.contained_polygons[voronoiIndex]):
+                adjacentInd = 0
+            changeArray.append(abs(self.g_star_bar[self.tri.contained_polygons[voronoiIndex][i]] - self.g_star_bar[self.tri.contained_polygons[voronoiIndex][adjacentInd]]))
+        self.averageChange = np.mean(changeArray)
+        plt.scatter(vertex[0], vertex[1], marker = 'x', color = "green", s = 200, linewidth = 3, zorder = 5)
+        plt.scatter(cell[0], cell[1], marker = 'x', color = "yellow", s = 200, linewidth = 3, zorder = 5)
         self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[vertexIndex]), self.axes, color=[1, 0, 0])
         self.canvas.draw()
-        self.toolbar.push_current()
-        self.axes.set_xlim(xZoom)
-        self.axes.set_ylim(yZoom)
-        self.radius = np.sqrt((cell[0] - self.pointInHole[0]) ** 2 + (cell[1] - self.pointInHole[1]) ** 2)
+        self.radius = np.sqrt((x - self.pointInHole[0]) ** 2 + (y - self.pointInHole[1]) ** 2)
         self.currentGValue = self.tri.pde_values[self.tri.contained_to_original_index[voronoiIndex]]
         self.currentGBarValue = self.g_star_bar[vertexIndex]
+        #print(voronoiIndex)
+        #print(vertexIndex)
         if vertexIndex in self.tri.contained_polygons[voronoiIndex]:
             adjacentBarInd = self.tri.contained_polygons[voronoiIndex].index(vertexIndex) + 1
+            #print(adjacentBarInd)
             if adjacentBarInd >= len(self.tri.contained_polygons[voronoiIndex]):
                 adjacentBarInd = 0
+            #print(adjacentBarInd)
             self.changeGBar = abs(self.g_star_bar[vertexIndex] - self.g_star_bar[self.tri.contained_polygons[voronoiIndex][adjacentBarInd]])
         else:
             self.changeGBar = None
-        trianglePoints = []
-        i = 0
-        for topo in self.tri.contained_polygons:
-            try:
-                topo.index(vertexIndex)
-            except ValueError:
-                None
-            else:
-                trianglePoints.append(i)
-            finally:
-                i += 1
-        for index in trianglePoints:
-            plt.plot(self.tri.vertices[self.tri.contained_to_original_index[index]][0], self.tri.vertices[self.tri.contained_to_original_index[index]][1], "rx", markersize = 10)
-            print(self.tri.vertices[self.tri.contained_to_original_index[index]][0], self.tri.vertices[self.tri.contained_to_original_index[index]][1], self.tri.pde_values[self.tri.contained_to_original_index[index]])
-        if len(trianglePoints) < 3:
-            # Basically I need to find the edge triangles, I'm not sure how so I should ask Eric
-            print("trianglePoints", trianglePoints)
-            self.interpolatedGValue = 0 - np.inf
-        else:
-            self.interpolatedGValue = self.barycentric_interpolation(
-                    vertex[0], vertex[1],
-                    self.tri.vertices[self.tri.contained_to_original_index[trianglePoints[0]]][0], self.tri.vertices[self.tri.contained_to_original_index[trianglePoints[0]]][1],
-                    self.tri.vertices[self.tri.contained_to_original_index[trianglePoints[1]]][0], self.tri.vertices[self.tri.contained_to_original_index[trianglePoints[1]]][1],
-                    self.tri.vertices[self.tri.contained_to_original_index[trianglePoints[2]]][0], self.tri.vertices[self.tri.contained_to_original_index[trianglePoints[2]]][1],
-                    self.tri.pde_values[self.tri.contained_to_original_index[trianglePoints[0]]],
-                    self.tri.pde_values[self.tri.contained_to_original_index[trianglePoints[1]]],
-                    self.tri.pde_values[self.tri.contained_to_original_index[trianglePoints[2]]],
-                )
-            print("interpolated value", self.interpolatedGValue)
+        # for index in self.tri.triangles[vertexIndex]:
+        #     plt.plot(self.tri.vertices[index][0], self.tri.vertices[index][1], "rx", markersize = 10)
+        self.interpolatedGValue = self.barycentric_interpolation(
+                vertex[0], vertex[1],
+                self.tri.vertices[self.tri.triangles[vertexIndex][0]][0], self.tri.vertices[self.tri.triangles[vertexIndex][0]][1],
+                self.tri.vertices[self.tri.triangles[vertexIndex][1]][0], self.tri.vertices[self.tri.triangles[vertexIndex][1]][1],
+                self.tri.vertices[self.tri.triangles[vertexIndex][2]][0], self.tri.vertices[self.tri.triangles[vertexIndex][2]][1],
+                self.tri.pde_values[self.tri.triangles[vertexIndex][0]],
+                self.tri.pde_values[self.tri.triangles[vertexIndex][1]],
+                self.tri.pde_values[self.tri.triangles[vertexIndex][2]],
+            )
         self.showGBarAfter()
+
+    def findMaximumPointInImage(self):
+        radii = []
+        for polygon in self.tri.contained_polygons:
+            for index in polygon:
+                radius = self.barycentric_interpolation(
+                    self.tri.circumcenters[index][0], self.tri.circumcenters[index][1],
+                    self.tri.vertices[self.tri.triangles[index][0]][0], self.tri.vertices[self.tri.triangles[index][0]][1],
+                    self.tri.vertices[self.tri.triangles[index][1]][0], self.tri.vertices[self.tri.triangles[index][1]][1],
+                    self.tri.vertices[self.tri.triangles[index][2]][0], self.tri.vertices[self.tri.triangles[index][2]][1],
+                    self.tri.pde_values[self.tri.triangles[index][0]],
+                    self.tri.pde_values[self.tri.triangles[index][1]],
+                    self.tri.pde_values[self.tri.triangles[index][2]],
+                )
+                radii.append(radius)
+        npradii = np.array(radii)
+        max = np.argmax(npradii)
+        i = 0
+        for polygon in self.tri.contained_polygons:
+            for index in polygon:
+                if i == max:
+                    return [polygon, index]
+                i += 1
+        return -1
 
     def voronoiCallback(self, event):
         if (self.fig.canvas.toolbar.mode != ''):
@@ -1422,8 +1566,6 @@ class show_results:
         self.voronoiFinder()
     
     def showFunction(self):
-        self.updateLambdaGraph()
-        self.calculateUniformization()
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voronoiCallback)
         self.controls.grid_remove()
@@ -1431,19 +1573,6 @@ class show_results:
         self.controls.grid(column=0, row=0)
         self.controls.columnconfigure(0, weight=1)
         self.controls.rowconfigure(0, weight=1)
-        if len(self.tri.contained_polygons) >= 100:
-            size = 100
-        else:
-            size = len(self.tri.contained_polygons)
-        changeArray = np.zeros(size)
-        for i in range(size):
-            index = random.randint(0, len(self.tri.contained_polygons) - 1)
-            vertexInd = random.randint(0, len(self.tri.contained_polygons[index]) - 1)
-            adjacentBarInd = vertexInd + 1
-            if adjacentBarInd >= len(self.tri.contained_polygons[index]):
-                adjacentBarInd = 0
-            changeArray[i] = abs(self.g_star_bar[self.tri.contained_polygons[index][vertexInd]] - self.g_star_bar[self.tri.contained_polygons[index][adjacentBarInd]])
-        self.averageChange = np.mean(changeArray)
         instructionLabel = tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/30), text="Click on a vertex to display function information")
         instructionLabel.grid(column=0, row=1)
         xEntry = tk.Entry(self.controls, width=int(self.canvas_width/60), textvariable = self.xVar, bg=BG_COLOR)
@@ -1454,7 +1583,21 @@ class show_results:
         plotButton.grid(row = 2, column = 2)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/70), text="back", command = self.disconnectAndReturn, bg=BG_COLOR)
         backButton.grid(column=0, row=3)
-    
+
+    def markGraph(self, event):
+        if (self.fig.canvas.toolbar.mode != ''):
+            return
+        self.pointsToShow.append([event.xdata, event.ydata])
+        i = 0
+        for coords in self.pointsToShow:
+            plt.text(coords[0], coords[1], r"$v_{i}$".replace('i', str(i)), size = 20)
+            plt.scatter(coords[0], coords[1], marker = 'x', color = "yellow", s = 200, linewidth = 3, zorder = 5)
+            voronoiIndex = self.determinePolygon(coords[0], coords[1])
+            vertexIndex = self.nearestVertexInPoly(coords[0], coords[1], voronoiIndex)
+            self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[vertexIndex]), self.axes, color=[1, 0, 0])
+            i += 1
+        plt.draw()
+
     def showGBarAfter(self):
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.voronoiCallback)
@@ -1468,14 +1611,54 @@ class show_results:
         self.labelAndText(self.controls, "Change in g bar: ", int(self.canvas_width/80), str(self.changeGBar), int(self.canvas_width/60)).grid(column=0, row=2)
         self.labelAndText(self.controls, "g bar: ", int(self.canvas_width/120), str(self.currentGBarValue), int(self.canvas_width/60)).grid(column=2, row=2)
         self.labelAndText(self.controls, "Period of g bar: ", int(self.canvas_width/80), str(self.period_gsb), int(self.canvas_width/60)).grid(column=0, row=3)
-        self.labelAndText(self.controls, "Average Change in g bar: ", int(self.canvas_width/80), str(self.averageChange), int(self.canvas_width/60)).grid(column=2, row=3)
+        self.labelAndText(self.controls, "Average Change in g bar around cell: ", int(self.canvas_width/55), str(self.averageChange), int(self.canvas_width/60)).grid(column=2, row=3)
         self.labelAndText(self.controls, "Combinatorial Radius of selected vertex of selected cell: ", int(self.canvas_width/30), np.exp(self.interpolatedGValue * (2 * np.pi / self.period_gsb)), int(self.canvas_width/50)).grid(column=0, row=4)
+        self.labelAndText(self.controls, "Clicked Point: ", int(self.canvas_width/60), "(" + str(self.xVar.get()) + ", " + str(self.yVar.get()) + ")", int(self.canvas_width/35)).grid(column=2, row=4)
         self.labelAndText(self.controls, "Center point of selected cell: ", int(self.canvas_width/60), "(" + str(self.selectedCells[0][0]) + ", " + str(self.selectedCells[0][1]) + ")", int(self.canvas_width/35)).grid(column=0, row=5, columnspan = 1)
         self.labelAndText(self.controls, "Selected vertex of selected cell: ", int(self.canvas_width/60), "(" + str(self.selectedCells[1][0]) + ", " + str(self.selectedCells[1][1]) + ")", int(self.canvas_width/35)).grid(column=2, row=5, columnspan = 1)
-        
-
-        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="back", command = self.disconnectAndReturn, bg=BG_COLOR)
+        print(self.findMaximumPointInImage())
+        prevButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Previous", command = self.previousNumGraph, bg=BG_COLOR)
+        prevButton.grid(column=0, row=6)
+        backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Back", command = self.disconnectAndReturn, bg=BG_COLOR)
         backButton.grid(column=1, row=6)
+        nextButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Next", command = self.nextNumGraph, bg=BG_COLOR)
+        nextButton.grid(column=2, row=6)
+        failFlag = False
+        if self.fileRoot == '':
+            failFlag = True
+        directory = Path('regions/' + self.fileRoot)
+        directory_info = directory / (self.fileRoot + "_info.txt")
+        if (not directory.is_dir()) or (not directory_info.is_file()):
+            failFlag = True
+        if failFlag == False:
+            self.enteredInfo = []
+            with open(directory_info, 'r', encoding='utf-8') as file:
+                for i, line in enumerate(file):
+                    if i != 0:
+                        self.enteredInfo.append(line)
+        else:
+            prevButton["state"] = tk.DISABLED
+            nextButton["state"] = tk.DISABLED
+
+    def previousNumGraph(self):
+        self.previous()
+        self.stopFlag = False
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
+        self.slitPathCalculate()
+        self.updateLambdaGraph()
+        self.calculateUniformization()
+        self.voronoiFinder()
+
+    def nextNumGraph(self):
+        self.next()
+        self.stopFlag = False
+        self.pointInHole = self.tri.region.points_in_holes[0]
+        self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
+        self.slitPathCalculate()
+        self.updateLambdaGraph()
+        self.calculateUniformization()
+        self.voronoiFinder()
 
     def showDraw(self):
         self.controls.grid_remove()
@@ -1597,8 +1780,8 @@ class show_results:
         self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
-        uniformization = self.calculateUniformization()
-        self.showUniformization(uniformization, True)
+        self.calculateUniformization()
+        self.showUniformization(True)
         self.ax2.axis('on')
         if name == None:
             name = self.fileName
@@ -1691,6 +1874,8 @@ class show_results:
         self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{firstFileName}/{firstFileName}.poly')
         self.fileName = firstFileName
         self.fileRoot = self.gifConfig.getFileRoot()
+        self.updateLambdaGraph()
+        self.calculateUniformization()
         self.showIntermediate()
     
     def angleDifferenceFinder(self, event):
@@ -1711,7 +1896,7 @@ class show_results:
         for point in self.selectedPoints:
             if point is not None:
                 if point[0] is not None and point[1] is not None:
-                    plt.plot(point[0], point[1], "rx", markersize = 4)
+                    plt.scatter(point[0], point[1], marker = 'x', color = "yellow", s = 200, linewidth = 3, zorder = 5)
         plt.draw()
 
     def showAngles(self):
@@ -1722,8 +1907,6 @@ class show_results:
         self.controls.rowconfigure(0, weight=1)
         tk.Label(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/12), text="Click, or enter below, two points on the graph and press confirm to see the difference in angles between them, or set one point and enter the angle to rotate it by.", bg=BG_COLOR).grid(row = 0, column = 0, columnspan=6)
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.updateLambdaGraph()
-        self.calculateUniformization()
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.angleDifferenceFinder)
         if self.selectedPoints == None:
             self.selectedPoints = [None, None]
@@ -1763,6 +1946,9 @@ class show_results:
             self.labelAndText(self.controls, "Percent Difference: ", int(self.canvas_width/70), str(100 * abs(self.actualAngle - self.combiAngle) / self.actualAngle) + "%", int(self.canvas_width/35)).grid(column = 1, row = 6, columnspan=2)
             self.labelAndText(self.controls, "Point One: ", int(self.canvas_width/70), "(" + str(self.selectedPoints[0][0]) + ", " + str(self.selectedPoints[0][1]) + ")", int(self.canvas_width/30)).grid(column = 0, row = 5, columnspan=2)
             self.labelAndText(self.controls, "Point Two: ", int(self.canvas_width/70), "(" + str(self.selectedPoints[1][0]) + ", " + str(self.selectedPoints[1][1]) + ")", int(self.canvas_width/30)).grid(column = 2, row = 5, columnspan=2)
+            # plt.text(self.selectedPoints[0][0], self.selectedPoints[0][1], r"$P_{0}$", size = 20)
+            # plt.text(self.selectedPoints[1][0], self.selectedPoints[1][1], r"$P_{1}$", size = 20)
+            # plt.draw()
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Back", command = self.disconnectAndReturn, bg=BG_COLOR)
         backButton.grid(row = 6, column = 0)
         confirmButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Confirm", command = self.displayAngles, bg=BG_COLOR)
@@ -1778,35 +1964,10 @@ class show_results:
         return frame
 
     def previousAngleGraph(self):
-        nameItems = self.fileName.split("_")
-        edgeNum = int(nameItems[-3])
-        stepNum = int(nameItems[-1])
-        triNum = int(nameItems[-2])
-        name = ''
-        while edgeNum > int(self.enteredInfo[2]) or triNum > 0 or stepNum > 0:
-            if stepNum > 0:
-                stepNum -= 1
-            elif triNum > int(self.enteredInfo[7]):
-                triNum -= 1
-            elif edgeNum > int(self.enteredInfo[2]):
-                edgeNum -= 1
-            name = nameItems[-4] + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
-            try:
-                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-            except FileNotFoundError:
-                #print("File Not Found: ", name)
-                None
-            else:
-                break
-        try:
-            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-        except FileNotFoundError:
-            print("File Not Found: ", name)
-            return
-        self.fileName = name
+        self.previous()
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        self.plotPoint(self.base_point[0], self.base_point[1])
+        self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         self.calculateUniformization()
@@ -1815,34 +1976,10 @@ class show_results:
         self.showAngles()
 
     def nextAngleGraph(self):
-        nameItems = self.fileName.split("_")
-        edgeNum = int(nameItems[-3])
-        stepNum = int(nameItems[-1])
-        triNum = int(nameItems[-2])
-        name = ''
-        while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]):
-            if edgeNum < int(self.enteredInfo[3]):
-                edgeNum += 1
-            elif triNum < int(self.enteredInfo[8]):
-                triNum += 1
-            else:
-                stepNum += 1
-            name = nameItems[-4] + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
-            try:
-                self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-            except FileNotFoundError:
-                None
-            else:
-                break
-        try:
-            self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
-        except FileNotFoundError:
-            print("File Not Found: ", name)
-            return
-        self.fileName = name
+        self.next()
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        self.plotPoint(self.base_point[0], self.base_point[1])
+        self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         self.calculateUniformization()
@@ -1859,22 +1996,29 @@ class show_results:
         else:
             self.selectedPoints[1] = self.selectedPoints[0]
             self.selectedPoints[0] = [self.xVar.get(), self.yVar.get()]
+        i=0
         for point in self.selectedPoints:
             if point is not None:
-                plt.plot(point[0], point[1], 'rx', markersize = 4)
+                plt.scatter(point[0], point[1], marker = 'x', color = "yellow", s = 200, linewidth = 3, zorder = 5)
         plt.draw()
 
     def rotateAndAddPoint(self):
         shiftedPoints = [(self.selectedPoints[0][0] - self.pointInHole[0]) * np.cos(np.pi * self.angle.get()) - (self.selectedPoints[0][1] - self.pointInHole[1]) * np.sin(np.pi * self.angle.get()), 
                           (self.selectedPoints[0][0] - self.pointInHole[0]) * np.sin(np.pi * self.angle.get()) + (self.selectedPoints[0][1] - self.pointInHole[1]) * np.cos(np.pi * self.angle.get())]
         self.selectedPoints[1] = [None,None]
-        self.selectedPoints[1][0] = shiftedPoints[0]
-        self.selectedPoints[1][1] = shiftedPoints[1]
+        self.selectedPoints[1][0] = shiftedPoints[0] + self.pointInHole[0]
+        self.selectedPoints[1][1] = shiftedPoints[1] + self.pointInHole[1]
+        # radius1 = np.sqrt((self.selectedPoints[0][0] - self.pointInHole[0])**2 + (self.selectedPoints[0][1] - self.pointInHole[1])**2)
+        # radius2 = np.sqrt((self.selectedPoints[1][0] - self.pointInHole[0])**2 + (self.selectedPoints[1][1] - self.pointInHole[1])**2)
+        # conversion = radius1 / radius2
+        # self.selectedPoints[1][0] *= conversion
+        # self.selectedPoints[1][1] *= conversion
         self.show()
+        print(self.selectedPoints)
         for point in self.selectedPoints:
             if point is not None:
                 if point[0] is not None and point[1] is not None:
-                    plt.plot(point[0], point[1], "rx", markersize = 4)
+                    plt.scatter(point[0], point[1], marker = 'x', color = "yellow", s = 200, linewidth = 3, zorder = 5)
         plt.draw()
 
     def displayAngles(self):
@@ -1883,22 +2027,24 @@ class show_results:
         cellTwo = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1]) # Determines which cell the clicked points are in
         # TODO: Add a check so it doesn't crash if the selected point is exactly a cell vertex
         totalFlux1 = 0 # This will be the flux value for the first point
-        min = math.inf # used to determine where to draw the path to
         minIndex1 = 0
+        distance = math.inf # used to determine where to draw the path to
         for index in self.tri.contained_polygons[cellOne]: # Adds the flux on each vertex
             totalFlux1 += self.g_star_bar[index]
-            if self.g_star_bar[index] < min:
+            dist = np.sqrt((self.tri.circumcenters[index][0] - self.selectedPoints[0][0])**2+(self.tri.circumcenters[index][1] - self.selectedPoints[0][1])**2)
+            if dist < distance:
+                distance = dist
                 minIndex1 = index
-                min = self.g_star_bar[index]
         totalFlux1 /= len(self.tri.contained_polygons[cellOne]) # divides by 6 to get average
         totalFlux2 = 0 # Everything above is then repeated on the second point
-        min = math.inf
         minIndex2 = 0
+        distance = math.inf
         for index in self.tri.contained_polygons[cellTwo]:
             totalFlux2 += self.g_star_bar[index]
-            if self.g_star_bar[index] < min:
+            dist = np.sqrt((self.tri.circumcenters[index][0] - self.selectedPoints[1][0])**2+(self.tri.circumcenters[index][1] - self.selectedPoints[1][1])**2)
+            if dist < distance:
+                distance = dist
                 minIndex2 = index
-                min = self.g_star_bar[index]
         totalFlux2 /= len(self.tri.contained_polygons[cellTwo])
         difference = abs(totalFlux1 - totalFlux2)
         combiAngle = ((2 * np.pi) / self.period_gsb) * difference # This finds the difference between flux values and adjusts it to be a radian
@@ -1915,6 +2061,12 @@ class show_results:
         self.actualAngle = actualAngle
         self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex1]), self.axes, color=[1, 0, 0])
         self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[minIndex2]), self.axes, color=[1, 0, 0]) # Draws paths to the selected points
+        connectingPath = nx.dijkstra_path(self.lambda_graph, minIndex1, minIndex2, weight='weight') 
+        #print(connectingPath)
+        self.add_voronoi_edges_to_axes(self.build_path_edges(connectingPath), self.axes, color=[1, 0, 1])
+        for point in self.selectedPoints:
+            if point is not None:
+                plt.scatter(point[0], point[1], marker = 'x', color = "yellow", s = 200, linewidth = 3, zorder = 5)
         self.canvas.draw()
         self.showAngles() # Displays calculated information
 
@@ -1969,7 +2121,7 @@ class show_results:
         polyFileEnd = polyFileEnd / (name + ".poly")
         shutil.copy(polyFileStart, polyFileEnd)
         self.fileName = name
-        print(polyFileStart, polyFileEnd)
+        #print(polyFileStart, polyFileEnd)
         if self.triCount.get() == self.tri.num_triangles:
             count = self.tri.num_triangles + 1
         else:

@@ -724,6 +724,7 @@ class Triangulation(object):
                 ] for edge in self._triangulation_edges_all
             ]
             line_collection = mc.LineCollection(lines, linewidths=line_width)
+            line_collection.set_color([0/255, 255/255, 0/255])
             axes.add_collection(line_collection)
         # color_array = np.ones(self.num_triangles) * color  # np.random.random(self.num_triangles) * 500
         if highlight_edges:
@@ -841,6 +842,7 @@ class Triangulation(object):
                 self.circumcenters[np.array(highlight_vertices), 0],
                 self.circumcenters[np.array(highlight_vertices), 1],
                 c=np.tile(highlight_vertices_color, (len(highlight_vertices), 1)),
+                s=8,
                 zorder=5
             )
         if show_edges:
