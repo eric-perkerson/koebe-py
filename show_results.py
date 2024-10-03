@@ -21,6 +21,7 @@ import os
 import shutil
 from pathlib import Path
 import math
+from cmcrameri import cm
 
 BG_COLOR = '#2e2e2e'
 WHITE = '#d6d6d6'
@@ -298,7 +299,7 @@ class show_results:
         self.edges_to_weight = None # Something idk TODO
         self.selectedPoints = [None, None]
         self.radius = None
-        self.line_collection = None
+        self.line_collection = []
         self.base_coordinates = None
         self.pointsToShow = []
         self.gui, self.canvas_width, self.canvas_height, = self.basicGui()
@@ -423,12 +424,22 @@ class show_results:
     # This next section is all the stuff the graphs need to work
 
     # This seems to define what the flux will be for a given set of edges
+    def flux_on_contributing_edges_nonabsolute(self, edges):
+        flux = 0.0
+        # Adds the conductance times the difference in pde value for each edge in the path
+        # Conductance seems to be some measure of how "important" an edge is
+        for edge in edges:
+            flux += self.tri.conductance[edge] * (
+                self.tri.pde_values[edge[0]] - self.tri.pde_values[edge[1]]
+            )
+        return flux
+    
     def flux_on_contributing_edges(self, edges):
         flux = 0.0
         # Adds the conductance times the difference in pde value for each edge in the path
         # Conductance seems to be some measure of how "important" an edge is
         for edge in edges:
-            flux += self.tri.conductance[edge] * np.abs(
+            flux += self.tri.conductance[edge] * abs(
                 self.tri.pde_values[edge[0]] - self.tri.pde_values[edge[1]]
             )
         return flux
@@ -740,18 +751,55 @@ class show_results:
             )
             level_set.append(level_set_triangle)
 
-        level_set_flattened = self.flatten_list_of_lists(level_set)
-        level_set_filtered = [
-            line_segment for line_segment in level_set_flattened if len(line_segment) > 0
-        ]
-        lines = [
-            [
-                tuple(line_segment[0]),
-                tuple(line_segment[1])
-            ] for line_segment in level_set_filtered
-        ]
-        self.line_collection = mc.LineCollection(lines, linewidths=1)
-        self.line_collection.set(color=[1, 0, 0])
+        # level_set_flattened = self.flatten_list_of_lists(level_set)
+        level_set_filtered = []
+        for level_set_triangle in level_set:
+            level_set_filtered.append([
+                line_segment for line_segment in level_set_triangle if len(line_segment) > 0
+            ])
+        lines = []
+        for level_set_specific in level_set_filtered:
+            lines.append([
+                [
+                    tuple(line_segment[0]),
+                    tuple(line_segment[1])
+                ] for line_segment in level_set_specific
+            ])
+        # for i, height in enumerate(heights):
+        #         tri_level_sets_unfiltered = self.flatten_list_of_lists(
+        #             list(map(lambda i: tri_level_sets(
+        #                 self.triangle_coordinates[i],
+        #                 self.pde_values[self.triangles[i]],
+        #                 [height]
+        #             ), range(self.num_triangles)))
+        #         )
+        #         tri_level_sets_filtered = [
+        #             line_segment for line_segment in tri_level_sets_unfiltered if len(line_segment) > 0
+        #         ]
+        #         lines = [
+        #             [
+        #                 tuple(line_segment[0]),
+        #                 tuple(line_segment[1])
+        #             ] for line_segment in tri_level_sets_filtered
+        #         ]
+        graded_level_curve_color_map = cm.lajolla
+        colors = self.subsample_color_map(colormap = graded_level_curve_color_map, num_samples = len(lines), end_color=240)
+        # i=0
+        # for line in lines:
+        #     self.line_collection.append(mc.LineCollection(line, linewidths=1, colors = colors[0]))
+        #     i += 1
+        line_collection = mc.LineCollection(lines, linewidths=1, colors = colors[i])
+        line_collection.set(color=[1, 0, 0])
+        line_collection.set(color=colors[i])
+        self.axes.add_collection(line_collection)
+
+    def subsample_color_map(self, colormap, num_samples, start_color=0, end_color=255, reverse=False):
+            sample_points_float = np.linspace(start=start_color, stop=end_color, num = num_samples)
+            sample_points = np.floor(sample_points_float).astype(np.int64)
+            all_colors = colormap.colors
+            if reverse:
+                all_colors = np.flip(all_colors, axis=0)
+            return all_colors[sample_points]
     
     @staticmethod
     @numba.njit
@@ -800,7 +848,8 @@ class show_results:
         triHigh = None
         if gBar:
             triHigh = self.contained_triangle_minus_slit
-            self.axes.add_collection(self.line_collection)
+            for line_collect in self.line_collection:
+                self.axes.add_collection(line_collect)
         self.tri.show(
             show_vertices=vert,
             show_edges=edge,
@@ -1063,7 +1112,8 @@ class show_results:
             self.updateLambdaGraph()
             self.calculateUniformization()
             triHigh = self.contained_triangle_minus_slit
-            self.axes.add_collection(self.line_collection)
+            for line_collect in self.line_collection:
+                self.axes.add_collection(line_collect)
         self.tri.show(
             show_vertices=vert,
             show_edges=edge,
@@ -1225,29 +1275,47 @@ class show_results:
     
     def twoPaths(self):
         self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Back", "The first two clicks determine intermediate points for paths to travel to, and the third click sets a destination")
+        xEntry = tk.Entry(self.controls, width=int(self.canvas_width/60), textvariable = self.xVar, bg=BG_COLOR)
+        xEntry.grid(row = 2, column = 0)
+        yEntry = tk.Entry(self.controls, width=int(self.canvas_width/60), textvariable = self.yVar, bg=BG_COLOR)
+        yEntry.grid(row = 2, column = 1)
+        plotButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/70), text="Plot Point", command = self.plotPathPointsManual, bg=BG_COLOR)
+        plotButton.grid(row = 2, column = 2)
         pathFind = tk.Button(self.controls, height=int(self.canvas_height/200), width=int(self.canvas_width/80), text="Calculate", command = self.findTwoPaths, bg=BG_COLOR)
-        pathFind.grid(column=1, row=2)
+        pathFind.grid(column=1, row=3)
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.plotPathPoints)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.plotPathPointsCallback)
         self.selectedPoints = [None, None, None]
 
-    def plotPathPoints(self, event):
+    def plotPathPointsCallback(self, event):
+        print("What")
+        self.plotPathPoints(event.xdata, event.ydata)
+    
+    def plotPathPointsManual(self):
+        self.plotPathPoints(self.xVar.get(), self.yVar.get())
+
+    def plotPathPoints(self, x, y):
+        print("Huh?")
         if (self.fig.canvas.toolbar.mode != ''):
             return
         self.show()
         self.fig.canvas.callbacks.disconnect(self.callbackName)
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.plotPathPoints)
+        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.plotPathPointsCallback)
         if self.selectedPoints[0] == None:
-            self.selectedPoints[0] = [event.xdata, event.ydata]
+            self.selectedPoints[0] = [x, y]
         elif self.selectedPoints[1] == None:
-            self.selectedPoints[1] = [event.xdata, event.ydata]
+            self.selectedPoints[1] = [x, y]
         elif self.selectedPoints[2] == None:
-            self.selectedPoints[2] = [event.xdata, event.ydata]
+            self.selectedPoints[2] = [x, y]
         else:
             self.selectedPoints[2] = self.selectedPoints[1]
             self.selectedPoints[1] = self.selectedPoints[0]
-            self.selectedPoints[0] = [event.xdata, event.ydata]
+            self.selectedPoints[0] = [x, y]
+        print("STOP?")
         i=0
+        for points in self.selectedPoints:
+            if points is not None:
+                print(points[0], points[1])
         if self.selectedPoints[0] is not None:
             plt.scatter(self.selectedPoints[0][0], self.selectedPoints[0][1], marker = 'x', color = "red", s = 200, linewidth = 3, zorder = 5)
         if self.selectedPoints[1] is not None:
@@ -1259,43 +1327,45 @@ class show_results:
     def findTwoPaths(self):
         self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Back", None)
         if self.selectedPoints[0] is None or self.selectedPoints[1] is None or self.selectedPoints[2] is None:
-            return
+            self.disconnectAndReturn()
         voronoiIndex1 = self.determinePolygon(self.selectedPoints[0][0], self.selectedPoints[0][1])
         vertexIndex1 = self.nearestVertexInPoly(self.selectedPoints[0][0], self.selectedPoints[0][1], voronoiIndex1)
         voronoiIndex2 = self.determinePolygon(self.selectedPoints[1][0], self.selectedPoints[1][1])
         vertexIndex2 = self.nearestVertexInPoly(self.selectedPoints[1][0], self.selectedPoints[1][1], voronoiIndex2)
         voronoiIndex3 = self.determinePolygon(self.selectedPoints[2][0], self.selectedPoints[2][1])
         vertexIndex3 = self.nearestVertexInPoly(self.selectedPoints[2][0], self.selectedPoints[2][1], voronoiIndex3)
+
         connectingPath1 = nx.dijkstra_path(self.lambda_graph, vertexIndex3, vertexIndex1, weight='weight') 
         connectingPath2 = nx.dijkstra_path(self.lambda_graph, vertexIndex2, vertexIndex3, weight='weight') 
         startToBetwixt1 = nx.dijkstra_path(self.lambda_graph, vertexIndex1, self.omega_0, weight='weight') 
         startToBetwixt2 = nx.dijkstra_path(self.lambda_graph, self.omega_0, vertexIndex2, weight='weight') 
-        #self.add_voronoi_edges_to_axes(self.build_path_edges(self.shortest_paths[vertexIndex1]), self.axes, color=[1, 0, 0])
+        
         connectingPath1Edges = self.build_path_edges(connectingPath1)
         connectingPath2Edges = self.build_path_edges(connectingPath2)
         startToBetwixt1Edges = self.build_path_edges(startToBetwixt1)
         startToBetwixt2Edges = self.build_path_edges(startToBetwixt2)
+
         longerPath1 = 0
         flux_contributing_edges = []
         for edge in connectingPath1Edges:
             flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
-        longerPath1 += self.flux_on_contributing_edges(flux_contributing_edges) # Red, intermediate to end
+        longerPath1 += self.flux_on_contributing_edges_nonabsolute(flux_contributing_edges) # Red, intermediate to end
+
         flux_contributing_edges = []
         for edge in startToBetwixt1Edges:
             flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
-        longerPath1 += self.flux_on_contributing_edges(flux_contributing_edges) # Red, start to intermediate
+        longerPath1 += self.flux_on_contributing_edges_nonabsolute(flux_contributing_edges) # Red, start to intermediate
+
         longerPath2 = 0
         flux_contributing_edges = []
         for edge in connectingPath2Edges:
             flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
-        longerPath2 += self.flux_on_contributing_edges(flux_contributing_edges) # Blue, intermediate to end
+        longerPath2 += self.flux_on_contributing_edges_nonabsolute(flux_contributing_edges) # Blue, intermediate to end
+
         flux_contributing_edges = []
         for edge in startToBetwixt2Edges:
             flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge)))
-        longerPath2 += self.flux_on_contributing_edges(flux_contributing_edges) # Blue, start to intermediate
-
-
-
+        longerPath2 += self.flux_on_contributing_edges_nonabsolute(flux_contributing_edges) # Blue, start to intermediate
 
         self.add_voronoi_edges_to_axes(connectingPath1Edges, self.axes, color=[1, 0, 0]) # Red Path
         self.add_voronoi_edges_to_axes(startToBetwixt1Edges, self.axes, color=[1, 0, 0]) # Red Path
@@ -1304,7 +1374,7 @@ class show_results:
 
         self.labelAndText(self.controls, "Flux Along Path 1 (Red)", int(self.canvas_width/80), str(longerPath1), int(self.canvas_width/60)).grid(column=0, row=1)
         self.labelAndText(self.controls, "Flux Along Path 2 (Blue)", int(self.canvas_width/80), str(longerPath2), int(self.canvas_width/60)).grid(column=0, row=2)
-        percentDifference = 100 * abs(longerPath2 - longerPath1) / max(longerPath1, longerPath2)
+        percentDifference = 100 * (abs(longerPath2) - abs(longerPath1)) / max(longerPath1, longerPath2)
         self.labelAndText(self.controls, "Percent Difference: ", int(self.canvas_width/80), str(percentDifference) + "%", int(self.canvas_width/60)).grid(column=0, row=3)
         self.canvas.draw()
 
@@ -1354,6 +1424,7 @@ class show_results:
 
     def disconnectAndReturn(self):
         # disconnects weird callbacks and returns to main menu
+        self.selectedPoints = [None, None]
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.markGraph)
         self.mainMenu()
@@ -1375,15 +1446,15 @@ class show_results:
         configs = tk.Frame(self.gui, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         configs.columnconfigure(0, weight=1)
         configs.rowconfigure(0, weight=1)
-        configs.grid(column=0, row=0)
+        configs.grid(column=0, row=0, columnspan=5)
         i = 0
         if textL is not None:
             instructions = tk.Label(configs, height=int(self.canvas_height/540), width=int(self.canvas_width/15), text=textL, bg=BG_COLOR)
-            instructions.grid(column=0, row=0)
+            instructions.grid(column=0, row=0, columnspan=5)
             i = 1
         if commandB is not None:
             backButton = tk.Button(configs, height=int(self.canvas_height/540), width=int(self.canvas_width/30), text=textB, command = commandB, bg=BG_COLOR)
-            backButton.grid(column=0, row=i)
+            backButton.grid(column=0, row=i, columnspan=5)
         return configs
 
     def graphConfig(self):
@@ -1616,7 +1687,6 @@ class show_results:
         self.labelAndText(self.controls, "Clicked Point: ", int(self.canvas_width/60), "(" + str(self.xVar.get()) + ", " + str(self.yVar.get()) + ")", int(self.canvas_width/35)).grid(column=2, row=4)
         self.labelAndText(self.controls, "Center point of selected cell: ", int(self.canvas_width/60), "(" + str(self.selectedCells[0][0]) + ", " + str(self.selectedCells[0][1]) + ")", int(self.canvas_width/35)).grid(column=0, row=5, columnspan = 1)
         self.labelAndText(self.controls, "Selected vertex of selected cell: ", int(self.canvas_width/60), "(" + str(self.selectedCells[1][0]) + ", " + str(self.selectedCells[1][1]) + ")", int(self.canvas_width/35)).grid(column=2, row=5, columnspan = 1)
-        print(self.findMaximumPointInImage())
         prevButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Previous", command = self.previousNumGraph, bg=BG_COLOR)
         prevButton.grid(column=0, row=6)
         backButton = tk.Button(self.controls, height=int(self.canvas_height/540), width=int(self.canvas_width/60), text="Back", command = self.disconnectAndReturn, bg=BG_COLOR)
