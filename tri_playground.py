@@ -360,43 +360,43 @@ NUM_TRIANGLES = 1000
 USE_WOLFRAM_SOLVER = False
 
 base_cell = 149  # 178
-file_stem = "problem"
+file_stem = "mediumTen"
 
-subprocess.run([
-    'julia',
-    'triangulate_via_julia.jl',
-    file_stem,
-    "",
-    file_stem,
-    str(NUM_TRIANGLES)
-])
+# subprocess.run([
+#     'julia',
+#     'triangulate_via_julia.jl',
+#     file_stem,
+#     "",
+#     file_stem,
+#     str(NUM_TRIANGLES)
+# ])
 
-if USE_WOLFRAM_SOLVER:
-    subprocess.run([
-        'wolframscript',
-        'solve_pde.wls'
-    ])
-else:
-    t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-    t.write(f'regions/{file_stem}/{file_stem}.output.poly')
+# if USE_WOLFRAM_SOLVER:
+#     subprocess.run([
+#         'wolframscript',
+#         'solve_pde.wls'
+#     ])
+# else:
+#     t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+#     t.write(f'regions/{file_stem}/{file_stem}.output.poly')
 
-    subprocess.run([
-        'python',
-        'mesh_conversion/mesh_conversion.py',
-        '-p',
-        f'regions/{file_stem}/{file_stem}.output.poly',
-        '-n',
-        f'regions/{file_stem}/{file_stem}.node',
-        '-e',
-        f'regions/{file_stem}/{file_stem}.ele',
-    ])
+#     subprocess.run([
+#         'python',
+#         'mesh_conversion/mesh_conversion.py',
+#         '-p',
+#         f'regions/{file_stem}/{file_stem}.output.poly',
+#         '-n',
+#         f'regions/{file_stem}/{file_stem}.node',
+#         '-e',
+#         f'regions/{file_stem}/{file_stem}.ele',
+#     ])
 
-    subprocess.run([
-        'python',
-        'mesh_conversion/fenicsx_solver.py',
-        file_stem,
-        ""
-    ])
+#     subprocess.run([
+#         'python',
+#         'mesh_conversion/fenicsx_solver.py',
+#         file_stem,
+#         ""
+#     ])
 
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
@@ -798,33 +798,33 @@ def compute_period():
     return closed_loop_flux
 
 
-# # Show shortest paths for a particular circumcenter
-# omega = 419
-# fig, axes = plt.subplots()
-# tri.show_voronoi_tesselation(
-#     'voronoi.png',
-#     show_vertex_indices=False,
-#     show_polygon_indices=False,
-#     show_edges=True,
-#     highlight_vertices=shortest_paths[omega],
-#     show_polygons=False,
-#     fig=fig,
-#     axes=axes
-# )
-# # axes = plt.gca()
-# add_voronoi_edges_to_axes(build_path_edges(shortest_paths[omega]), axes, color=[1, 0, 0])
-# tri.show(
-#     show_vertex_indices=False,
-#     show_triangle_indices=False,
-#     show_edges=True,
-#     show_triangles=False,
-#     fig=fig,
-#     axes=axes,
-# )
-# add_edges_to_axes(perpendicular_edges_dict[omega], axes, [0, 1, 0])
+# Show shortest paths for a particular circumcenter
+omega = 419
+fig, axes = plt.subplots()
+tri.show_voronoi_tesselation(
+    'voronoi.png',
+    show_vertex_indices=False,
+    show_polygon_indices=False,
+    show_edges=True,
+    highlight_vertices=shortest_paths[omega],
+    show_polygons=False,
+    fig=fig,
+    axes=axes
+)
 # axes = plt.gca()
-# add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
-# plt.show()
+add_voronoi_edges_to_axes(build_path_edges(shortest_paths[omega]), axes, color=[1, 0, 0])
+tri.show(
+    show_vertex_indices=False,
+    show_triangle_indices=False,
+    show_edges=True,
+    show_triangles=False,
+    fig=fig,
+    axes=axes,
+)
+add_edges_to_axes(perpendicular_edges_dict[omega], axes, [0, 1, 0])
+axes = plt.gca()
+add_voronoi_edges_to_axes(connected_component, axes, [1, 1, 0])
+plt.show()
 
 
 # Interpolate the value of pde_solution to get its values on the omegas
