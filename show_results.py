@@ -633,7 +633,7 @@ class show_results:
         self.shortest_paths = nx.single_source_dijkstra(self.lambda_graph, self.omega_0, target=None, cutoff=None, weight='weight')[1] # finds the shortest path around the figure to every node in the figure in a MASSIVE dictionary
 
     def uniformizationPage(self):
-        self.modulus.set(self.findModulus(self.uniformization))
+        # self.modulus.set(self.findModulus(self.uniformization)) Unnessesary, main menu does this
         self.controls = self.createNewConfigFrame(self.disconnectAndReturnAndShow, "Back", None)
         self.labelAndText(self.controls, "Maximum Radius over Minimum: ", int(self.canvas_width/68), str(self.modulus.get()), int(self.canvas_width/60)).grid(column = 0, row = 1)
         keepOrDefaultButton = tk.Checkbutton(self.controls, height=int(self.canvas_height/600), width=int(self.canvas_width/70), text="Keep selected slit?", variable=self.keep, bg=BG_COLOR)
@@ -748,58 +748,6 @@ class show_results:
         ]
         self.line_collection = mc.LineCollection(lines, linewidths=1)
         self.line_collection.set(color=[1, 0, 0])
-        # def logical_indexing(list_, bool_array):
-        #     result = []
-        #     for i in range(len(list_)):
-        #         if bool_array[i]:
-        #             result.append(list_[i])
-        #     return result
-        
-        # graded_level_curve_color_map = cm.lajolla
-        # colors = self.subsample_color_map(
-        #             graded_level_curve_color_map,
-        #             len(heights),
-        #             #start_color=0, #32,
-        #             #end_color=255, #223,
-        #             reverse=True
-        #         )
-        # # color_index_to_height = {i:heights[i] for i in range(len(heights))}
-        # # height_to_color_index = {value:key for key, value in color_index_to_height.items()}
-        # # color_indices = np.array([height_to_color_index[height] for height in heights_filtered])
-        # # colors_filtered = colors[color_indices]
-        
-        # concatenated_heights = np.tile(heights.reshape((-1, 1)), (len(self.contained_triangle_minus_slit), 1))
-        # concatenated_colors = np.tile(colors, (len(self.contained_triangle_minus_slit), 1))
-        
-        # level_set_flattened = self.flatten_list_of_lists(level_set)
-        # level_set_filtered_indicator = [1 if len(line_segment) > 0 else 0 for line_segment in level_set_flattened]
-        # # level_set_filtered = [
-        # #     line_segment for line_segment in level_set_flattened if len(line_segment) > 0
-        # # ]
-        # level_set_filtered = logical_indexing(level_set_flattened, level_set_filtered_indicator)
-        # level_set_filtered_indicator_vector = np.array(level_set_filtered_indicator, dtype=np.bool_)
-        # heights_filtered = concatenated_heights[level_set_filtered_indicator_vector]
-        # colors_filtered = concatenated_colors[level_set_filtered_indicator_vector]
-
-        # self.line_collection_collection = []
-        # height_to_segement = {}
-        # for i, height in enumerate(heights_filtered):
-
-        #     lines = [
-        #         [
-        #             tuple(line_segment[0]),
-        #             tuple(line_segment[1])
-        #         ] for line_segment in level_set_filtered
-        #     ]
-        #     line_collection = mc.LineCollection(lines, linewidths=1)
-        #     line_collection.set(color=colors_filtered[i])
-        #     self.line_collection_collection.append(line_collection)
-
-        #     #self.axes.add_collection(line_collection)
-
-        # print()
-        # # self.line_collection = mc.LineCollection(lines, linewidths=1)
-        # # self.line_collection.set(color=[0, 0, 0])
 
     def subsample_color_map(self, colormap, num_samples, start_color=0, end_color=255, reverse=False):
             sample_points_float = np.linspace(start=start_color, stop=end_color, num = num_samples)
@@ -1064,6 +1012,9 @@ class show_results:
         except FileNotFoundError:
             print("File Not Found: ", name)
             return
+        except UnboundLocalError:
+            print("None Before")
+            return
         self.fileName = name
 
     def next(self):
@@ -1092,6 +1043,9 @@ class show_results:
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
         except FileNotFoundError:
             print("File Truly Not Found: ", name)
+            return
+        except UnboundLocalError:
+            print("None left: ")
             return
         self.fileName = name
     
@@ -1183,8 +1137,8 @@ class show_results:
 
     def mainMenu(self):
         self.show()
-        if self.graphConfigs.getSlit():
-            self.showSlit()
+        # if self.graphConfigs.getSlit():
+        #     self.showSlit()
         self.fig.canvas.callbacks.disconnect(self.callbackName)
         self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.markGraph)
         self.controls.grid_remove()
@@ -1487,33 +1441,35 @@ class show_results:
         self.next()
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        if self.keep.get():
-            self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
-        else:
-            self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
+        self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
+        # if self.keep.get():
+        #     self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
+        # else:
+        #     self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         self.calculateUniformization()
         self.showUniformization(False)
         self.modulus.set(self.findModulus(self.uniformization))
-        self.updateMod()
+        self.nextBackPage()
     
     def prevGraph(self):
         self.previous()
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        if self.keep.get():
-            self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
-        else:
-            self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
+        self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
+        # if self.keep.get():
+        #     self.plotPoint(self.base_coordinates[0], self.base_coordinates[1])
+        # else:
+        #     self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.updateLambdaGraph()
         self.calculateUniformization()
         self.showUniformization(False)
         self.modulus.set(self.findModulus(self.uniformization))
-        self.updateMod()
+        self.nextBackPage()
 
-    def updateMod(self):
+    def nextBackPage(self):
         self.controls = self.createNewConfigFrame(self.mainMenu, "Back", "Click buttons to switch between approximations.")
         buttonHolder = tk.Frame(self.controls, width=self.canvas_width, height=self.canvas_height, bg=BG_COLOR)
         buttonHolder.columnconfigure(0, weight=1)
@@ -1529,7 +1485,7 @@ class show_results:
 
     def takePhoto(self):
         self.showNSave()
-        self.updateMod()
+        self.nextBackPage()
     
     def showIntermediate(self):
         if self.fileRoot == '':
@@ -1545,19 +1501,23 @@ class show_results:
             for i, line in enumerate(file):
                 if i != 0:
                     self.enteredInfo.append(line)
+        self.nextBackPage()
+
+    def loadNewFigure(self):
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
-        if self.keep.get():
-            self.plotPoint(self.base_point[0], self.base_point[1])
-        else:
-            self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
+        self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
+        # if self.keep.get():
+        #     self.plotPoint(self.base_point[0], self.base_point[1])
+        # else:
+        #     self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
         self.slitPathCalculate()
         self.show()
         self.updateLambdaGraph()
         self.calculateUniformization()
         self.showUniformization(False)
         self.modulus.set(self.findModulus(self.uniformization))
-        self.updateMod()
+        self.showIntermediate()
 
     def nearestVertexInPoly(self, x, y, polygon):
         distanceToVertices = np.array([ # builds an array of distance between click and vertices
@@ -1995,7 +1955,7 @@ class show_results:
         self.fileRoot = self.gifConfig.getFileRoot()
         self.updateLambdaGraph()
         self.calculateUniformization()
-        self.showIntermediate()
+        self.loadNewFigure()
     
     def angleDifferenceFinder(self, event):
         if (self.fig.canvas.toolbar.mode != ''):
@@ -2364,3 +2324,58 @@ class GifConfig():
 if __name__ == "__main__":
     a = show_results()
     a.showResults()
+
+
+
+    # def logical_indexing(list_, bool_array):
+        #     result = []
+        #     for i in range(len(list_)):
+        #         if bool_array[i]:
+        #             result.append(list_[i])
+        #     return result
+        
+        # graded_level_curve_color_map = cm.lajolla
+        # colors = self.subsample_color_map(
+        #             graded_level_curve_color_map,
+        #             len(heights),
+        #             #start_color=0, #32,
+        #             #end_color=255, #223,
+        #             reverse=True
+        #         )
+        # # color_index_to_height = {i:heights[i] for i in range(len(heights))}
+        # # height_to_color_index = {value:key for key, value in color_index_to_height.items()}
+        # # color_indices = np.array([height_to_color_index[height] for height in heights_filtered])
+        # # colors_filtered = colors[color_indices]
+        
+        # concatenated_heights = np.tile(heights.reshape((-1, 1)), (len(self.contained_triangle_minus_slit), 1))
+        # concatenated_colors = np.tile(colors, (len(self.contained_triangle_minus_slit), 1))
+        
+        # level_set_flattened = self.flatten_list_of_lists(level_set)
+        # level_set_filtered_indicator = [1 if len(line_segment) > 0 else 0 for line_segment in level_set_flattened]
+        # # level_set_filtered = [
+        # #     line_segment for line_segment in level_set_flattened if len(line_segment) > 0
+        # # ]
+        # level_set_filtered = logical_indexing(level_set_flattened, level_set_filtered_indicator)
+        # level_set_filtered_indicator_vector = np.array(level_set_filtered_indicator, dtype=np.bool_)
+        # heights_filtered = concatenated_heights[level_set_filtered_indicator_vector]
+        # colors_filtered = concatenated_colors[level_set_filtered_indicator_vector]
+
+        # self.line_collection_collection = []
+        # height_to_segement = {}
+        # for i, height in enumerate(heights_filtered):
+
+        #     lines = [
+        #         [
+        #             tuple(line_segment[0]),
+        #             tuple(line_segment[1])
+        #         ] for line_segment in level_set_filtered
+        #     ]
+        #     line_collection = mc.LineCollection(lines, linewidths=1)
+        #     line_collection.set(color=colors_filtered[i])
+        #     self.line_collection_collection.append(line_collection)
+
+        #     #self.axes.add_collection(line_collection)
+
+        # print()
+        # # self.line_collection = mc.LineCollection(lines, linewidths=1)
+        # # self.line_collection.set(color=[0, 0, 0])
