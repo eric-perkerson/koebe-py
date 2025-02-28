@@ -1,32 +1,26 @@
-#from region import Region
-from triangulation import (
-    Triangulation,
-    point_to_right_of_line_compiled,
-    tri_level_sets
-)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import collections as mc
 import numba
 import networkx as nx
 import tkinter as tk
-#from sys import argv
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
-#from matplotlib.patches import Annulus, Circle, Polygon
-#from matplotlib import animation
-import draw_region as draw_region
 import subprocess
-#import random
-#import os
 import shutil
 from pathlib import Path
 import math
-#from cmcrameri import cm
 
+from triangulation import (
+    Triangulation,
+    point_to_right_of_line_compiled,
+    tri_level_sets
+)
+import draw_region as draw_region
 from components.GraphConfig import GraphConfig
 from components.DrawRegionConfig import DrawRegionConfig
 from components.BGColors import BGColors
 from components.GifConfig import GifConfig
+from components.FluxEditer import FluxEditor
 
 class show_results:
 
@@ -1024,14 +1018,12 @@ class show_results:
         self.selectedPoints = [None, None, None]
 
     def plotPathPointsCallback(self, event):
-        print("What")
         self.plotPathPoints(event.xdata, event.ydata)
     
     def plotPathPointsManual(self):
         self.plotPathPoints(self.xVar.get(), self.yVar.get())
 
     def plotPathPoints(self, x, y):
-        print("Huh?")
         if (self.fig.canvas.toolbar.mode != ''):
             return
         self.show()
@@ -1047,7 +1039,6 @@ class show_results:
             self.selectedPoints[2] = self.selectedPoints[1]
             self.selectedPoints[1] = self.selectedPoints[0]
             self.selectedPoints[0] = [x, y]
-        print("STOP?")
         i=0
         for points in self.selectedPoints:
             if points is not None:
@@ -1114,50 +1105,6 @@ class show_results:
         self.labelAndText(self.controls, "Percent Difference: ", int(self.canvas_width/80), str(percentDifference) + "%", int(self.canvas_width/60)).grid(column=0, row=3)
         self.canvas.draw()
 
-    def editFluxGraph(self, editor, selectedIndex):
-        if editor.children['!entry'] is None:
-            return
-        if editor.children['!entry'].get() != '':
-            #print('a', self.editor.children['!entry'].get(), 'b')
-            # edits edge flux in lambda graph
-            self.lambda_graph.edges[self.tri.voronoi_edges[selectedIndex][0], self.tri.voronoi_edges[selectedIndex][1]]['weight'] = float(editor.children['!entry'].get())
-            # removes popup, and connects call back back to the edge finder, renables back button
-            editor.destroy()
-            editor = None
-            #self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
-            self.controls.children['!button']['state'] = 'normal'
-            self.show()
-            #self.fig.canvas.callbacks.disconnect(self.callbackName)
-            self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
-
-    def fluxFinder(self, event):
-        if (self.fig.canvas.toolbar.mode != ''):
-            #print(self.fig.canvas.toolbar.mode)
-            return
-        self.updateLambdaGraph()
-        x = event.xdata
-        y = event.ydata        
-        if x is None or y is None:
-            return
-        # finds index of the edge closest to the mouse click
-        selectedIndex = self.nearestEdge(x, y)
-
-        # adds a entry and button to input user data to the flux graph, and places them at a point in the middle of the graph
-        editor = tk.Frame(self.gui, height = int(self.canvas_height/50), width=int(self.canvas_width/70), bg=BGColors.BG_COLOR.value)
-        fluxValue = tk.StringVar()
-        reg = self.gui.register(self.validateText)
-        currentFlux = self.lambda_graph.edges[self.tri.voronoi_edges[selectedIndex][0], self.tri.voronoi_edges[selectedIndex][1]]['weight']
-        fluxValue.set(str(currentFlux))
-        fluxInput = tk.Entry(editor, width=int(self.canvas_width/70), bg=BGColors.BLACK.value, validate='key', validatecommand= (reg, '%P', '%i'), textvariable = fluxValue)
-        fluxInput.grid(column=0, row=0)
-        sendButton = tk.Button(editor, height=1, width=1, bg=BGColors.BG_COLOR.value, command= lambda: self.editFluxGraph(editor, selectedIndex))
-        sendButton.grid(column=1, row=0)
-        editor.place(x=int(self.canvas_width / 2), y=int(self.canvas_height/2))
-        # disables back button until data is entered
-        self.controls.children['!button']['state'] = 'disabled'
-        # disables clicking entirely
-        self.fig.canvas.callbacks.disconnect(self.callbackName)
-
     def disconnectAndReturn(self):
         # disconnects weird callbacks and returns to main menu
         self.selectedPoints = [None, None]
@@ -1170,12 +1117,13 @@ class show_results:
         self.disconnectAndReturn()
 
     def fluxConfig(self):
-        # removes old controls and adds new scene
-        self.controls = self.createNewConfigFrame(self.disconnectAndReturn, "Back", "Click on an edge to edit it's flux. Press enter to set value.")
-        # disconnects the ability to click normally
-        self.fig.canvas.callbacks.disconnect(self.callbackName)
-        # and adds a new click that finds nearest edge in the voronai graph
-        self.callbackName = self.fig.canvas.callbacks.connect('button_press_event', self.fluxFinder)
+        self.controls.grid_remove()
+        # Calling a method from a subservient class seems like a bad idea, but the goal will be for .show to be defined in a different subservient class I can pass down?
+        self.controls = FluxEditor(self.gui, self.lambda_graph, self.tri, self.fig, self.exitFromFlux, self.show, self.callbackName, self.canvas_height, self.canvas_width)
+
+    def exitFromFlux(self):
+        self.lambda_graph = self.controls.getLambda()
+        self.disconnectAndReturn()
 
     def createNewConfigFrame(self, commandB, textB, textL):
         self.controls.grid_remove()
