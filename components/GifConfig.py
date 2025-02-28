@@ -1,5 +1,5 @@
 import tkinter as tk
-from BGColors import BGColors
+from components.BGColors import BGColors
 
 class GifConfig():
 

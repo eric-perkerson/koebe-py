@@ -1,6 +1,4 @@
-import sys
-sys.path.append("/Users/joshua/Desktop/programs/TrashStuff/SaarResearch/planar-domains/")
-from region import Region
+#from region import Region
 from triangulation import (
     Triangulation,
     point_to_right_of_line_compiled,
@@ -12,23 +10,23 @@ from matplotlib import collections as mc
 import numba
 import networkx as nx
 import tkinter as tk
-from sys import argv
+#from sys import argv
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
-from matplotlib.patches import Annulus, Circle, Polygon
-from matplotlib import animation
+#from matplotlib.patches import Annulus, Circle, Polygon
+#from matplotlib import animation
 import draw_region as draw_region
 import subprocess
-import random
-import os
+#import random
+#import os
 import shutil
 from pathlib import Path
 import math
-from cmcrameri import cm
+#from cmcrameri import cm
 
-from GraphConfig import GraphConfig
-from DrawRegionConfig import DrawRegionConfig
-from BGColors import BGColors
-from GifConfig import GifConfig
+from components.GraphConfig import GraphConfig
+from components.DrawRegionConfig import DrawRegionConfig
+from components.BGColors import BGColors
+from components.GifConfig import GifConfig
 
 class show_results:
 

@@ -1,5 +1,5 @@
 import tkinter as tk
-from BGColors import BGColors
+from components.BGColors import BGColors
 
 class DrawRegionConfig(tk.Frame):
     def __init__(self, parent, width, height):
