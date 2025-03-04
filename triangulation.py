@@ -570,7 +570,7 @@ class Triangulation(object):
 
         return padded_polygons
 
-    @numba.jit
+    @numba.njit
     def to_right_of_edge_lookup_polygons_compiled(padded_polygonization):
         """
         Creates a lookup table for which polygons are to the right of a given edge

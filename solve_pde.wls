@@ -214,7 +214,7 @@ WritePdeFile[fileName_, pdeValues_] :=
 (*Begin Main*)
 (* argv=Rest@$ScriptCommandLine; *)
 
-argv = {"concentric_annulus"};
+argv = {"test_example_2"};
 If[Length[argv] == 0, Print["No file stem given, exiting"];
  Exit[]]
 fileStem = argv[[1]];
