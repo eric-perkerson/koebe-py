@@ -69,10 +69,6 @@ file_stem = "vertex18"
 # )
 
 
-
-
-
-
 # # domain = Region.region_from_components(
 # #     [
 # #         [

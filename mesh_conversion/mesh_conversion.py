@@ -160,6 +160,7 @@ def create_mesh(output_name, poly_dict):
         if boundary:
             lines[boundary].append(line)
 
+
     # add triangles
     triangles = []
     for triangle in poly_dict['triangles']:
@@ -172,7 +173,7 @@ def create_mesh(output_name, poly_dict):
         triangles.append(triangle)
 
     # synchronize geometry before adding physical groups
-    gmsh.option.set_number("Geometry.Tolerance", 1.9e-11)
+    gmsh.option.set_number("Geometry.Tolerance", 1e-10)
     gmsh.model.geo.remove_all_duplicates()
     gmsh.model.geo.synchronize()
 

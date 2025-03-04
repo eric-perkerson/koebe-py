@@ -132,13 +132,13 @@ left_facets_2 = ft.find(2)
 left_dofs_2 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_2)
 bcs_2 = dirichletbc(ScalarType(0), left_dofs_2, V)
 
-# left_facets_3 = ft.find(3)
-# left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)
-# bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
+left_facets_3 = ft.find(3)
+left_dofs_3 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_3)
+bcs_3 = dirichletbc(ScalarType(0), left_dofs_3, V)
 
-# left_facets_4 = ft.find(4)
-# left_dofs_4 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_4)
-# bcs_4 = dirichletbc(ScalarType(0), left_dofs_4, V)
+left_facets_4 = ft.find(4)
+left_dofs_4 = locate_dofs_topological(V, mesh.topology.dim-1, left_facets_4)
+bcs_4 = dirichletbc(ScalarType(0), left_dofs_4, V)
 
 
 # Set the trial functions, the bi-linear and linear forms, problem to solve
@@ -148,7 +148,7 @@ a = inner(grad(u), grad(v)) * dx
 x = SpatialCoordinate(mesh)
 L = Constant(mesh, ScalarType(0)) * v * dx
 
-problem = LinearProblem(a, L, bcs=[bcs_1, bcs_2], #, bcs_3, bcs_4
+problem = LinearProblem(a, L, bcs=[bcs_1, bcs_2, bcs_3, bcs_4],
                         petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 

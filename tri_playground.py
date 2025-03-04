@@ -1,366 +1,49 @@
-from region import Region
-from triangulation import (
-    Triangulation,
-    point_to_right_of_line_compiled,
-)
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
-from cmcrameri import cm
-import subprocess
-from region import Region
-import pyvista
-from matplotlib import collections as mc
-import numba
-import networkx as nx
-import itertools
+# from region import Region
+# from triangulation import (
+#     Triangulation,
+#     point_to_right_of_line_compiled,
+# )
+# from pathlib import Path
+# import numpy as np
+# import matplotlib.pyplot as plt
+# from cmcrameri import cm
+# import subprocess
+# from region import Region
+# import pyvista
+# from matplotlib import collections as mc
+# import numba
+# import networkx as nx
+# import itertools
 
 
-@numba.njit
-def get_first_unused(already_used):
-    for i in range(len(already_used)):
-        if not already_used[i]:
-            return i
-    return -1
+# @numba.njit
+# def get_first_unused(already_used):
+#     for i in range(len(already_used)):
+#         if not already_used[i]:
+#             return i
+#     return -1
 
 
-def add_edges_to_axes(edge_list, axes, color):
-    lines = [
-        [
-            tuple(tri.vertices[edge[0]]),
-            tuple(tri.vertices[edge[1]])
-        ] for edge in edge_list
-    ]
-    colors = np.tile(color, (len(edge_list), 1))
-    line_collection = mc.LineCollection(lines, linewidths=2, colors=colors)
-    axes.add_collection(line_collection)
+# def add_edges_to_axes(edge_list, axes, color):
+#     lines = [
+#         [
+#             tuple(tri.vertices[edge[0]]),
+#             tuple(tri.vertices[edge[1]])
+#         ] for edge in edge_list
+#     ]
+#     colors = np.tile(color, (len(edge_list), 1))
+#     line_collection = mc.LineCollection(lines, linewidths=2, colors=colors)
+#     axes.add_collection(line_collection)
 
 
-NUM_TRIANGLES = 1000
-USE_WOLFRAM_SOLVER = True
+# NUM_TRIANGLES = 1000
+# USE_WOLFRAM_SOLVER = False
 
-file_stem = "vertex18"
-# file_stem = 'No_3_fold_sym'
-# file_stem = '3_fold_sym'
-path = Path(f'regions/{file_stem}/{file_stem}')
-# tri = Triangulation.read(path)
-
-subprocess.run([
-    'julia',
-    'triangulate_via_julia.jl',
-    file_stem,
-    file_stem,
-    str(NUM_TRIANGLES)
-])
-
-if USE_WOLFRAM_SOLVER:
-    subprocess.run([
-        'wolframscript',
-        'solve_pde.wls'
-    ])
-else:
-    t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-    t.write(f'regions/{file_stem}/{file_stem}.output.poly')
-
-    subprocess.run([
-        'python',
-        'mesh_conversion/mesh_conversion.py',
-        '-p',
-        f'regions/{file_stem}/{file_stem}.output.poly',
-        '-n',
-        f'regions/{file_stem}/{file_stem}.node',
-        '-e',
-        f'regions/{file_stem}/{file_stem}.ele',
-    ])
-
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/fenicsx_solver.py',
-#         file_stem,
-#     ])
-
-tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
-
-# TEMPORARY
-tri.show(
-    'test.png',
-    show_level_curves=True,
-    show_triangles=True,
-    show_edges=True
-)
-plt.show()
-
-from triangulation import triangle_area
-area_values = [
-    triangle_area(tri.triangle_coordinates[i]) for i in range(tri.num_triangles)
-]
-np.max(area_values)
-np.min(area_values)
-np.max(area_values) / np.min(area_values)
-
-# END TEMPORARY
-
-
-singular_height_index = 0
-intersecting_edges = tri.find_singular_intersecting_edges(singular_height_index)
-
-# Push outer boundary back by one
-boundary_edge_dict = {
-    1: [],
-    2: [],
-    3: [],
-}
-for boundary_marker in [1, 2, 3]:
-    for edge in tri.triangulation_edges:
-        if (
-            (tri.vertex_boundary_markers[edge[0]] == boundary_marker)
-            ^ (tri.vertex_boundary_markers[edge[1]] == boundary_marker)  # Use XOR here to exclude pure boundary edges
-        ):
-            boundary_edge_dict[boundary_marker].append(edge)
-
-tri.show(
-    str(path.with_suffix('.png')),
-    show_level_curves=False,
-    show_edges=True,
-    show_singular_level_curves=True,
-    show_vertex_indices=False,
-    dpi=300,
-    num_level_curves=500,
-    line_width=0.75
-)
-axes = plt.gca()
-add_edges_to_axes(intersecting_edges, axes, color=[1, 0, 1])
-add_edges_to_axes(boundary_edge_dict[1], axes, color=[1, 0, 0])
-add_edges_to_axes(boundary_edge_dict[2], axes, color=[0, 1, 0])
-add_edges_to_axes(boundary_edge_dict[3], axes, color=[0, 0, 1])
-plt.show()
-
-
-def flux_on_contributing_edges(edges):
-    flux = 0.0
-    for edge in edges:
-        flux += tri.conductance[edge] * np.abs(
-            tri.pde_values[edge[0]] - tri.pde_values[edge[1]]
-        )
-    return flux
-
-
-flux_on_contributing_edges(intersecting_edges)
-flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[1]])
-(
-    flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[2]])
-    + flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[3]])
-)
-
-# Find connected components using the lower pde value for each intersecting edge
-lower_vertices = np.unique([edge[0] if tri.pde_values[edge[0]] < tri.singular_heights[singular_height_index] else edge[1] for edge in intersecting_edges])
-if np.any(tri.vertex_boundary_markers[lower_vertices] != 0):
-    raise Exception('lower_vertices intersects the boundary, vertex topology will not be fully initialized')
-
-
-component_vertices_1 = [lower_vertices[0]]
-already_used = np.zeros(len(lower_vertices), dtype=np.bool_)
-already_used[0] = True
-
-break_flag = False
-while not break_flag:
-    break_flag = True
-    for component_vertex in component_vertices_1:
-        for neighboring_vertex in tri.vertex_topology[component_vertex]:
-            for index, test_vertex in enumerate(lower_vertices):
-                if already_used[index]:
-                    continue
-                if test_vertex == neighboring_vertex:
-                    print(test_vertex)
-                    component_vertices_1.append(test_vertex)
-                    already_used[index] = True
-                    break_flag = False
-
-
-component_vertices_2 = lower_vertices[np.where(~already_used)[0]]
-
-tri.show(
-    str(path.with_suffix('.png')),
-    show_level_curves=False,
-    show_singular_level_curves=True,
-    show_vertex_indices=False,
-    dpi=500,
-    num_level_curves=500,
-    line_width=0.75
-)
-axes = plt.gca()
-plt.scatter(
-    tri.vertices[lower_vertices][:, 0],
-    tri.vertices[lower_vertices][:, 1],
-    s=25,
-    color=[1, 0, 0]
-)
-plt.scatter(
-    tri.vertices[component_vertices_1][:, 0],
-    tri.vertices[component_vertices_1][:, 1],
-    s=10,
-    color=[0, 1, 0]
-)
-plt.scatter(
-    tri.vertices[component_vertices_2][:, 0],
-    tri.vertices[component_vertices_2][:, 1],
-    s=10,
-    color=[0, 0, 1]
-)
-plt.show()
-
-
-component_edges_1 = []
-for edge in intersecting_edges:
-    if (edge[0] in component_vertices_1) or (edge[1] in component_vertices_1):
-        component_edges_1.append(edge)
-
-component_edges_2 = []
-for edge in intersecting_edges:
-    if (edge[0] in component_vertices_2) or (edge[1] in component_vertices_2):
-        component_edges_2.append(edge)
-
-
-flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[2]])
-flux_on_contributing_edges([tuple(edge) for edge in component_edges_1])
-flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[3]])
-flux_on_contributing_edges([tuple(edge) for edge in component_edges_2])
-
-tri.show(
-    str(path.with_suffix('.png')),
-    show_level_curves=False,
-    show_singular_level_curves=True,
-    show_vertex_indices=False,
-    dpi=500,
-    num_level_curves=500,
-    line_width=0.75
-)
-axes = plt.gca()
-add_edges_to_axes(component_edges_1, axes, color=[1, 0, 0])
-add_edges_to_axes(component_edges_2, axes, color=[0, 1, 1])
-plt.scatter(
-    tri.vertices[tri.singular_vertices][0][0],
-    tri.vertices[tri.singular_vertices][0][1],
-    s=10,
-    color=[0, 0, 1]
-)
-plt.show()
-
-
-
-
-# Uniformize each piece of the genus 2 surface by breaking into 3 triangulation objects
-plt.scatter(
-    tri.region.coordinates[:, 0],
-    tri.region.coordinates[:, 1]
-)
-plt.show()
-
-# Find connected components using the lower pde value for each intersecting edge
-upper_vertices = np.unique([edge[0] if tri.pde_values[edge[0]] >= tri.singular_heights[singular_height_index] else edge[1] for edge in intersecting_edges])
-if np.any(tri.vertex_boundary_markers[upper_vertices] != 0):
-    raise Exception('lower_vertices intersects the boundary, vertex topology will not be fully initialized')
-
-
-plt.scatter(
-    tri.region.coordinates[:, 0],
-    tri.region.coordinates[:, 1]
-)
-plt.scatter(
-    tri.vertices[upper_vertices][:, 0],
-    tri.vertices[upper_vertices][:, 1]
-)
-plt.show()
-
-upper_region = Region(
-    coordinates,
-    vertex_boundary_markers,
-    edges,
-    edge_boundary_markers,
-    points_in_holes,
-    components=None
-)
-upper_triangulation = Triangulation(region, vertices, vertex_boundary_markers, triangles, topology, pde_values)
-tri
-
-
-
-
-# # from region import Region
-# # domain = Region.region_from_components(
-# #     [
-# #         [
-# #             (2.0, 0.0),
-# #             (1.0000000000000002, 1.7320508075688772),
-# #             (-0.9999999999999996, 1.7320508075688776),
-# #             (-2.0, 2.4492935982947064e-16),
-# #             (-1.0000000000000009, -1.7320508075688767),
-# #             (1.0, -1.7320508075688772)
-# #         ],
-# #         [
-# #             (0.9000000000000001, 2.4492935982947065e-17),
-# #             (1.0, 0.17320508075688773),
-# #             (1.2000000000000002, 0.17320508075688776),
-# #             (1.3, 0.0),
-# #             (1.2000000000000002, -0.1732050807568877),
-# #             (1.0000000000000002, -0.1732050807568878)
-# #         ],
-# #         [
-# #             (-0.7499999999999998, 0.9526279441628828),
-# #             (-0.6499999999999999, 1.1258330249197706),
-# #             (-0.44999999999999984, 1.1258330249197706),
-# #             (-0.3499999999999998, 0.9526279441628828),
-# #             (-0.44999999999999973, 0.7794228634059951),
-# #             (-0.6499999999999997, 0.779422863405995)
-# #         ],
-# #         [
-# #             (-0.7500000000000004, -0.9526279441628823),
-# #             (-0.6500000000000006, -0.7794228634059945),
-# #             (-0.4500000000000005, -0.7794228634059945),
-# #             (-0.3500000000000005, -0.9526279441628823),
-# #             (-0.4500000000000004, -1.12583302491977),
-# #             (-0.6500000000000004, -1.12583302491977)
-# #         ]
-# #     ]
-# # )
-
-
-# Annulus
-from region import Region
-from triangulation import (
-    Triangulation,
-    point_to_right_of_line_compiled,
-    polygon_oriented_counterclockwise,
-    segment_intersects_segment,
-    tri_level_sets
-)
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
-from cmcrameri import cm
-import subprocess
-from region import Region
-import pyvista
-from matplotlib import collections as mc
-import numba
-import networkx as nx
-import itertools
-
-
-def flux_on_contributing_edges(edges):
-    flux = 0.0
-    for edge in edges:
-        flux += tri.conductance[edge] * np.abs(
-            tri.pde_values[edge[0]] - tri.pde_values[edge[1]]
-        )
-    return flux
-
-
-NUM_TRIANGLES = 1000
-USE_WOLFRAM_SOLVER = True
-
-base_cell = 149  # 178
-file_stem = "concentric_annulus"
+# file_stem = "test_example_0"
+# # file_stem = 'No_3_fold_sym'
+# # file_stem = '3_fold_sym'
+# path = Path(f'regions/{file_stem}/{file_stem}')
+# # tri = Triangulation.read(path)
 
 # subprocess.run([
 #     'julia',
@@ -390,11 +73,338 @@ file_stem = "concentric_annulus"
 #         f'regions/{file_stem}/{file_stem}.ele',
 #     ])
 
-#     subprocess.run([
-#         'python',
-#         'mesh_conversion/fenicsx_solver.py',
-#         file_stem,
-#     ])
+# #     subprocess.run([
+# #         'python',
+# #         'mesh_conversion/fenicsx_solver.py',
+# #         file_stem,
+# #     ])
+
+# tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+
+# # TEMPORARY
+# tri.show(
+#     'test.png',
+#     show_level_curves=True,
+#     show_triangles=True,
+#     show_edges=True
+# )
+# plt.show()
+
+# from triangulation import triangle_area
+# area_values = [
+#     triangle_area(tri.triangle_coordinates[i]) for i in range(tri.num_triangles)
+# ]
+# np.max(area_values)
+# np.min(area_values)
+# np.max(area_values) / np.min(area_values)
+
+# # END TEMPORARY
+
+
+# singular_height_index = 0
+# intersecting_edges = tri.find_singular_intersecting_edges(singular_height_index)
+
+# # Push outer boundary back by one
+# boundary_edge_dict = {
+#     1: [],
+#     2: [],
+#     3: [],
+# }
+# for boundary_marker in [1, 2, 3]:
+#     for edge in tri.triangulation_edges:
+#         if (
+#             (tri.vertex_boundary_markers[edge[0]] == boundary_marker)
+#             ^ (tri.vertex_boundary_markers[edge[1]] == boundary_marker)  # Use XOR here to exclude pure boundary edges
+#         ):
+#             boundary_edge_dict[boundary_marker].append(edge)
+
+# tri.show(
+#     str(path.with_suffix('.png')),
+#     show_level_curves=False,
+#     show_edges=True,
+#     show_singular_level_curves=True,
+#     show_vertex_indices=False,
+#     dpi=300,
+#     num_level_curves=500,
+#     line_width=0.75
+# )
+# axes = plt.gca()
+# add_edges_to_axes(intersecting_edges, axes, color=[1, 0, 1])
+# add_edges_to_axes(boundary_edge_dict[1], axes, color=[1, 0, 0])
+# add_edges_to_axes(boundary_edge_dict[2], axes, color=[0, 1, 0])
+# add_edges_to_axes(boundary_edge_dict[3], axes, color=[0, 0, 1])
+# plt.show()
+
+
+# def flux_on_contributing_edges(edges):
+#     flux = 0.0
+#     for edge in edges:
+#         flux += tri.conductance[edge] * np.abs(
+#             tri.pde_values[edge[0]] - tri.pde_values[edge[1]]
+#         )
+#     return flux
+
+
+# flux_on_contributing_edges(intersecting_edges)
+# flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[1]])
+# (
+#     flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[2]])
+#     + flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[3]])
+# )
+
+# # Find connected components using the lower pde value for each intersecting edge
+# lower_vertices = np.unique([edge[0] if tri.pde_values[edge[0]] < tri.singular_heights[singular_height_index] else edge[1] for edge in intersecting_edges])
+# if np.any(tri.vertex_boundary_markers[lower_vertices] != 0):
+#     raise Exception('lower_vertices intersects the boundary, vertex topology will not be fully initialized')
+
+
+# component_vertices_1 = [lower_vertices[0]]
+# already_used = np.zeros(len(lower_vertices), dtype=np.bool_)
+# already_used[0] = True
+
+# break_flag = False
+# while not break_flag:
+#     break_flag = True
+#     for component_vertex in component_vertices_1:
+#         for neighboring_vertex in tri.vertex_topology[component_vertex]:
+#             for index, test_vertex in enumerate(lower_vertices):
+#                 if already_used[index]:
+#                     continue
+#                 if test_vertex == neighboring_vertex:
+#                     print(test_vertex)
+#                     component_vertices_1.append(test_vertex)
+#                     already_used[index] = True
+#                     break_flag = False
+
+
+# component_vertices_2 = lower_vertices[np.where(~already_used)[0]]
+
+# tri.show(
+#     str(path.with_suffix('.png')),
+#     show_level_curves=False,
+#     show_singular_level_curves=True,
+#     show_vertex_indices=False,
+#     dpi=500,
+#     num_level_curves=500,
+#     line_width=0.75
+# )
+# axes = plt.gca()
+# plt.scatter(
+#     tri.vertices[lower_vertices][:, 0],
+#     tri.vertices[lower_vertices][:, 1],
+#     s=25,
+#     color=[1, 0, 0]
+# )
+# plt.scatter(
+#     tri.vertices[component_vertices_1][:, 0],
+#     tri.vertices[component_vertices_1][:, 1],
+#     s=10,
+#     color=[0, 1, 0]
+# )
+# plt.scatter(
+#     tri.vertices[component_vertices_2][:, 0],
+#     tri.vertices[component_vertices_2][:, 1],
+#     s=10,
+#     color=[0, 0, 1]
+# )
+# plt.show()
+
+
+# component_edges_1 = []
+# for edge in intersecting_edges:
+#     if (edge[0] in component_vertices_1) or (edge[1] in component_vertices_1):
+#         component_edges_1.append(edge)
+
+# component_edges_2 = []
+# for edge in intersecting_edges:
+#     if (edge[0] in component_vertices_2) or (edge[1] in component_vertices_2):
+#         component_edges_2.append(edge)
+
+
+# flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[2]])
+# flux_on_contributing_edges([tuple(edge) for edge in component_edges_1])
+# flux_on_contributing_edges([tuple(edge) for edge in boundary_edge_dict[3]])
+# flux_on_contributing_edges([tuple(edge) for edge in component_edges_2])
+
+# tri.show(
+#     str(path.with_suffix('.png')),
+#     show_level_curves=False,
+#     show_singular_level_curves=True,
+#     show_vertex_indices=False,
+#     dpi=500,
+#     num_level_curves=500,
+#     line_width=0.75
+# )
+# axes = plt.gca()
+# add_edges_to_axes(component_edges_1, axes, color=[1, 0, 0])
+# add_edges_to_axes(component_edges_2, axes, color=[0, 1, 1])
+# plt.scatter(
+#     tri.vertices[tri.singular_vertices][0][0],
+#     tri.vertices[tri.singular_vertices][0][1],
+#     s=10,
+#     color=[0, 0, 1]
+# )
+# plt.show()
+
+# # Uniformize each piece of the genus 2 surface by breaking into 3 triangulation objects
+# plt.scatter(
+#     tri.region.coordinates[:, 0],
+#     tri.region.coordinates[:, 1]
+# )
+# plt.show()
+
+# # Find connected components using the lower pde value for each intersecting edge
+# upper_vertices = np.unique([edge[0] if tri.pde_values[edge[0]] >= tri.singular_heights[singular_height_index] else edge[1] for edge in intersecting_edges])
+# if np.any(tri.vertex_boundary_markers[upper_vertices] != 0):
+#     raise Exception('lower_vertices intersects the boundary, vertex topology will not be fully initialized')
+
+
+# plt.scatter(
+#     tri.region.coordinates[:, 0],
+#     tri.region.coordinates[:, 1]
+# )
+# plt.scatter(
+#     tri.vertices[upper_vertices][:, 0],
+#     tri.vertices[upper_vertices][:, 1]
+# )
+# plt.show()
+
+# upper_region = Region(
+#     coordinates,
+#     vertex_boundary_markers,
+#     edges,
+#     edge_boundary_markers,
+#     points_in_holes,
+#     components=None
+# )
+# upper_triangulation = Triangulation(region, vertices, vertex_boundary_markers, triangles, topology, pde_values)
+# tri
+
+
+
+
+# # # from region import Region
+# # # domain = Region.region_from_components(
+# # #     [
+# # #         [
+# # #             (2.0, 0.0),
+# # #             (1.0000000000000002, 1.7320508075688772),
+# # #             (-0.9999999999999996, 1.7320508075688776),
+# # #             (-2.0, 2.4492935982947064e-16),
+# # #             (-1.0000000000000009, -1.7320508075688767),
+# # #             (1.0, -1.7320508075688772)
+# # #         ],
+# # #         [
+# # #             (0.9000000000000001, 2.4492935982947065e-17),
+# # #             (1.0, 0.17320508075688773),
+# # #             (1.2000000000000002, 0.17320508075688776),
+# # #             (1.3, 0.0),
+# # #             (1.2000000000000002, -0.1732050807568877),
+# # #             (1.0000000000000002, -0.1732050807568878)
+# # #         ],
+# # #         [
+# # #             (-0.7499999999999998, 0.9526279441628828),
+# # #             (-0.6499999999999999, 1.1258330249197706),
+# # #             (-0.44999999999999984, 1.1258330249197706),
+# # #             (-0.3499999999999998, 0.9526279441628828),
+# # #             (-0.44999999999999973, 0.7794228634059951),
+# # #             (-0.6499999999999997, 0.779422863405995)
+# # #         ],
+# # #         [
+# # #             (-0.7500000000000004, -0.9526279441628823),
+# # #             (-0.6500000000000006, -0.7794228634059945),
+# # #             (-0.4500000000000005, -0.7794228634059945),
+# # #             (-0.3500000000000005, -0.9526279441628823),
+# # #             (-0.4500000000000004, -1.12583302491977),
+# # #             (-0.6500000000000004, -1.12583302491977)
+# # #         ]
+# # #     ]
+# # # )
+
+#############
+##  Annulus
+#############
+from region import Region
+from triangulation import (
+    Triangulation,
+    point_to_right_of_line_compiled,
+    polygon_oriented_counterclockwise,
+    segment_intersects_segment,
+    tri_level_sets
+)
+from pathlib import Path
+import numpy as np
+import matplotlib.pyplot as plt
+from cmcrameri import cm
+import subprocess
+from region import Region
+import pyvista
+from matplotlib import collections as mc
+import numba
+import networkx as nx
+import itertools
+
+def add_edges_to_axes(edge_list, axes, color):
+    lines = [
+        [
+            tuple(tri.vertices[edge[0]]),
+            tuple(tri.vertices[edge[1]])
+        ] for edge in edge_list
+    ]
+    colors = np.tile(color, (len(edge_list), 1))
+    line_collection = mc.LineCollection(lines, linewidths=2, colors=colors)
+    axes.add_collection(line_collection)
+
+
+
+def flux_on_contributing_edges(edges):
+    flux = 0.0
+    for edge in edges:
+        flux += tri.conductance[edge] * np.abs(
+            tri.pde_values[edge[0]] - tri.pde_values[edge[1]]
+        )
+    return flux
+
+
+NUM_TRIANGLES = 1200
+USE_WOLFRAM_SOLVER = False
+
+base_cell =  120  #34 #149  # 178
+file_stem = "non_concentric_annulus_nonconvex"
+
+subprocess.run([
+    'julia',
+    'triangulate_via_julia.jl',
+    file_stem,
+    file_stem,
+    str(NUM_TRIANGLES)
+])
+
+if USE_WOLFRAM_SOLVER:
+    subprocess.run([
+        'wolframscript',
+        'solve_pde.wls'
+    ])
+else:
+    t = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
+    t.write(f'regions/{file_stem}/{file_stem}.output.poly')
+
+    subprocess.run([
+        'python',
+        'mesh_conversion/mesh_conversion.py',
+        '-p',
+        f'regions/{file_stem}/{file_stem}.output.poly',
+        '-n',
+        f'regions/{file_stem}/{file_stem}.node',
+        '-e',
+        f'regions/{file_stem}/{file_stem}.ele',
+    ])
+
+    subprocess.run([
+        'python',
+        'mesh_conversion/fenicsx_solver.py',
+        file_stem,
+    ])
 
 path = Path(f'regions/{file_stem}/{file_stem}')
 tri = Triangulation.read(f'regions/{file_stem}/{file_stem}.poly')
@@ -954,14 +964,6 @@ pde_on_omega_values = [
 # plt.colorbar()
 # plt.show()
 
-i = 57
-tri.show(
-    'test.png',
-    show_edges=True,
-    show_triangles=False,
-    show_vertex_indices=True,
-    highlight_triangles=[i]
-)
 tri.show_voronoi_tesselation(
     'test.png',
     show_edges=True,
@@ -977,51 +979,67 @@ plt.scatter(
     s=100
 )
 plt.show()
-tri.triangles[i]
-tri.pde_values[
-    tri.triangles[i]
-]
-np.mean(
-    tri.pde_values[
-        tri.triangles[i]
-    ]
-)
-pde_on_omega_values[i]
+
+
+
+
+#i = 57
+# tri.show(
+#     'test.png',
+#     show_edges=True,
+#     show_triangles=False,
+#     show_vertex_indices=False,
+#     highlight_triangles=[i]
+# )
+# plt.show()
+
+
+
+# tri.triangles[i]
+# tri.pde_values[
+#     tri.triangles[i]
+# ]
+# np.mean(
+#     tri.pde_values[
+#         tri.triangles[i]
+#     ]
+# )
+# pde_on_omega_values[i]
 
 # Test barycentric interpolation on ith triangle with pde values
-tri.triangle_coordinates[i]
-r_1 = tri.triangle_coordinates[i][0]
-r_2 = tri.triangle_coordinates[i][1]
-r_3 = tri.triangle_coordinates[i][2]
-n = 10
-barycentric_coor_grid = np.vstack([np.array([i, j]) / (n - 1) for i in range(n) for j in range(n - i)])
-cartesian_coor_tri_grid = np.vstack(
-    [
-        barycentric_to_cartesian(lambda_1, lambda_2, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
-        for lambda_1, lambda_2 in barycentric_coor_grid
-    ]
-)
-z_values = np.array([
-    barycentric_interpolation(
-        x, y,
-        r_1[0], r_1[1],
-        r_2[0], r_2[1],
-        r_3[0], r_3[1],
-        tri.pde_values[tri.triangles[i][0]],
-        tri.pde_values[tri.triangles[i][1]],
-        tri.pde_values[tri.triangles[i][2]]
-    )
-    for x, y in cartesian_coor_tri_grid
-])
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(
-    np.concatenate([cartesian_coor_tri_grid[:, 0], np.array([tri.circumcenters[i][0]])]),
-    np.concatenate([cartesian_coor_tri_grid[:, 1], np.array([tri.circumcenters[i][1]])]),
-    np.concatenate([z_values, np.array([pde_on_omega_values[i]])]),
-)
-plt.show()
-# END TEST OF BARYCENTRIC INTERPOLATION
+# tri.triangle_coordinates[i]
+# r_1 = tri.triangle_coordinates[i][0]
+# r_2 = tri.triangle_coordinates[i][1]
+# r_3 = tri.triangle_coordinates[i][2]
+# n = 10
+# barycentric_coor_grid = np.vstack([np.array([i, j]) / (n - 1) for i in range(n) for j in range(n - i)])
+# cartesian_coor_tri_grid = np.vstack(
+#     [
+#         barycentric_to_cartesian(lambda_1, lambda_2, r_1[0], r_1[1], r_2[0], r_2[1], r_3[0], r_3[1])
+#         for lambda_1, lambda_2 in barycentric_coor_grid
+#     ]
+# )
+# z_values = np.array([
+#     barycentric_interpolation(
+#         x, y,
+#         r_1[0], r_1[1],
+#         r_2[0], r_2[1],
+#         r_3[0], r_3[1],
+#         tri.pde_values[tri.triangles[i][0]],
+#         tri.pde_values[tri.triangles[i][1]],
+#         tri.pde_values[tri.triangles[i][2]]
+#     )
+#     for x, y in cartesian_coor_tri_grid
+# ])
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.scatter(
+#     np.concatenate([cartesian_coor_tri_grid[:, 0], np.array([tri.circumcenters[i][0]])]),
+#     np.concatenate([cartesian_coor_tri_grid[:, 1], np.array([tri.circumcenters[i][1]])]),
+#     np.concatenate([z_values, np.array([pde_on_omega_values[i]])]),
+# )
+# plt.show()
+# # END TEST OF BARYCENTRIC INTERPOLATION
 
 
 period_gsb = compute_period()
@@ -1040,7 +1058,7 @@ plt.xlabel('Real')
 plt.ylabel('Imaginary')
 plt.gca().set_aspect('equal')
 plt.savefig(path.with_suffix('.png'))
-# plt.show()
+plt.show()
 
 # flux_color_array = np.zeros(tri.num_triangles, dtype=np.float64)
 # for i in range(num_contained_polygons):
