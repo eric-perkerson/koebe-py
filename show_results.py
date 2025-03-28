@@ -442,6 +442,7 @@ class show_results:
         #num_contained_polygons = len(self.tri.contained_polygons)
         self.g_star_bar = np.zeros(self.tri.num_triangles, dtype=np.float64) # creates a vector for each triangle
         perpendicular_edges_dict = {}
+        #print(self.tri.conductance)
         for omega in range(self.tri.num_triangles): # Loops over each triangle
             #print(omega)
             #print(35 in self.shortest_paths)
@@ -454,6 +455,7 @@ class show_results:
             for edge in edges:
                 flux_contributing_edges.append(tuple(self.get_perpendicular_edge(edge))) # This creates a sequence of verticies (triangle verticies) connecting omega_0 to the desired end vertex
             perpendicular_edges_dict[omega] = flux_contributing_edges # adds this (triangle vertex0) path to the dictionary 
+            #print(flux_contributing_edges)
             self.g_star_bar[omega] = self.flux_on_contributing_edges(flux_contributing_edges) # adds the flux for this path to whatever the g_star_bar vector is, which is apparently the harmonic conjugate to g, the pde solution
 
         # Interpolate the value of pde_solution to get its values on the omegas
@@ -476,7 +478,7 @@ class show_results:
         self.period_gsb = self.compute_period()
         
         # TODO: allow the last edge so we get all the
-        self.uniformization = np.exp(2 * np.pi / self.period_gsb * (pde_on_omega_values + 1j * self.g_star_bar)) # Uniformizes the triangulation into an approximation of the annulus
+        self.uniformization = np.exp(-2 * np.pi / self.period_gsb * (pde_on_omega_values + 1j * self.g_star_bar)) # Uniformizes the triangulation into an approximation of the annulus
 
         # Level curves for gsb
         g_star_bar_interpolated_interior = np.array([np.mean(self.g_star_bar[poly]) for poly in self.tri.contained_polygons]) # vector of the average fluxes for each contained cell
@@ -751,8 +753,14 @@ class show_results:
         stepNum = int(nameItems[-1])
         triNum = int(nameItems[-2])
         nameStart = nameItems[0]
+        # print("Named items " + str(nameItems))
+        # print("edgeNum " + str(edgeNum))
+        # print("stepNum " + str(stepNum))
+        # print("triNum " + str(triNum))
+        # print("nameStart before thing " + nameStart)
         for i in range(len(nameItems) - 4):
             nameStart = nameStart + "_" + nameItems[i + 1]
+        #print("nameStart after thing " + nameStart)
         while edgeNum > int(self.enteredInfo[2]) or triNum > 0 or stepNum > 0:
             if stepNum > 0:
                 stepNum -= 1
@@ -762,12 +770,14 @@ class show_results:
                 edgeNum -= 1
             name = nameStart + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
             try:
+                #print("(prev)Trying: " + name)
                 self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
             except FileNotFoundError:
                 None
             else:
                 break
         try:
+            #print("(prev)Trying: " + name)
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
         except FileNotFoundError:
             print("File Not Found: ", name)
@@ -783,9 +793,15 @@ class show_results:
         stepNum = int(nameItems[-1])
         triNum = int(nameItems[-2])
         nameStart = nameItems[0]
+        #print("Named items " + str(nameItems))
+        #print("edgeNum " + str(edgeNum))
+        #print("stepNum " + str(stepNum))
+        #print("triNum " + str(triNum))
+        #print("nameStart before thing " + nameStart)
         for i in range(len(nameItems) - 4):
             nameStart = nameStart + "_" + nameItems[i + 1]
-        while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]):
+        #print("nameStart after thing " + nameStart)
+        while edgeNum < int(self.enteredInfo[2]) or triNum < int(self.enteredInfo[9]) or stepNum < int(self.enteredInfo[1]):
             if edgeNum < int(self.enteredInfo[3]):
                 edgeNum += 1
             elif triNum < int(self.enteredInfo[8]):
@@ -794,12 +810,14 @@ class show_results:
                 stepNum += 1
             name = nameStart + "_" + str(edgeNum) + "_" + str(triNum) + "_" + str(stepNum)
             try:
+                #print("(next)Trying: " + name)
                 self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
             except FileNotFoundError:
                 None
             else:
                 break
         try:
+            #print("(next)Trying: " + name)
             self.tri = Triangulation.read(f'regions/{self.fileRoot}/{name}/{name}.poly')
         except FileNotFoundError:
             print("File Truly Not Found: ", name)
@@ -1215,6 +1233,7 @@ class show_results:
             for i, line in enumerate(file):
                 if i != 0:
                     self.enteredInfo.append(line)
+        #print(self.enteredInfo)
         self.nextBackPage()
 
     def loadNewFigure(self):
@@ -1468,7 +1487,7 @@ class show_results:
             triCount = 3 * int(self.drawRegion.getOuterEdgeNo()) + 10
         self.fileName = self.drawRegion.getFileName()
         self.fileRoot = self.drawRegion.getFileRoot()
-        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), triCount, int(self.drawRegion.getInnerEdgeNo()), int(self.drawRegion.getOuterEdgeNo()), int(self.drawRegion.getInRad()), int(self.drawRegion.getOutRad()), self.drawRegion.getRandomSet())
+        self.createNew(self.drawRegion.getFreeDraw(), self.drawRegion.getFileRoot(), self.drawRegion.getFileName(), int(triCount), int(self.drawRegion.getInnerEdgeNo()), int(self.drawRegion.getOuterEdgeNo()), float(self.drawRegion.getInRad()), float(self.drawRegion.getOutRad()), bool(self.drawRegion.getRandomSet()))
         self.stopFlag = False
         self.pointInHole = self.tri.region.points_in_holes[0]
         self.plotPoint(self.pointInHole[0] + 1000, self.pointInHole[1])
@@ -1606,10 +1625,10 @@ class show_results:
         prevTriCount = int(self.gifConfig.getTriCountInit()) - 1
         triCount = 0
         num = 0
-        while triCount <= int(self.gifConfig.getTriCountFinal()):
+        while triCount < int(self.gifConfig.getTriCountFinal()):
             #triCount = int(int(self.gifConfig.getTriCountInit()) + i * (int(self.gifConfig.getTriCountFinal()) - int(self.gifConfig.getTriCountInit())) / self.gifConfig.getTriCountSteps())
             triCount = prevTriCount + 1
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(num) + "_0"
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_0_" + str(num)
             #print(name)
             if triCount < int(self.gifConfig.getFinEdge()) * 3:
                 triCount = int(self.gifConfig.getFinEdge()) * 3 + 10
@@ -1626,10 +1645,11 @@ class show_results:
             self.showNSave(name)
             prevTriCount = self.tri.num_triangles
             num += 1
-        num -= 1
+        if (num > 0):
+            num -= 1
         # The following is the steps shrinking the inner radius
         for i in range(self.gifConfig.getStepCount()):
-            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(num) + "_" + str(i)
+            name = self.gifConfig.getFileRoot() + "_" + str(self.gifConfig.getFinEdge()) + "_" + str(i) + "_" + str(num)
             #print(name)
             if int(self.gifConfig.getTriCountFinal()) < int(self.gifConfig.getFinEdge()) * 3:
                 triCount = int(self.gifConfig.getFinEdge()) * 3 + 10
@@ -1666,6 +1686,7 @@ class show_results:
         self.tri = Triangulation.read(f'regions/{self.gifConfig.getFileRoot()}/{firstFileName}/{firstFileName}.poly')
         self.fileName = firstFileName
         self.fileRoot = self.gifConfig.getFileRoot()
+        self.slitPathCalculate()
         self.updateLambdaGraph()
         self.calculateUniformization()
         self.loadNewFigure()

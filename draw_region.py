@@ -727,7 +727,7 @@ def draw_region(poly_file, poly_root=None):
 
     return poly_file
 
-def draw_region_back(fileName, inSideNum, outSideNum, inRad, outRad, x=None, y=None, randomSet=False, fileRoot = None):
+def draw_region_back(fileName, inSideNum:int, outSideNum:int, inRad:float|int, outRad:float|int, x=None, y=None, randomSet=False, fileRoot = None):
     """Draws and saves a polygon without manual clicking
 
         Parameters
@@ -749,27 +749,27 @@ def draw_region_back(fileName, inSideNum, outSideNum, inRad, outRad, x=None, y=N
         valid = False
         while not valid:
             angles = []
-            while len(angles) != int(outSideNum):
-                theta = random.uniform(0, int(outSideNum))
+            while len(angles) != outSideNum:
+                theta = random.uniform(0, outSideNum)
                 angles.append(theta)
             angles.sort()
             flag = True
             for i in range(len(angles)):
                 theta = angles[i]
-                x = int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum))))
-                y = int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))
+                x = int(outRad * np.cos(theta * (2*np.pi/int(outSideNum))))
+                y = int(outRad * np.sin(theta * (2*np.pi/int(outSideNum))))
                 theta = angles[i - 1]
-                prevx = int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum))))
-                prevy = int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))
+                prevx = int(outRad * np.cos(theta * (2*np.pi/outSideNum)))
+                prevy = int(outRad * np.sin(theta * (2*np.pi/outSideNum)))
                 midx = (x + prevx) / 2
                 midy = (y + prevy) / 2
-                if math.sqrt((midx) ** 2 + (midy) ** 2) < int(inRad):
+                if math.sqrt((midx) ** 2 + (midy) ** 2) < inRad:
                     flag = False
                 if i == len(angles) - 1:
                     theta = angles[0]
-                    nextx = int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum))))
-                    nexty = int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))
-                    if math.sqrt((nextx) ** 2 + (nexty) ** 2) < int(inRad):
+                    nextx = int(outRad * np.cos(theta * (2*np.pi/outSideNum)))
+                    nexty = int(outRad * np.sin(theta * (2*np.pi/outSideNum)))
+                    if math.sqrt((nextx) ** 2 + (nexty) ** 2) < inRad:
                         flag = False
             totalAngleChange = 0
             max = 0
@@ -778,31 +778,30 @@ def draw_region_back(fileName, inSideNum, outSideNum, inRad, outRad, x=None, y=N
                 if abs(angles[i - 1] - angles[i]) > max:
                     max = abs(angles[i - 1] - angles[i])
             totalAngleChange -= max
-            if totalAngleChange < int(outSideNum) / 2:
+            if totalAngleChange < outSideNum / 2:
                 flag = False
             valid = flag
         components = [[]]
         for theta in angles:
-            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum)))),
-                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))])
+            components[len(components) - 1].append([int(outRad * np.cos(theta * (2*np.pi/outSideNum))),
+                                                    int(outRad * np.sin(theta * (2*np.pi/outSideNum)))])
         components.append([])
         angles = []
-        for i in range(0, int(inSideNum)):
+        for i in range(0, inSideNum):
             angles.append(random.uniform(0, int(inSideNum)))
         angles.sort()
         for theta in angles:
-            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(inSideNum)))),
-                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(inSideNum))))])
+            components[len(components) - 1].append([int(inRad * np.cos(theta * (2*np.pi/inSideNum))),
+                                                    int(inRad * np.sin(theta * (2*np.pi/inSideNum)))])
     else:
         components = [[]]
-        print(outRad)
-        for theta in range(0, int(outSideNum)):
-            components[len(components) - 1].append([int(int(outRad) * np.cos(theta * (2*np.pi/int(outSideNum)))),
-                                                    int(int(outRad) * np.sin(theta * (2*np.pi/int(outSideNum))))])
+        for theta in range(0, outSideNum):
+            components[len(components) - 1].append([int(outRad * np.cos(theta * (2*np.pi/outSideNum))),
+                                                    int(outRad * np.sin(theta * (2*np.pi/outSideNum)))])
         components.append([])
-        for theta in range(0, int(inSideNum)):
-            components[len(components) - 1].append([int(int(inRad) * np.cos(theta * (2*np.pi/int(inSideNum)))),
-                                                    int(int(inRad) * np.sin(theta * (2*np.pi/int(inSideNum))))])
+        for theta in range(0, inSideNum):
+            components[len(components) - 1].append([int(inRad * np.cos(theta * (2*np.pi/inSideNum))),
+                                                    int(inRad * np.sin(theta * (2*np.pi/inSideNum)))])
 
     if fileRoot != None:
         print('Saving as ' + fileRoot + '/' + fileName)
